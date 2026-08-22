@@ -9,15 +9,16 @@ const supabase = createClient(
 );
 
 export default function Dashboard() {
+  const [profile, setProfile] = useState(null);
   const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadAccount();
+    loadDashboard();
   }, []);
 
-  async function loadAccount() {
+  async function loadDashboard() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -27,21 +28,42 @@ export default function Dashboard() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("customer_accounts")
-      .select(
-        "id, balance, status, account_type, created_at"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: profileData, error: profileError } =
+      await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
 
-    if (error) {
-      setError(error.message);
+    if (profileError) {
+      setError(profileError.message);
       setLoading(false);
       return;
     }
 
-    setAccount(data);
+    const { data: accountData, error: accountError } =
+      await supabase
+        .from("customer_accounts")
+        .select(
+          "id, account_number, balance, status, account_type, created_at"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (accountError) {
+      setError(accountError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!accountData) {
+      setError("Your account has not been set up yet.");
+      setLoading(false);
+      return;
+    }
+
+    setProfile(profileData);
+    setAccount(accountData);
     setLoading(false);
   }
 
@@ -57,37 +79,23 @@ export default function Dashboard() {
     return (
       <main>
         <div className="notification">
-          <strong>Unable to load account</strong>
+          <h2>Unable to load account</h2>
           <p>{error}</p>
         </div>
       </main>
     );
   }
 
-  if (!account) {
-    return (
-      <main>
-        <div className="notification">
-          <h2>Account not found</h2>
-          <p>
-            Your account has not been set up yet.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  const isFrozen = account.status === "frozen";
+  const name = profile?.full_name || "Customer";
+  const frozen = account.status === "frozen";
 
   return (
     <main>
       <div className="dashboard-header">
         <div>
-          <span className="real-badge">
-            TEST ACCOUNT
-          </span>
-
-          <h1>Account Dashboard</h1>
+          <h1>
+            Good day, {name}
+          </h1>
 
           <p>
             Welcome back. Here's your account overview.
@@ -96,10 +104,11 @@ export default function Dashboard() {
       </div>
 
       <section className="balance-card">
-        <p>Available Test Balance</p>
+        <p>Available Balance</p>
 
         <h2>
-          ${Number(account.balance).toLocaleString(
+          $
+          {Number(account.balance).toLocaleString(
             "en-US",
             {
               minimumFractionDigits: 2,
@@ -109,7 +118,8 @@ export default function Dashboard() {
         </h2>
 
         <p>
-          Account ID: {account.id}
+          Account No:{" "}
+          {account.account_number || "Not assigned"}
         </p>
       </section>
 
@@ -118,20 +128,18 @@ export default function Dashboard() {
           <h2>Notifications</h2>
 
           <div className="notification">
-            {isFrozen ? (
+            {frozen ? (
               <>
-                <strong>Account frozen</strong>
+                <strong>Account status update</strong>
                 <p>
-                  Your test account is currently
-                  frozen.
+                  Your account is currently frozen.
                 </p>
               </>
             ) : (
               <>
                 <strong>Account active</strong>
                 <p>
-                  Your test account is currently
-                  active.
+                  Your account is currently active.
                 </p>
               </>
             )}
@@ -150,13 +158,6 @@ export default function Dashboard() {
             <strong>Account type:</strong>{" "}
             {account.account_type}
           </p>
-
-          <p>
-            <strong>Created:</strong>{" "}
-            {new Date(
-              account.created_at
-            ).toLocaleDateString()}
-          </p>
         </section>
       </div>
 
@@ -165,20 +166,28 @@ export default function Dashboard() {
 
         <div className="notification">
           <p>
-            No transaction records have been
-            connected yet.
+            No transaction records available yet.
           </p>
         </div>
       </section>
 
-      <section className="real-notice">
-        <h2>Test Environment</h2>
+      <section>
+        <h2>Customer Support</h2>
 
         <p>
-          This dashboard displays test account
-          data stored in Supabase. It does not
-          represent real bank funds or a live
-          banking account.
+          Need help with your account?
+        </p>
+
+        <a href="/support" className="primary-button">
+          Contact Support
+        </a>
+      </section>
+
+      <section className="real-notice">
+        <p>
+          This website uses simulated account data
+          for development and testing and is not
+          connected to real bank funds.
         </p>
       </section>
     </main>
