@@ -123,15 +123,17 @@ export default function AdminDashboard() {
   async function approveCustomer(customer) {
     setNotice("Approving customer...");
 
-    const { data: existingAccount, error } =
-      await supabase
-        .from("customer_accounts")
-        .select("id, account_number")
-        .eq("user_id", customer.id)
-        .maybeSingle();
+    const {
+      data: existingAccount,
+      error: existingError,
+    } = await supabase
+      .from("customer_accounts")
+      .select("id, account_number")
+      .eq("user_id", customer.id)
+      .maybeSingle();
 
-    if (error) {
-      setNotice(error.message);
+    if (existingError) {
+      setNotice(existingError.message);
       return;
     }
 
@@ -206,7 +208,6 @@ export default function AdminDashboard() {
     }
 
     setNotice("Account balance updated.");
-
     await loadAccounts();
   }
 
@@ -263,7 +264,6 @@ export default function AdminDashboard() {
     }
 
     setNotice("Reply sent successfully.");
-
     await loadMessages();
   }
 
@@ -407,14 +407,10 @@ export default function AdminDashboard() {
                     Update balance
 
                     <input
-                      id={
-                        "balance-" + account.id
-                      }
+                      id={"balance-" + account.id}
                       type="number"
                       step="0.01"
-                      defaultValue={
-                        account.balance
-                      }
+                      defaultValue={account.balance}
                     />
                   </label>
 
@@ -500,13 +496,20 @@ export default function AdminDashboard() {
       </section>
 
       <section className="real-notice">
-  <h2>⛔ Security Warning</h2>
+        <h2>⛔ Security Warning</h2>
 
-  <p>
-    Never share your password, PIN, verification codes,
-    or other sensitive account information with anyone.
-    Our support team will never ask you to disclose
-    your password or security codes.
-  </p>
-</section>
+        <p>
+          Never share your password, PIN, verification
+          codes, or other sensitive account information
+          with anyone. Our support team will never ask
+          you to disclose your password or security codes.
+        </p>
+
+        <p>
+          Account information is provided for
+          informational purposes on this website.
+        </p>
+      </section>
+    </main>
+  );
 }
