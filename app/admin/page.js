@@ -9,19 +9,18 @@ const supabase = createClient(
 );
 
 export default function AdminDashboard() {
-  const [pendingCustomers, setPendingCustomers] = useState([]);
+  const [pending, setPending] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    checkAdminAndLoad();
+    loadAdmin();
   }, []);
 
-  async function checkAdminAndLoad() {
+  async function loadAdmin() {
     setLoading(true);
-    setNotice("");
 
     const {
       data: { user },
@@ -32,32 +31,28 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: isAdmin, error: adminError } =
+    const { data: admin, error } =
       await supabase.rpc("is_admin");
 
-    if (adminError) {
-      setNotice(adminError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (!isAdmin) {
+    if (error || !admin) {
       window.location.href = "/dashboard";
       return;
     }
 
-    await loadPendingCustomers();
-    await loadAccounts();
-    await loadMessages();
+    await Promise.all([
+      loadPending(),
+      loadAccounts(),
+      loadMessages(),
+    ]);
 
     setLoading(false);
   }
 
-  async function loadPendingCustomers() {
+  async function loadPending() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, role, approval_status, created_at"
+        "id, full_name, email, role, approval_status, created_at"
       )
       .eq("role", "customer")
       .eq("approval_status", "pending")
@@ -70,14 +65,14 @@ export default function AdminDashboard() {
       return;
     }
 
-    setPendingCustomers(data || []);
+    setPending(data || []);
   }
 
   async function loadAccounts() {
     const { data, error } = await supabase
       .from("customer_accounts")
       .select(
-        "id, user_id, account_number, balance, status, account_type, created_at"
+        "id, user_id, account_number, account_type, status, balance, created_at"
       )
       .order("created_at", {
         ascending: false,
@@ -110,25 +105,19 @@ export default function AdminDashboard() {
   }
 
   function generateAccountNumber() {
-    const number = Math.floor(
-      Math.random() * 1000000000
-    );
-
-    return String(number).padStart(9, "0");
+    return String(
+      Math.floor(Math.random() * 1000000000)
+    ).padStart(9, "0");
   }
 
-  async function createUniqueAccountNumber() {
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const accountNumber =
-        generateAccountNumber();
+  async function getUniqueAccountNumber() {
+    for (let i = 0; i < 20; i++) {
+      const number = generateAccountNumber();
 
       const { data, error } = await supabase
         .from("customer_accounts")
         .select("id")
-        .eq(
-          "account_number",
-          accountNumber
-        )
+        .eq("account_number", number)
         .maybeSingle();
 
       if (error) {
@@ -136,7 +125,7 @@ export default function AdminDashboard() {
       }
 
       if (!data) {
-        return accountNumber;
+        return number;
       }
     }
 
@@ -146,47 +135,78 @@ export default function AdminDashboard() {
   }
 
   async function approveCustomer(customer) {
-    try {
-      setNotice(
-        "Approving customer and creating account..."
-      );
+    setNotice("Creating customer account...");
 
-      const { data: existingAccount, error: existingError } =
+    try {
+      const { data: existing, error: existingError } =
         await supabase
           .from("customer_accounts")
           .select(
-            "id, account_number"
+            "id, account_number, account_type, status"
           )
           .eq("user_id", customer.id)
           .maybeSingle();
 
       if (existingError) {
-        setNotice(existingError.message);
-        return;
+        throw new Error(existingError.message);
       }
 
       let accountNumber =
-        existingAccount?.account_number;
+        existing?.account_number;
 
-      if (!existingAccount) {
+      if (!accountNumber) {
         accountNumber =
-          await createUniqueAccountNumber();
+          await getUniqueAccountNumber();
 
-        const { error: accountError } =
-          await supabase
+        if (existing) {
+          const { error } = await supabase
+            .from("customer_accounts")
+            .update({
+              account_number: accountNumber,
+              account_type:
+                existing.account_type ||
+                "checking",
+              status: "active",
+            })
+            .eq("id", existing.id);
+
+          if (error) {
+            throw new Error(error.message);
+          }
+        } else {
+          const { error } = await supabase
             .from("customer_accounts")
             .insert({
               user_id: customer.id,
               account_number: accountNumber,
               balance: 0,
-              status: "active",
               account_type: "checking",
+              status: "active",
             });
 
-        if (accountError) {
-          setNotice(accountError.message);
-          return;
+          if (error) {
+            throw new Error(error.message);
+          }
         }
+      }
+
+      const { data: verified, error: verifyError } =
+        await supabase
+          .from("customer_accounts")
+          .select(
+            "id, account_number, account_type, status"
+          )
+          .eq("user_id", customer.id)
+          .maybeSingle();
+
+      if (verifyError) {
+        throw new Error(verifyError.message);
+      }
+
+      if (!verified?.account_number) {
+        throw new Error(
+          "The account number could not be verified."
+        );
       }
 
       const { error: approvalError } =
@@ -198,20 +218,59 @@ export default function AdminDashboard() {
           .eq("id", customer.id);
 
       if (approvalError) {
-        setNotice(approvalError.message);
-        return;
+        throw new Error(approvalError.message);
       }
 
       setNotice(
-        `Congratulations ${customer.full_name || "Customer"}! ` +
-        `Your account has been approved. Account No: ${accountNumber}`
+        `Congratulations ${
+          customer.full_name || "Customer"
+        }! Your account has been approved. Account No: ${
+          verified.account_number
+        }`
       );
 
-      await loadPendingCustomers();
+      await loadPending();
       await loadAccounts();
     } catch (error) {
       setNotice(error.message);
     }
+  }
+
+  async function updateBalance(account) {
+    const current =
+      account.balance ?? 0;
+
+    const value = window.prompt(
+      "Enter the new balance:",
+      String(current)
+    );
+
+    if (value === null) return;
+
+    const amount = Number(value);
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      setNotice(
+        "Please enter a valid balance."
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from("customer_accounts")
+      .update({
+        balance: amount,
+      })
+      .eq("id", account.id);
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setNotice("Balance updated.");
+
+    await loadAccounts();
   }
 
   async function toggleAccount(account) {
@@ -224,7 +283,6 @@ export default function AdminDashboard() {
       .from("customer_accounts")
       .update({
         status: newStatus,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", account.id);
 
@@ -242,13 +300,13 @@ export default function AdminDashboard() {
     await loadAccounts();
   }
 
-  async function sendReply(message) {
+  async function sendReply(item) {
     const input = document.getElementById(
-      `reply-${message.id}`
+      `reply-${item.id}`
     );
 
-    if (!input || !input.value.trim()) {
-      setNotice("Please write a reply first.");
+    if (!input?.value.trim()) {
+      setNotice("Please enter a reply.");
       return;
     }
 
@@ -257,16 +315,19 @@ export default function AdminDashboard() {
       .update({
         reply: input.value.trim(),
         status: "replied",
-        replied_at: new Date().toISOString(),
+        replied_at:
+          new Date().toISOString(),
       })
-      .eq("id", message.id);
+      .eq("id", item.id);
 
     if (error) {
       setNotice(error.message);
       return;
     }
 
-    setNotice("Reply sent successfully.");
+    input.value = "";
+
+    setNotice("Reply sent.");
 
     await loadMessages();
   }
@@ -285,9 +346,7 @@ export default function AdminDashboard() {
 
         <h1>Administrator Dashboard</h1>
 
-        <p>
-          Loading administrator dashboard...
-        </p>
+        <p>Loading...</p>
       </main>
     );
   }
@@ -300,10 +359,13 @@ export default function AdminDashboard() {
             ADMIN
           </span>
 
-          <h1>Administrator Dashboard</h1>
+          <h1>
+            Administrator Dashboard
+          </h1>
 
           <p>
-            Customer accounts and support management.
+            Customer accounts and support
+            management.
           </p>
         </div>
 
@@ -324,13 +386,13 @@ export default function AdminDashboard() {
       <section>
         <h2>Pending Customers</h2>
 
-        {pendingCustomers.length === 0 ? (
+        {pending.length === 0 ? (
           <div className="notification">
             <p>No pending customers.</p>
           </div>
         ) : (
           <div className="transaction-list">
-            {pendingCustomers.map((customer) => (
+            {pending.map((customer) => (
               <div
                 className="transaction"
                 key={customer.id}
@@ -343,9 +405,7 @@ export default function AdminDashboard() {
 
                   <p>
                     Approval status:{" "}
-                    <strong>
-                      {customer.approval_status}
-                    </strong>
+                    {customer.approval_status}
                   </p>
 
                   <p>
@@ -375,7 +435,9 @@ export default function AdminDashboard() {
 
         {accounts.length === 0 ? (
           <div className="notification">
-            <p>No customer accounts found.</p>
+            <p>
+              No customer accounts found.
+            </p>
           </div>
         ) : (
           <div className="transaction-list">
@@ -412,19 +474,46 @@ export default function AdminDashboard() {
                     {account.status ||
                       "active"}
                   </p>
+
+                  <p>
+                    <strong>
+                      Balance:
+                    </strong>{" "}
+                    $
+                    {Number(
+                      account.balance || 0
+                    ).toLocaleString(
+                      "en-US",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}
+                  </p>
                 </div>
 
-                <button
-                  className="primary-button"
-                  onClick={() =>
-                    toggleAccount(account)
-                  }
-                >
-                  {account.status ===
-                  "active"
-                    ? "Freeze Account"
-                    : "Unfreeze Account"}
-                </button>
+                <div>
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      updateBalance(account)
+                    }
+                  >
+                    Update Balance
+                  </button>
+
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      toggleAccount(account)
+                    }
+                  >
+                    {account.status ===
+                    "active"
+                      ? "Freeze Account"
+                      : "Unfreeze Account"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -440,13 +529,13 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="transaction-list">
-            {messages.map((message) => (
+            {messages.map((item) => (
               <div
                 className="notification"
-                key={message.id}
+                key={item.id}
               >
                 <h3>
-                  {message.subject ||
+                  {item.subject ||
                     "Customer Support"}
                 </h3>
 
@@ -456,26 +545,26 @@ export default function AdminDashboard() {
                   </strong>
                 </p>
 
-                <p>{message.message}</p>
+                <p>{item.message}</p>
 
                 <p>
                   <strong>
                     Status:
                   </strong>{" "}
-                  {message.status}
+                  {item.status}
                 </p>
 
-                {message.reply && (
+                {item.reply && (
                   <p>
                     <strong>
                       Support reply:
                     </strong>{" "}
-                    {message.reply}
+                    {item.reply}
                   </p>
                 )}
 
                 <textarea
-                  id={`reply-${message.id}`}
+                  id={`reply-${item.id}`}
                   rows="4"
                   placeholder="Write your reply..."
                 />
@@ -483,7 +572,7 @@ export default function AdminDashboard() {
                 <button
                   className="primary-button"
                   onClick={() =>
-                    sendReply(message)
+                    sendReply(item)
                   }
                 >
                   Send Reply
@@ -495,20 +584,20 @@ export default function AdminDashboard() {
       </section>
 
       <section className="real-notice">
-        <h2>⛔ Security Warning</h2>
+        <h2>
+          ⛔ Security Warning
+        </h2>
 
         <p>
           Never share your password, PIN,
           verification codes, or other
-          sensitive account information with
-          anyone. Our support team will never
-          ask you to disclose your password
-          or security codes.
+          sensitive account information
+          with anyone.
         </p>
 
         <p>
-          Account information is provided for
-          informational purposes on this
+          Account information is provided
+          for informational purposes on this
           website.
         </p>
       </section>
