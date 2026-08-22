@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start"
   },
-  "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+ "dependencies": {
+  "@supabase/supabase-js": "^2.57.0",
+  "next": "latest",
+  "react": "latest",
+  "react-dom": "latest"
+}
   }
 }
