@@ -28,13 +28,13 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.role !== "admin") {
+    if (error || !profile || profile.role !== "admin") {
       window.location.href = "/dashboard";
       return;
     }
@@ -47,45 +47,62 @@ export default function AdminDashboard() {
   async function loadCustomers() {
     const { data, error } = await supabase
       .from("customer_accounts")
-      .select(`
-        id,
-        user_id,
-        balance,
-        status,
-        account_type,
-        created_at,
-        profiles:user_id (
-          full_name
-        )
-      `)
+      .select(
+        "id, user_id, balance, status, account_type, created_at"
+      )
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setCustomers(data || []);
+    if (error) {
+      setNotice(error.message);
+      return;
     }
+
+    const userIds = (data || []).map((account) => account.user_id);
+
+    if (userIds.length === 0) {
+      setCustomers([]);
+      return;
+    }
+
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userIds);
+
+    if (profileError) {
+      setNotice(profileError.message);
+      return;
+    }
+
+    const profileMap = {};
+
+    (profiles || []).forEach((profile) => {
+      profileMap[profile.id] = profile;
+    });
+
+    const combined = (data || []).map((account) => ({
+      ...account,
+      full_name:
+        profileMap[account.user_id]?.full_name || "Customer",
+    }));
+
+    setCustomers(combined);
   }
 
   async function loadMessages() {
     const { data, error } = await supabase
       .from("support_messages")
-      .select(`
-        id,
-        user_id,
-        subject,
-        message,
-        reply,
-        status,
-        created_at,
-        replied_at,
-        profiles:user_id (
-          full_name
-        )
-      `)
+      .select(
+        "id, user_id, subject, message, reply, status, created_at, replied_at"
+      )
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setMessages(data || []);
+    if (error) {
+      setNotice(error.message);
+      return;
     }
+
+    setMessages(data || []);
   }
 
   async function updateAccount(accountId, balance, status) {
@@ -96,7 +113,7 @@ export default function AdminDashboard() {
       .update({
         balance: Number(balance),
         status,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq("id", accountId);
 
@@ -117,7 +134,7 @@ export default function AdminDashboard() {
       .update({
         reply: reply.trim(),
         status: "resolved",
-        replied_at: new Date().toISOString()
+        replied_at: new Date().toISOString(),
       })
       .eq("id", messageId);
 
@@ -148,11 +165,18 @@ export default function AdminDashboard() {
       <div className="dashboard-header">
         <div>
           <span className="real-badge">ADMIN</span>
+
           <h1>Administrator Dashboard</h1>
-          <p>Customer accounts and support management.</p>
+
+          <p>
+            Customer accounts and support management.
+          </p>
         </div>
 
-        <button onClick={logout} className="primary-button">
+        <button
+          onClick={logout}
+          className="primary-button"
+        >
           Sign Out
         </button>
       </div>
@@ -171,26 +195,36 @@ export default function AdminDashboard() {
         ) : (
           <div className="transaction-list">
             {customers.map((customer) => (
-              <div className="transaction" key={customer.id}>
+              <div
+                className="transaction"
+                key={customer.id}
+              >
                 <div>
                   <strong>
-                    {customer.profiles?.full_name || "Customer"}
+                    {customer.full_name}
                   </strong>
 
                   <p>
-                    Status: {customer.status} · Type:{" "}
+                    Status: {customer.status}
+                  </p>
+
+                  <p>
+                    Account type:{" "}
                     {customer.account_type}
                   </p>
 
                   <p>
-                    Account created:{" "}
-                    {new Date(customer.created_at).toLocaleDateString()}
+                    Created:{" "}
+                    {new Date(
+                      customer.created_at
+                    ).toLocaleDateString()}
                   </p>
                 </div>
 
                 <div>
                   <label>
                     Test balance
+
                     <input
                       id={`balance-${customer.id}`}
                       type="number"
@@ -202,9 +236,10 @@ export default function AdminDashboard() {
                   <button
                     className="primary-button"
                     onClick={() => {
-                      const value = document.getElementById(
-                        `balance-${customer.id}`
-                      ).value;
+                      const value =
+                        document.getElementById(
+                          `balance-${customer.id}`
+                        ).value;
 
                       updateAccount(
                         customer.id,
@@ -222,7 +257,8 @@ export default function AdminDashboard() {
                       updateAccount(
                         customer.id,
                         customer.balance,
-                        customer.status === "active"
+                        customer.status ===
+                          "active"
                           ? "frozen"
                           : "active"
                       )
@@ -246,15 +282,14 @@ export default function AdminDashboard() {
           <p>No support messages.</p>
         ) : (
           messages.map((item) => (
-            <div className="notification" key={item.id}>
+            <div
+              className="notification"
+              key={item.id}
+            >
               <h3>
-                {item.subject || "Customer Support"}
+                {item.subject ||
+                  "Customer Support"}
               </h3>
-
-              <p>
-                <strong>Customer:</strong>{" "}
-                {item.profiles?.full_name || "Customer"}
-              </p>
 
               <p>
                 <strong>Message:</strong>
@@ -264,12 +299,16 @@ export default function AdminDashboard() {
 
               {item.reply && (
                 <p>
-                  <strong>Current reply:</strong> {item.reply}
+                  <strong>
+                    Current reply:
+                  </strong>{" "}
+                  {item.reply}
                 </p>
               )}
 
               <p>
-                <strong>Status:</strong> {item.status}
+                <strong>Status:</strong>{" "}
+                {item.status}
               </p>
 
               <textarea
@@ -281,11 +320,15 @@ export default function AdminDashboard() {
               <button
                 className="primary-button"
                 onClick={() => {
-                  const value = document.getElementById(
-                    `reply-${item.id}`
-                  ).value;
+                  const value =
+                    document.getElementById(
+                      `reply-${item.id}`
+                    ).value;
 
-                  replyToMessage(item.id, value);
+                  replyToMessage(
+                    item.id,
+                    value
+                  );
                 }}
               >
                 Send Reply
@@ -297,10 +340,12 @@ export default function AdminDashboard() {
 
       <section className="real-notice">
         <h2>Test Environment</h2>
+
         <p>
-          Account balances and account controls in this administrator
-          interface are for testing and development and do not represent
-          actual bank funds.
+          Account balances and account controls
+          in this administrator interface are for
+          testing and development and do not
+          represent actual bank funds.
         </p>
       </section>
     </main>
