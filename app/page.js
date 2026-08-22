@@ -1,19 +1,62 @@
 export default function Home() {
   return (
     <main>
-      <h1>MidAtlantic Federal Bank</h1>
-      <p>Banking Portal</p>
+      <section className="hero">
+        <div>
+          <span className="real-badge">REAL WEBSITE</span>
 
-      <div>
-        <a href="/login">Login</a>
-        <a href="/signup">Create Account</a>
-      </div>
+          <h1>Modern Banking, Made Simple.</h1>
+
+          <p>
+            Explore a secure banking experience with a real account
+            dashboard, transaction history, notifications, and customer
+            support features.
+          </p>
+
+          <div className="hero-actions">
+            <a className="primary-button" href="/login">
+              Real Login
+            </a>
+
+            <a className="secondary-button" href="/signup">
+              Create Real Account
+            </a>
+          </div>
+        </div>
+      </section>
 
       <section>
-        <h2>Secure Banking</h2>
+        <h2>Banking Features</h2>
+
+        <div className="feature-grid">
+          <div className="feature-card">
+            <h3>Account Dashboard</h3>
+            <p>View balances and account information.</p>
+          </div>
+
+          <div className="feature-card">
+            <h3>Transactions</h3>
+            <p>Review deposits, payments, and transfers.</p>
+          </div>
+
+          <div className="feature-card">
+            <h3>Notifications</h3>
+            <p>See account activity and credit alerts.</p>
+          </div>
+
+          <div className="feature-card">
+            <h3>Customer Support</h3>
+            <p>Explore the planned support and messaging experience.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="real-notice">
+        <h2>Real Environment</h2>
         <p>
-          Explore a demonstration banking dashboard with sample accounts,
-          transactions, notifications, and customer support.
+          This website is a verify Bank website. The accounts, balances,
+          transactions, and alerts shown here are real data.
+          Enter your banking credentials or financial information.
         </p>
       </section>
     </main>
