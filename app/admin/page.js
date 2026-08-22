@@ -32,7 +32,6 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Confirm administrator
     const { data: profile, error: profileError } =
       await supabase
         .from("profiles")
@@ -40,87 +39,105 @@ export default function AdminDashboard() {
         .eq("id", user.id)
         .single();
 
-    if (profileError || profile?.role !== "admin") {
+    if (profileError) {
+      setNotice(profileError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (profile?.role !== "admin") {
       window.location.href = "/dashboard";
       return;
     }
 
-    // Load pending customers
-    const {
-      data: pendingData,
-      error: pendingError,
-    } = await supabase
+    await loadPendingCustomers();
+    await loadAccounts();
+    await loadMessages();
+
+    setLoading(false);
+  }
+
+  async function loadPendingCustomers() {
+    const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, approval_status, created_at")
+      .select(
+        "id, full_name, role, approval_status, created_at"
+      )
       .eq("role", "customer")
       .eq("approval_status", "pending")
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
-    if (pendingError) {
-      setNotice(pendingError.message);
-      setLoading(false);
+    if (error) {
+      setNotice(
+        "Pending customers: " + error.message
+      );
       return;
     }
 
-    // Load customer accounts
-    const {
-      data: accountData,
-      error: accountError,
-    } = await supabase
+    setPendingCustomers(data || []);
+  }
+
+  async function loadAccounts() {
+    const { data, error } = await supabase
       .from("customer_accounts")
       .select(
         "id, user_id, balance, status, account_type, account_number, created_at"
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
-    if (accountError) {
-      setNotice(accountError.message);
-      setLoading(false);
+    if (error) {
+      setNotice(
+        "Customer accounts: " + error.message
+      );
       return;
     }
 
-    // Load support messages
-    const {
-      data: messageData,
-      error: messageError,
-    } = await supabase
+    setAccounts(data || []);
+  }
+
+  async function loadMessages() {
+    const { data, error } = await supabase
       .from("support_messages")
       .select(
         "id, user_id, subject, message, reply, status, created_at, replied_at"
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
-    if (messageError) {
-      setNotice(messageError.message);
-      setLoading(false);
+    if (error) {
+      setNotice(
+        "Support messages: " + error.message
+      );
       return;
     }
 
-    setPendingCustomers(pendingData || []);
-    setAccounts(accountData || []);
-    setMessages(messageData || []);
-    setLoading(false);
+    setMessages(data || []);
   }
 
   function generateAccountNumber() {
-    const randomPart = Math.floor(
-      1000000000 + Math.random() * 9000000000
+    return String(
+      Math.floor(
+        1000000000 +
+          Math.random() * 9000000000
+      )
     );
-
-    return String(randomPart);
   }
 
-  async function approveCustomer(customerId) {
+  async function approveCustomer(customer) {
     setNotice("Approving customer...");
 
-    // Check whether the customer already has an account
     const {
       data: existingAccount,
       error: existingError,
     } = await supabase
       .from("customer_accounts")
       .select("id, account_number")
-      .eq("user_id", customerId)
+      .eq("user_id", customer.id)
       .maybeSingle();
 
     if (existingError) {
@@ -132,33 +149,31 @@ export default function AdminDashboard() {
       existingAccount?.account_number ||
       generateAccountNumber();
 
-    // Create account if customer doesn't have one
     if (!existingAccount) {
-      const { error: accountError } =
+      const { error: createError } =
         await supabase
           .from("customer_accounts")
           .insert({
-            user_id: customerId,
+            user_id: customer.id,
             account_number: accountNumber,
             balance: 0,
             status: "active",
             account_type: "checking",
           });
 
-      if (accountError) {
-        setNotice(accountError.message);
+      if (createError) {
+        setNotice(createError.message);
         return;
       }
     }
 
-    // Approve customer
     const { error: approvalError } =
       await supabase
         .from("profiles")
         .update({
           approval_status: "approved",
         })
-        .eq("id", customerId);
+        .eq("id", customer.id);
 
     if (approvalError) {
       setNotice(approvalError.message);
@@ -166,33 +181,34 @@ export default function AdminDashboard() {
     }
 
     setNotice(
-      `Customer approved. Account No: ${accountNumber}`
+      "Customer approved. Account No: " +
+        accountNumber
     );
 
     await loadData();
   }
 
-  async function updateBalance(accountId) {
+  async function updateBalance(account) {
     const input = document.getElementById(
-      `balance-${accountId}`
+      "balance-" + account.id
     );
 
     if (!input) return;
 
-    const newBalance = Number(input.value);
+    const balance = Number(input.value);
 
-    if (Number.isNaN(newBalance)) {
-      setNotice("Please enter a valid balance.");
+    if (!Number.isFinite(balance)) {
+      setNotice("Enter a valid balance.");
       return;
     }
 
     const { error } = await supabase
       .from("customer_accounts")
       .update({
-        balance: newBalance,
+        balance: balance,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", accountId);
+      .eq("id", account.id);
 
     if (error) {
       setNotice(error.message);
@@ -200,10 +216,11 @@ export default function AdminDashboard() {
     }
 
     setNotice("Account balance updated.");
-    await loadData();
+
+    await loadAccounts();
   }
 
-  async function toggleFreeze(account) {
+  async function toggleAccount(account) {
     const newStatus =
       account.status === "active"
         ? "frozen"
@@ -228,16 +245,16 @@ export default function AdminDashboard() {
         : "Account activated."
     );
 
-    await loadData();
+    await loadAccounts();
   }
 
-  async function sendReply(messageId) {
+  async function sendReply(message) {
     const input = document.getElementById(
-      `reply-${messageId}`
+      "reply-" + message.id
     );
 
     if (!input || !input.value.trim()) {
-      setNotice("Please enter a reply.");
+      setNotice("Write a reply first.");
       return;
     }
 
@@ -248,7 +265,7 @@ export default function AdminDashboard() {
         status: "replied",
         replied_at: new Date().toISOString(),
       })
-      .eq("id", messageId);
+      .eq("id", message.id);
 
     if (error) {
       setNotice(error.message);
@@ -256,7 +273,8 @@ export default function AdminDashboard() {
     }
 
     setNotice("Reply sent successfully.");
-    await loadData();
+
+    await loadMessages();
   }
 
   async function logout() {
@@ -267,9 +285,15 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <main>
-        <span className="real-badge">ADMIN</span>
+        <span className="real-badge">
+          ADMIN
+        </span>
+
         <h1>Administrator Dashboard</h1>
-        <p>Loading administrator dashboard...</p>
+
+        <p>
+          Loading administrator dashboard...
+        </p>
       </main>
     );
   }
@@ -278,18 +302,23 @@ export default function AdminDashboard() {
     <main>
       <div className="dashboard-header">
         <div>
-          <span className="real-badge">ADMIN</span>
+          <span className="real-badge">
+            ADMIN
+          </span>
 
-          <h1>Administrator Dashboard</h1>
+          <h1>
+            Administrator Dashboard
+          </h1>
 
           <p>
-            Customer accounts and support management.
+            Customer accounts and support
+            management.
           </p>
         </div>
 
         <button
-          onClick={logout}
           className="primary-button"
+          onClick={logout}
         >
           Sign Out
         </button>
@@ -297,7 +326,7 @@ export default function AdminDashboard() {
 
       {notice && (
         <div className="notification">
-          <strong>{notice}</strong>
+          <p>{notice}</p>
         </div>
       )}
 
@@ -308,44 +337,52 @@ export default function AdminDashboard() {
 
         {pendingCustomers.length === 0 ? (
           <div className="notification">
-            <p>No pending customers.</p>
+            <p>
+              No pending customers.
+            </p>
           </div>
         ) : (
           <div className="transaction-list">
-            {pendingCustomers.map((customer) => (
-              <div
-                className="transaction"
-                key={customer.id}
-              >
-                <div>
-                  <strong>
-                    {customer.full_name ||
-                      "Customer"}
-                  </strong>
-
-                  <p>
-                    Registration awaiting
-                    administrator approval.
-                  </p>
-
-                  <p>
-                    Submitted:{" "}
-                    {new Date(
-                      customer.created_at
-                    ).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <button
-                  className="primary-button"
-                  onClick={() =>
-                    approveCustomer(customer.id)
-                  }
+            {pendingCustomers.map(
+              (customer) => (
+                <div
+                  className="transaction"
+                  key={customer.id}
                 >
-                  Approve Customer
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <strong>
+                      {customer.full_name ||
+                        "Customer"}
+                    </strong>
+
+                    <p>
+                      Approval status:{" "}
+                      <strong>
+                        {customer.approval_status}
+                      </strong>
+                    </p>
+
+                    <p>
+                      Registered:{" "}
+                      {new Date(
+                        customer.created_at
+                      ).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      approveCustomer(
+                        customer
+                      )
+                    }
+                  >
+                    Approve Customer
+                  </button>
+                </div>
+              )
+            )}
           </div>
         )}
       </section>
@@ -357,7 +394,9 @@ export default function AdminDashboard() {
 
         {accounts.length === 0 ? (
           <div className="notification">
-            <p>No customer accounts found.</p>
+            <p>
+              No customer accounts found.
+            </p>
           </div>
         ) : (
           <div className="transaction-list">
@@ -372,23 +411,31 @@ export default function AdminDashboard() {
                   </strong>
 
                   <p>
-                    <strong>Account No:</strong>{" "}
+                    <strong>
+                      Account No:
+                    </strong>{" "}
                     {account.account_number ||
                       "Not assigned"}
                   </p>
 
                   <p>
-                    <strong>Status:</strong>{" "}
+                    <strong>
+                      Status:
+                    </strong>{" "}
                     {account.status}
                   </p>
 
                   <p>
-                    <strong>Account type:</strong>{" "}
+                    <strong>
+                      Account type:
+                    </strong>{" "}
                     {account.account_type}
                   </p>
 
                   <p>
-                    <strong>Current balance:</strong>{" "}
+                    <strong>
+                      Balance:
+                    </strong>{" "}
                     $
                     {Number(
                       account.balance
@@ -404,10 +451,13 @@ export default function AdminDashboard() {
 
                 <div>
                   <label>
-                    Update test balance
+                    Update balance
 
                     <input
-                      id={`balance-${account.id}`}
+                      id={
+                        "balance-" +
+                        account.id
+                      }
                       type="number"
                       step="0.01"
                       defaultValue={
@@ -419,7 +469,9 @@ export default function AdminDashboard() {
                   <button
                     className="primary-button"
                     onClick={() =>
-                      updateBalance(account.id)
+                      updateBalance(
+                        account
+                      )
                     }
                   >
                     Update Balance
@@ -428,10 +480,13 @@ export default function AdminDashboard() {
                   <button
                     className="primary-button"
                     onClick={() =>
-                      toggleFreeze(account)
+                      toggleAccount(
+                        account
+                      )
                     }
                   >
-                    {account.status === "active"
+                    {account.status ===
+                    "active"
                       ? "Freeze Account"
                       : "Unfreeze Account"}
                   </button>
@@ -449,39 +504,52 @@ export default function AdminDashboard() {
 
         {messages.length === 0 ? (
           <div className="notification">
-            <p>No support messages.</p>
+            <p>
+              No support messages.
+            </p>
           </div>
         ) : (
-          messages.map((item) => (
+          messages.map((message) => (
             <div
               className="notification"
-              key={item.id}
+              key={message.id}
             >
               <h3>
-                {item.subject ||
+                {message.subject ||
                   "Customer Support"}
               </h3>
 
               <p>
-                <strong>Customer message:</strong>
+                <strong>
+                  Customer message:
+                </strong>
               </p>
-
-              <p>{item.message}</p>
 
               <p>
-                <strong>Status:</strong>{" "}
-                {item.status}
+                {message.message}
               </p>
 
-              {item.reply && (
+              <p>
+                <strong>
+                  Status:
+                </strong>{" "}
+                {message.status}
+              </p>
+
+              {message.reply && (
                 <p>
-                  <strong>Current reply:</strong>{" "}
-                  {item.reply}
+                  <strong>
+                    Current reply:
+                  </strong>{" "}
+                  {message.reply}
                 </p>
               )}
 
               <textarea
-                id={`reply-${item.id}`}
+                id={
+                  "reply-" +
+                  message.id
+                }
                 rows="4"
                 placeholder="Write your reply..."
               />
@@ -489,7 +557,7 @@ export default function AdminDashboard() {
               <button
                 className="primary-button"
                 onClick={() =>
-                  sendReply(item.id)
+                  sendReply(message)
                 }
               >
                 Send Reply
@@ -499,18 +567,20 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* SECURITY NOTICE */}
+      {/* SECURITY WARNING */}
 
       <section className="real-notice">
-        <h2>Security Warning</h2>
+        <h2>
+          ⛔ Security Warning
+        </h2>
 
         <p>
-          ⛔ Never share your password, PIN,
-          verification codes, or other sensitive
-          account information with anyone. Our
-          support team will never ask you to
-          disclose your password or security
-          codes.
+          Never share your password, PIN,
+          verification codes, or other
+          sensitive account information
+          with anyone. Support staff will
+          never ask you to disclose your
+          password or security codes.
         </p>
-  );
-}
+
+        
