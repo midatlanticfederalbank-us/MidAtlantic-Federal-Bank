@@ -1,31 +1,48 @@
 export default function Login() {
   return (
-    <main>
-      <h1>Account Login</h1>
+    <main className="auth-page">
+      <section className="auth-card">
+        <span className="real-badge">REAL ACCOUNT</span>
 
-      <form>
-        <label>
-          Email
-          <input type="email" name="email" required />
-        </label>
+        <h1>Welcome Back</h1>
 
-        <br />
+        <p>Sign in to your real account.</p>
 
-        <label>
-          Password
-          <input type="password" name="password" required />
-        </label>
+        <form>
+          <label>
+            Email Address
+            <input
+              type="email"
+              name="email"
+              placeholder="real@example.com"
+              required
+            />
+          </label>
 
-        <br />
+          <label>
+            Password
+            <input
+              type="password"
+              name="password"
+              placeholder="Enter your password"
+              required
+            />
+          </label>
 
-        <button type="submit">Log In</button>
-      </form>
+          <button type="submit" className="primary-button">
+            Sign In
+          </button>
+        </form>
 
-      <p>
-        login. enter banking credentials.
-      </p>
+        <p className="real-warning">
+          Real only — do not enter wrong banking credentials.
+        </p>
 
-      <a href="/signup">Create an account</a>
+        <p>
+          Don't have a real account?{" "}
+          <a href="/signup">Create one</a>
+        </p>
+      </section>
     </main>
   );
 }
