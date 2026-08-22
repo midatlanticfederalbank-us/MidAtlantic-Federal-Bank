@@ -253,3 +253,71 @@ a:hover {
     padding: 25px 20px;
   }
 }
+.dashboard-header {
+  margin-bottom: 25px;
+}
+
+.balance-card {
+  background: #173b70;
+  color: white;
+  border-radius: 14px;
+  padding: 30px;
+}
+
+.balance-card p {
+  margin: 5px 0;
+}
+
+.balance-card h2 {
+  font-size: 42px;
+  margin: 15px 0;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.notification {
+  padding: 15px;
+  border-radius: 8px;
+  background: #f4f7fb;
+}
+
+.notification p {
+  margin-bottom: 0;
+}
+
+.transaction-list {
+  border-top: 1px solid #e1e6ee;
+}
+
+.transaction {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 5px;
+  border-bottom: 1px solid #e1e6ee;
+}
+
+.transaction p {
+  margin: 5px 0 0;
+  font-size: 14px;
+  color: #657084;
+}
+
+@media (max-width: 700px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-card h2 {
+    font-size: 34px;
+  }
+
+  .transaction {
+    align-items: flex-start;
+  }
+}
