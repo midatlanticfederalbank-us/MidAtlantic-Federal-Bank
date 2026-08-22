@@ -10,17 +10,17 @@ const supabase = createClient(
 
 export default function AdminDashboard() {
   const [pendingCustomers, setPendingCustomers] = useState([]);
-  const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    loadData();
+    checkAdminAndLoad();
   }, []);
 
-  async function loadData() {
+  async function checkAdminAndLoad() {
     setLoading(true);
+    setNotice("");
 
     const {
       data: { user },
@@ -31,26 +31,21 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: profile, error: profileError } =
-      await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    const { data: adminResult, error: adminError } =
+      await supabase.rpc("is_admin");
 
-    if (profileError) {
-      setNotice(profileError.message);
+    if (adminError) {
+      setNotice(adminError.message);
       setLoading(false);
       return;
     }
 
-    if (profile?.role !== "admin") {
+    if (!adminResult) {
       window.location.href = "/dashboard";
       return;
     }
 
     await loadPendingCustomers();
-    await loadAccounts();
     await loadMessages();
 
     setLoading(false);
@@ -76,24 +71,6 @@ export default function AdminDashboard() {
     setPendingCustomers(data || []);
   }
 
-  async function loadAccounts() {
-    const { data, error } = await supabase
-      .from("customer_accounts")
-      .select(
-        "id, user_id, balance, status, account_type, account_number, created_at"
-      )
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setAccounts(data || []);
-  }
-
   async function loadMessages() {
     const { data, error } = await supabase
       .from("support_messages")
@@ -112,118 +89,15 @@ export default function AdminDashboard() {
     setMessages(data || []);
   }
 
-  function generateAccountNumber() {
-    return String(
-      Math.floor(
-        1000000000 + Math.random() * 9000000000
-      )
-    );
-  }
-
   async function approveCustomer(customer) {
     setNotice("Approving customer...");
 
-    const {
-      data: existingAccount,
-      error: existingError,
-    } = await supabase
-      .from("customer_accounts")
-      .select("id, account_number")
-      .eq("user_id", customer.id)
-      .maybeSingle();
-
-    if (existingError) {
-      setNotice(existingError.message);
-      return;
-    }
-
-    let accountNumber =
-      existingAccount?.account_number ||
-      generateAccountNumber();
-
-    if (!existingAccount) {
-      const { error: createError } =
-        await supabase
-          .from("customer_accounts")
-          .insert({
-            user_id: customer.id,
-            account_number: accountNumber,
-            balance: 0,
-            status: "active",
-            account_type: "checking",
-          });
-
-      if (createError) {
-        setNotice(createError.message);
-        return;
-      }
-    }
-
-    const { error: approvalError } =
-      await supabase
-        .from("profiles")
-        .update({
-          approval_status: "approved",
-        })
-        .eq("id", customer.id);
-
-    if (approvalError) {
-      setNotice(approvalError.message);
-      return;
-    }
-
-    setNotice(
-      "Customer approved. Account No: " +
-        accountNumber
-    );
-
-    await loadData();
-  }
-
-  async function updateBalance(account) {
-    const input = document.getElementById(
-      "balance-" + account.id
-    );
-
-    if (!input) return;
-
-    const balance = Number(input.value);
-
-    if (!Number.isFinite(balance)) {
-      setNotice("Enter a valid balance.");
-      return;
-    }
-
     const { error } = await supabase
-      .from("customer_accounts")
+      .from("profiles")
       .update({
-        balance,
-        updated_at: new Date().toISOString(),
+        approval_status: "approved",
       })
-      .eq("id", account.id);
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setNotice("Account balance updated.");
-    await loadAccounts();
-  }
-
-  async function toggleAccount(account) {
-    const newStatus =
-      account.status === "active"
-        ? "frozen"
-        : "active";
-
-    const { error } = await supabase
-      .from("customer_accounts")
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", account.id);
+      .eq("id", customer.id);
 
     if (error) {
       setNotice(error.message);
@@ -231,21 +105,19 @@ export default function AdminDashboard() {
     }
 
     setNotice(
-      newStatus === "frozen"
-        ? "Account frozen."
-        : "Account activated."
+      `${customer.full_name || "Customer"} approved successfully.`
     );
 
-    await loadAccounts();
+    await loadPendingCustomers();
   }
 
   async function sendReply(message) {
     const input = document.getElementById(
-      "reply-" + message.id
+      `reply-${message.id}`
     );
 
     if (!input || !input.value.trim()) {
-      setNotice("Write a reply first.");
+      setNotice("Please write a reply first.");
       return;
     }
 
@@ -264,6 +136,7 @@ export default function AdminDashboard() {
     }
 
     setNotice("Reply sent successfully.");
+
     await loadMessages();
   }
 
@@ -276,8 +149,12 @@ export default function AdminDashboard() {
     return (
       <main>
         <span className="real-badge">ADMIN</span>
+
         <h1>Administrator Dashboard</h1>
-        <p>Loading administrator dashboard...</p>
+
+        <p>
+          Loading administrator dashboard...
+        </p>
       </main>
     );
   }
@@ -325,7 +202,8 @@ export default function AdminDashboard() {
               >
                 <div>
                   <strong>
-                    {customer.full_name || "Customer"}
+                    {customer.full_name ||
+                      "Customer"}
                   </strong>
 
                   <p>
@@ -358,89 +236,6 @@ export default function AdminDashboard() {
       </section>
 
       <section>
-        <h2>Customer Accounts</h2>
-
-        {accounts.length === 0 ? (
-          <div className="notification">
-            <p>No customer accounts found.</p>
-          </div>
-        ) : (
-          <div className="transaction-list">
-            {accounts.map((account) => (
-              <div
-                className="transaction"
-                key={account.id}
-              >
-                <div>
-                  <strong>Customer Account</strong>
-
-                  <p>
-                    <strong>Account No:</strong>{" "}
-                    {account.account_number ||
-                      "Not assigned"}
-                  </p>
-
-                  <p>
-                    <strong>Status:</strong>{" "}
-                    {account.status}
-                  </p>
-
-                  <p>
-                    <strong>Account type:</strong>{" "}
-                    {account.account_type}
-                  </p>
-
-                  <p>
-                    <strong>Balance:</strong>{" "}
-                    $
-                    {Number(
-                      account.balance
-                    ).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                </div>
-
-                <div>
-                  <label>
-                    Update balance
-
-                    <input
-                      id={"balance-" + account.id}
-                      type="number"
-                      step="0.01"
-                      defaultValue={account.balance}
-                    />
-                  </label>
-
-                  <button
-                    className="primary-button"
-                    onClick={() =>
-                      updateBalance(account)
-                    }
-                  >
-                    Update Balance
-                  </button>
-
-                  <button
-                    className="primary-button"
-                    onClick={() =>
-                      toggleAccount(account)
-                    }
-                  >
-                    {account.status === "active"
-                      ? "Freeze Account"
-                      : "Unfreeze Account"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
         <h2>Customer Support</h2>
 
         {messages.length === 0 ? (
@@ -448,50 +243,52 @@ export default function AdminDashboard() {
             <p>No support messages.</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              className="notification"
-              key={message.id}
-            >
-              <h3>
-                {message.subject ||
-                  "Customer Support"}
-              </h3>
-
-              <p>
-                <strong>Customer message:</strong>
-              </p>
-
-              <p>{message.message}</p>
-
-              <p>
-                <strong>Status:</strong>{" "}
-                {message.status}
-              </p>
-
-              {message.reply && (
-                <p>
-                  <strong>Current reply:</strong>{" "}
-                  {message.reply}
-                </p>
-              )}
-
-              <textarea
-                id={"reply-" + message.id}
-                rows="4"
-                placeholder="Write your reply..."
-              />
-
-              <button
-                className="primary-button"
-                onClick={() =>
-                  sendReply(message)
-                }
+          <div className="transaction-list">
+            {messages.map((message) => (
+              <div
+                className="notification"
+                key={message.id}
               >
-                Send Reply
-              </button>
-            </div>
-          ))
+                <h3>
+                  {message.subject ||
+                    "Customer Support"}
+                </h3>
+
+                <p>
+                  <strong>Customer message:</strong>
+                </p>
+
+                <p>{message.message}</p>
+
+                <p>
+                  <strong>Status:</strong>{" "}
+                  {message.status}
+                </p>
+
+                {message.reply && (
+                  <p>
+                    <strong>Support reply:</strong>{" "}
+                    {message.reply}
+                  </p>
+                )}
+
+                <textarea
+                  id={`reply-${message.id}`}
+                  rows="4"
+                  placeholder="Write your reply..."
+                />
+
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    sendReply(message)
+                  }
+                >
+                  Send Reply
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
