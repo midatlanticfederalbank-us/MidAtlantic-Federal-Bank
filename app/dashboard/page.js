@@ -1,79 +1,184 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
 export default function Dashboard() {
-  const transactions = [
-    {
-      date: "Aug 20, 2026",
-      description: "Real Deposit",
-      type: "Credit",
-      amount: "+$2,500.00"
-    },
-    {
-      date: "Aug 18, 2026",
-      description: "Real Payment",
-      type: "Debit",
-      amount: "-$350.00"
-    },
-    {
-      date: "Aug 15, 2026",
-      description: "Real Transfer",
-      type: "Debit",
-      amount: "-$125.00"
+  const [account, setAccount] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadAccount();
+  }, []);
+
+  async function loadAccount() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      window.location.href = "/login";
+      return;
     }
-  ];
+
+    const { data, error } = await supabase
+      .from("customer_accounts")
+      .select(
+        "id, balance, status, account_type, created_at"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setAccount(data);
+    setLoading(false);
+  }
+
+  if (loading) {
+    return (
+      <main>
+        <p>Loading your account...</p>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main>
+        <div className="notification">
+          <strong>Unable to load account</strong>
+          <p>{error}</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!account) {
+    return (
+      <main>
+        <div className="notification">
+          <h2>Account not found</h2>
+          <p>
+            Your account has not been set up yet.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const isFrozen = account.status === "frozen";
 
   return (
     <main>
       <div className="dashboard-header">
         <div>
-          <span className="real-badge">REAL ACCOUNT</span>
+          <span className="real-badge">
+            TEST ACCOUNT
+          </span>
+
           <h1>Account Dashboard</h1>
-          <p>Welcome back. Here's your account overview.</p>
+
+          <p>
+            Welcome back. Here's your account overview.
+          </p>
         </div>
       </div>
 
       <section className="balance-card">
-        <p>Available Real Balance</p>
-        <h2>$12,450.00</h2>
-        <p>Account ending in •••• 4821</p>
+        <p>Available Test Balance</p>
+
+        <h2>
+          ${Number(account.balance).toLocaleString(
+            "en-US",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </h2>
+
+        <p>
+          Account ID: {account.id}
+        </p>
       </section>
 
       <div className="dashboard-grid">
         <section>
           <h2>Notifications</h2>
+
           <div className="notification">
-            <strong>Real credit received</strong>
-            <p>$2,500.00 deposit posted to your account.</p>
+            {isFrozen ? (
+              <>
+                <strong>Account frozen</strong>
+                <p>
+                  Your test account is currently
+                  frozen.
+                </p>
+              </>
+            ) : (
+              <>
+                <strong>Account active</strong>
+                <p>
+                  Your test account is currently
+                  active.
+                </p>
+              </>
+            )}
           </div>
         </section>
 
         <section>
           <h2>Account Status</h2>
-          <p><strong>Status:</strong> Real Active</p>
-          <p><strong>Account type:</strong> Checking — Real</p>
+
+          <p>
+            <strong>Status:</strong>{" "}
+            {account.status}
+          </p>
+
+          <p>
+            <strong>Account type:</strong>{" "}
+            {account.account_type}
+          </p>
+
+          <p>
+            <strong>Created:</strong>{" "}
+            {new Date(
+              account.created_at
+            ).toLocaleDateString()}
+          </p>
         </section>
       </div>
 
       <section>
         <h2>Recent Transactions</h2>
 
-        <div className="transaction-list">
-          {transactions.map((transaction, index) => (
-            <div className="transaction" key={index}>
-              <div>
-                <strong>{transaction.description}</strong>
-                <p>{transaction.date} · {transaction.type}</p>
-              </div>
-
-              <strong>{transaction.amount}</strong>
-            </div>
-          ))}
+        <div className="notification">
+          <p>
+            No transaction records have been
+            connected yet.
+          </p>
         </div>
       </section>
 
       <section className="real-notice">
-        <h2>Real Environment</h2>
+        <h2>Test Environment</h2>
+
         <p>
-          All balances and transactions displayed on this dashboard are
-          Your real data for bank purposes.
+          This dashboard displays test account
+          data stored in Supabase. It does not
+          represent real bank funds or a live
+          banking account.
         </p>
       </section>
     </main>
