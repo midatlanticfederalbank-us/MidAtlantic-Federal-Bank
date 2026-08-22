@@ -61,3 +61,51 @@ a {
 a:hover {
   text-decoration: underline;
 }
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 30px;
+  background: #173b70;
+  color: white;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.brand span {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: white;
+  color: #173b70;
+  font-size: 10px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-links a {
+  margin: 0;
+  color: white;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .navbar {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+}
