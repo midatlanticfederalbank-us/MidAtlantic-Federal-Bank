@@ -21,7 +21,6 @@ export default function AdminDashboard() {
 
   async function loadData() {
     setLoading(true);
-    setNotice("");
 
     const {
       data: { user },
@@ -70,9 +69,7 @@ export default function AdminDashboard() {
       });
 
     if (error) {
-      setNotice(
-        "Pending customers: " + error.message
-      );
+      setNotice(error.message);
       return;
     }
 
@@ -90,9 +87,7 @@ export default function AdminDashboard() {
       });
 
     if (error) {
-      setNotice(
-        "Customer accounts: " + error.message
-      );
+      setNotice(error.message);
       return;
     }
 
@@ -110,9 +105,7 @@ export default function AdminDashboard() {
       });
 
     if (error) {
-      setNotice(
-        "Support messages: " + error.message
-      );
+      setNotice(error.message);
       return;
     }
 
@@ -122,8 +115,7 @@ export default function AdminDashboard() {
   function generateAccountNumber() {
     return String(
       Math.floor(
-        1000000000 +
-          Math.random() * 9000000000
+        1000000000 + Math.random() * 9000000000
       )
     );
   }
@@ -131,17 +123,15 @@ export default function AdminDashboard() {
   async function approveCustomer(customer) {
     setNotice("Approving customer...");
 
-    const {
-      data: existingAccount,
-      error: existingError,
-    } = await supabase
-      .from("customer_accounts")
-      .select("id, account_number")
-      .eq("user_id", customer.id)
-      .maybeSingle();
+    const { data: existingAccount, error } =
+      await supabase
+        .from("customer_accounts")
+        .select("id, account_number")
+        .eq("user_id", customer.id)
+        .maybeSingle();
 
-    if (existingError) {
-      setNotice(existingError.message);
+    if (error) {
+      setNotice(error.message);
       return;
     }
 
@@ -205,7 +195,7 @@ export default function AdminDashboard() {
     const { error } = await supabase
       .from("customer_accounts")
       .update({
-        balance: balance,
+        balance,
         updated_at: new Date().toISOString(),
       })
       .eq("id", account.id);
@@ -285,15 +275,9 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <main>
-        <span className="real-badge">
-          ADMIN
-        </span>
-
+        <span className="real-badge">ADMIN</span>
         <h1>Administrator Dashboard</h1>
-
-        <p>
-          Loading administrator dashboard...
-        </p>
+        <p>Loading administrator dashboard...</p>
       </main>
     );
   }
@@ -302,17 +286,12 @@ export default function AdminDashboard() {
     <main>
       <div className="dashboard-header">
         <div>
-          <span className="real-badge">
-            ADMIN
-          </span>
+          <span className="real-badge">ADMIN</span>
 
-          <h1>
-            Administrator Dashboard
-          </h1>
+          <h1>Administrator Dashboard</h1>
 
           <p>
-            Customer accounts and support
-            management.
+            Customer accounts and support management.
           </p>
         </div>
 
@@ -330,73 +309,60 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* PENDING CUSTOMERS */}
-
       <section>
         <h2>Pending Customers</h2>
 
         {pendingCustomers.length === 0 ? (
           <div className="notification">
-            <p>
-              No pending customers.
-            </p>
+            <p>No pending customers.</p>
           </div>
         ) : (
           <div className="transaction-list">
-            {pendingCustomers.map(
-              (customer) => (
-                <div
-                  className="transaction"
-                  key={customer.id}
-                >
-                  <div>
+            {pendingCustomers.map((customer) => (
+              <div
+                className="transaction"
+                key={customer.id}
+              >
+                <div>
+                  <strong>
+                    {customer.full_name || "Customer"}
+                  </strong>
+
+                  <p>
+                    Approval status:{" "}
                     <strong>
-                      {customer.full_name ||
-                        "Customer"}
+                      {customer.approval_status}
                     </strong>
+                  </p>
 
-                    <p>
-                      Approval status:{" "}
-                      <strong>
-                        {customer.approval_status}
-                      </strong>
-                    </p>
-
-                    <p>
-                      Registered:{" "}
-                      {new Date(
-                        customer.created_at
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  <button
-                    className="primary-button"
-                    onClick={() =>
-                      approveCustomer(
-                        customer
-                      )
-                    }
-                  >
-                    Approve Customer
-                  </button>
+                  <p>
+                    Registered:{" "}
+                    {new Date(
+                      customer.created_at
+                    ).toLocaleDateString()}
+                  </p>
                 </div>
-              )
-            )}
+
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    approveCustomer(customer)
+                  }
+                >
+                  Approve Customer
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </section>
-
-      {/* CUSTOMER ACCOUNTS */}
 
       <section>
         <h2>Customer Accounts</h2>
 
         {accounts.length === 0 ? (
           <div className="notification">
-            <p>
-              No customer accounts found.
-            </p>
+            <p>No customer accounts found.</p>
           </div>
         ) : (
           <div className="transaction-list">
@@ -406,46 +372,33 @@ export default function AdminDashboard() {
                 key={account.id}
               >
                 <div>
-                  <strong>
-                    Customer Account
-                  </strong>
+                  <strong>Customer Account</strong>
 
                   <p>
-                    <strong>
-                      Account No:
-                    </strong>{" "}
+                    <strong>Account No:</strong>{" "}
                     {account.account_number ||
                       "Not assigned"}
                   </p>
 
                   <p>
-                    <strong>
-                      Status:
-                    </strong>{" "}
+                    <strong>Status:</strong>{" "}
                     {account.status}
                   </p>
 
                   <p>
-                    <strong>
-                      Account type:
-                    </strong>{" "}
+                    <strong>Account type:</strong>{" "}
                     {account.account_type}
                   </p>
 
                   <p>
-                    <strong>
-                      Balance:
-                    </strong>{" "}
+                    <strong>Balance:</strong>{" "}
                     $
                     {Number(
                       account.balance
-                    ).toLocaleString(
-                      "en-US",
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }
-                    )}
+                    ).toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
 
@@ -455,8 +408,7 @@ export default function AdminDashboard() {
 
                     <input
                       id={
-                        "balance-" +
-                        account.id
+                        "balance-" + account.id
                       }
                       type="number"
                       step="0.01"
@@ -469,9 +421,7 @@ export default function AdminDashboard() {
                   <button
                     className="primary-button"
                     onClick={() =>
-                      updateBalance(
-                        account
-                      )
+                      updateBalance(account)
                     }
                   >
                     Update Balance
@@ -480,13 +430,10 @@ export default function AdminDashboard() {
                   <button
                     className="primary-button"
                     onClick={() =>
-                      toggleAccount(
-                        account
-                      )
+                      toggleAccount(account)
                     }
                   >
-                    {account.status ===
-                    "active"
+                    {account.status === "active"
                       ? "Freeze Account"
                       : "Unfreeze Account"}
                   </button>
@@ -497,16 +444,12 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* CUSTOMER SUPPORT */}
-
       <section>
         <h2>Customer Support</h2>
 
         {messages.length === 0 ? (
           <div className="notification">
-            <p>
-              No support messages.
-            </p>
+            <p>No support messages.</p>
           </div>
         ) : (
           messages.map((message) => (
@@ -520,36 +463,25 @@ export default function AdminDashboard() {
               </h3>
 
               <p>
-                <strong>
-                  Customer message:
-                </strong>
+                <strong>Customer message:</strong>
               </p>
 
-              <p>
-                {message.message}
-              </p>
+              <p>{message.message}</p>
 
               <p>
-                <strong>
-                  Status:
-                </strong>{" "}
+                <strong>Status:</strong>{" "}
                 {message.status}
               </p>
 
               {message.reply && (
                 <p>
-                  <strong>
-                    Current reply:
-                  </strong>{" "}
+                  <strong>Current reply:</strong>{" "}
                   {message.reply}
                 </p>
               )}
 
               <textarea
-                id={
-                  "reply-" +
-                  message.id
-                }
+                id={"reply-" + message.id}
                 rows="4"
                 placeholder="Write your reply..."
               />
@@ -567,20 +499,14 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* SECURITY WARNING */}
-
       <section className="real-notice">
-        <h2>
-          ⛔ Security Warning
-        </h2>
+  <h2>⛔ Security Warning</h2>
 
-        <p>
-          Never share your password, PIN,
-          verification codes, or other
-          sensitive account information
-          with anyone. Support staff will
-          never ask you to disclose your
-          password or security codes.
-        </p>
-
-        
+  <p>
+    Never share your password, PIN, verification codes,
+    or other sensitive account information with anyone.
+    Our support team will never ask you to disclose
+    your password or security codes.
+  </p>
+</section>
+}
