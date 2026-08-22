@@ -10,6 +10,7 @@ const supabase = createClient(
 
 export default function AdminDashboard() {
   const [pendingCustomers, setPendingCustomers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: adminResult, error: adminError } =
+    const { data: isAdmin, error: adminError } =
       await supabase.rpc("is_admin");
 
     if (adminError) {
@@ -40,12 +41,13 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (!adminResult) {
+    if (!isAdmin) {
       window.location.href = "/dashboard";
       return;
     }
 
     await loadPendingCustomers();
+    await loadAccounts();
     await loadMessages();
 
     setLoading(false);
@@ -71,6 +73,24 @@ export default function AdminDashboard() {
     setPendingCustomers(data || []);
   }
 
+  async function loadAccounts() {
+    const { data, error } = await supabase
+      .from("customer_accounts")
+      .select(
+        "id, user_id, account_number, balance, status, account_type, created_at"
+      )
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setAccounts(data || []);
+  }
+
   async function loadMessages() {
     const { data, error } = await supabase
       .from("support_messages")
@@ -89,15 +109,124 @@ export default function AdminDashboard() {
     setMessages(data || []);
   }
 
+  function generateAccountNumber() {
+    const number = Math.floor(
+      Math.random() * 1000000000
+    );
+
+    return String(number).padStart(9, "0");
+  }
+
+  async function createUniqueAccountNumber() {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const accountNumber =
+        generateAccountNumber();
+
+      const { data, error } = await supabase
+        .from("customer_accounts")
+        .select("id")
+        .eq(
+          "account_number",
+          accountNumber
+        )
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data) {
+        return accountNumber;
+      }
+    }
+
+    throw new Error(
+      "Unable to generate a unique account number."
+    );
+  }
+
   async function approveCustomer(customer) {
-    setNotice("Approving customer...");
+    try {
+      setNotice(
+        "Approving customer and creating account..."
+      );
+
+      const { data: existingAccount, error: existingError } =
+        await supabase
+          .from("customer_accounts")
+          .select(
+            "id, account_number"
+          )
+          .eq("user_id", customer.id)
+          .maybeSingle();
+
+      if (existingError) {
+        setNotice(existingError.message);
+        return;
+      }
+
+      let accountNumber =
+        existingAccount?.account_number;
+
+      if (!existingAccount) {
+        accountNumber =
+          await createUniqueAccountNumber();
+
+        const { error: accountError } =
+          await supabase
+            .from("customer_accounts")
+            .insert({
+              user_id: customer.id,
+              account_number: accountNumber,
+              balance: 0,
+              status: "active",
+              account_type: "checking",
+            });
+
+        if (accountError) {
+          setNotice(accountError.message);
+          return;
+        }
+      }
+
+      const { error: approvalError } =
+        await supabase
+          .from("profiles")
+          .update({
+            approval_status: "approved",
+          })
+          .eq("id", customer.id);
+
+      if (approvalError) {
+        setNotice(approvalError.message);
+        return;
+      }
+
+      setNotice(
+        `Congratulations ${customer.full_name || "Customer"}! ` +
+        `Your account has been approved. Account No: ${accountNumber}`
+      );
+
+      await loadPendingCustomers();
+      await loadAccounts();
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function toggleAccount(account) {
+    const newStatus =
+      account.status === "active"
+        ? "frozen"
+        : "active";
 
     const { error } = await supabase
-      .from("profiles")
+      .from("customer_accounts")
       .update({
-        approval_status: "approved",
+        status: newStatus,
+        updated_at: new Date().toISOString(),
       })
-      .eq("id", customer.id);
+      .eq("id", account.id);
 
     if (error) {
       setNotice(error.message);
@@ -105,10 +234,12 @@ export default function AdminDashboard() {
     }
 
     setNotice(
-      `${customer.full_name || "Customer"} approved successfully.`
+      newStatus === "frozen"
+        ? "Account frozen."
+        : "Account activated."
     );
 
-    await loadPendingCustomers();
+    await loadAccounts();
   }
 
   async function sendReply(message) {
@@ -148,7 +279,9 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <main>
-        <span className="real-badge">ADMIN</span>
+        <span className="real-badge">
+          ADMIN
+        </span>
 
         <h1>Administrator Dashboard</h1>
 
@@ -163,7 +296,9 @@ export default function AdminDashboard() {
     <main>
       <div className="dashboard-header">
         <div>
-          <span className="real-badge">ADMIN</span>
+          <span className="real-badge">
+            ADMIN
+          </span>
 
           <h1>Administrator Dashboard</h1>
 
@@ -236,6 +371,67 @@ export default function AdminDashboard() {
       </section>
 
       <section>
+        <h2>Customer Accounts</h2>
+
+        {accounts.length === 0 ? (
+          <div className="notification">
+            <p>No customer accounts found.</p>
+          </div>
+        ) : (
+          <div className="transaction-list">
+            {accounts.map((account) => (
+              <div
+                className="transaction"
+                key={account.id}
+              >
+                <div>
+                  <strong>
+                    Customer Account
+                  </strong>
+
+                  <p>
+                    <strong>
+                      Account No:
+                    </strong>{" "}
+                    {account.account_number ||
+                      "Not assigned"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Account type:
+                    </strong>{" "}
+                    {account.account_type ||
+                      "Checking"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Status:
+                    </strong>{" "}
+                    {account.status ||
+                      "active"}
+                  </p>
+                </div>
+
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    toggleAccount(account)
+                  }
+                >
+                  {account.status ===
+                  "active"
+                    ? "Freeze Account"
+                    : "Unfreeze Account"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
         <h2>Customer Support</h2>
 
         {messages.length === 0 ? (
@@ -255,19 +451,25 @@ export default function AdminDashboard() {
                 </h3>
 
                 <p>
-                  <strong>Customer message:</strong>
+                  <strong>
+                    Customer message:
+                  </strong>
                 </p>
 
                 <p>{message.message}</p>
 
                 <p>
-                  <strong>Status:</strong>{" "}
+                  <strong>
+                    Status:
+                  </strong>{" "}
                   {message.status}
                 </p>
 
                 {message.reply && (
                   <p>
-                    <strong>Support reply:</strong>{" "}
+                    <strong>
+                      Support reply:
+                    </strong>{" "}
                     {message.reply}
                   </p>
                 )}
@@ -296,15 +498,18 @@ export default function AdminDashboard() {
         <h2>⛔ Security Warning</h2>
 
         <p>
-          Never share your password, PIN, verification
-          codes, or other sensitive account information
-          with anyone. Our support team will never ask
-          you to disclose your password or security codes.
+          Never share your password, PIN,
+          verification codes, or other
+          sensitive account information with
+          anyone. Our support team will never
+          ask you to disclose your password
+          or security codes.
         </p>
 
         <p>
           Account information is provided for
-          informational purposes on this website.
+          informational purposes on this
+          website.
         </p>
       </section>
     </main>
