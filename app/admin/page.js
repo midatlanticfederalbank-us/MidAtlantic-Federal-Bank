@@ -12,13 +12,12 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [notice, setNotice] = useState("");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAdminData();
+    load();
   }, []);
 
-  async function loadAdminData() {
+  async function load() {
     const {
       data: { user }
     } = await supabase.auth.getUser();
@@ -28,29 +27,26 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: profile, error: profileError } =
-      await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-    if (profileError || profile?.role !== "admin") {
+    if (profile?.role !== "admin") {
       window.location.href = "/dashboard";
       return;
     }
 
-    await loadCustomers();
-    await loadMessages();
-
-    setLoading(false);
+    await getCustomers();
+    await getMessages();
   }
 
-  async function loadCustomers() {
+  async function getCustomers() {
     const { data, error } = await supabase
       .from("customer_accounts")
       .select(
-        "id, user_id, balance, status, account_type, created_at"
+        "id,user_id,balance,status,account_type,created_at"
       )
       .order("created_at", { ascending: false });
 
@@ -59,38 +55,14 @@ export default function AdminDashboard() {
       return;
     }
 
-    const userIds = data.map((account) => account.user_id);
-
-    if (!userIds.length) {
-      setCustomers([]);
-      return;
-    }
-
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", userIds);
-
-    const profileMap = {};
-
-    (profiles || []).forEach((profile) => {
-      profileMap[profile.id] = profile.full_name;
-    });
-
-    setCustomers(
-      data.map((account) => ({
-        ...account,
-        full_name:
-          profileMap[account.user_id] || "Customer"
-      }))
-    );
+    setCustomers(data || []);
   }
 
-  async function loadMessages() {
+  async function getMessages() {
     const { data, error } = await supabase
       .from("support_messages")
       .select(
-        "id, user_id, subject, message, reply, status, created_at"
+        "id,user_id,subject,message,reply,status,created_at"
       )
       .order("created_at", { ascending: false });
 
@@ -102,11 +74,7 @@ export default function AdminDashboard() {
     setMessages(data || []);
   }
 
-  async function updateAccount(
-    id,
-    balance,
-    status
-  ) {
+  async function updateAccount(id, balance, status) {
     const { error } = await supabase
       .from("customer_accounts")
       .update({
@@ -122,17 +90,17 @@ export default function AdminDashboard() {
     }
 
     setNotice("Account updated.");
-    await loadCustomers();
+    getCustomers();
   }
 
-  async function replyToMessage(id, reply) {
-    if (!reply.trim()) return;
+  async function reply(id, text) {
+    if (!text.trim()) return;
 
     const { error } = await supabase
       .from("support_messages")
       .update({
-        reply: reply.trim(),
-        status: "resolved",
+        reply: text.trim(),
+        status: "replied",
         replied_at: new Date().toISOString()
       })
       .eq("id", id);
@@ -143,26 +111,16 @@ export default function AdminDashboard() {
     }
 
     setNotice("Reply sent.");
-    await loadMessages();
-  }
-
-  if (loading) {
-    return (
-      <main>
-        <p>Loading administrator dashboard...</p>
-      </main>
-    );
+    getMessages();
   }
 
   return (
     <main>
-      <section>
-        <span className="real-badge">ADMIN</span>
+      <span className="real-badge">ADMIN</span>
 
-        <h1>Administrator Dashboard</h1>
+      <h1>Administrator Dashboard</h1>
 
-        {notice && <p>{notice}</p>}
-      </section>
+      {notice && <p>{notice}</p>}
 
       <section>
         <h2>Customer Accounts</h2>
@@ -175,19 +133,18 @@ export default function AdminDashboard() {
               className="notification"
               key={customer.id}
             >
-              <h3>{customer.full_name}</h3>
+              <h3>Customer Account</h3>
 
               <p>
                 Status: <strong>{customer.status}</strong>
               </p>
 
               <p>
-                Account type:{" "}
-                {customer.account_type}
+                Type: {customer.account_type}
               </p>
 
               <p>
-                Current test balance: $
+                Test balance: $
                 {Number(customer.balance).toFixed(2)}
               </p>
 
@@ -222,8 +179,7 @@ export default function AdminDashboard() {
                   updateAccount(
                     customer.id,
                     customer.balance,
-                    customer.status ===
-                      "active"
+                    customer.status === "active"
                       ? "frozen"
                       : "active"
                   )
@@ -250,26 +206,18 @@ export default function AdminDashboard() {
               key={item.id}
             >
               <h3>
-                {item.subject ||
-                  "Customer Support"}
+                {item.subject || "Customer Support"}
               </h3>
-
-              <p>
-                <strong>Customer message:</strong>
-              </p>
 
               <p>{item.message}</p>
 
-              {item.reply && (
-                <p>
-                  <strong>Reply:</strong>{" "}
-                  {item.reply}
-                </p>
-              )}
-
               <p>
-                Status: {item.status}
+                Status: <strong>{item.status}</strong>
               </p>
+
+              {item.reply && (
+                <p>Reply: {item.reply}</p>
+              )}
 
               <textarea
                 id={`reply-${item.id}`}
@@ -280,15 +228,12 @@ export default function AdminDashboard() {
               <button
                 className="primary-button"
                 onClick={() => {
-                  const reply =
+                  const text =
                     document.getElementById(
                       `reply-${item.id}`
                     ).value;
 
-                  replyToMessage(
-                    item.id,
-                    reply
-                  );
+                  reply(item.id, text);
                 }}
               >
                 Send Reply
@@ -300,11 +245,9 @@ export default function AdminDashboard() {
 
       <section className="real-notice">
         <h2>Test Environment</h2>
-
         <p>
-          Account balances and account controls
-          are for testing and development and do
-          not represent actual bank funds.
+          Balances and account controls are for
+          testing and development only.
         </p>
       </section>
     </main>
