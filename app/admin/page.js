@@ -52,7 +52,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, approval_status, created_at"
+        "id, full_name, role, approval_status, created_at"
       )
       .eq("role", "customer")
       .eq("approval_status", "pending")
@@ -237,12 +237,9 @@ export default function AdminDashboard() {
   }
 
   async function updateBalance(account) {
-    const current =
-      account.balance ?? 0;
-
     const value = window.prompt(
       "Enter the new balance:",
-      String(current)
+      String(account.balance ?? 0)
     );
 
     if (value === null) return;
