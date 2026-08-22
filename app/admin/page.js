@@ -9,15 +9,15 @@ const supabase = createClient(
 );
 
 export default function AdminDashboard() {
-  const [customers, setCustomers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState("Loading...");
 
   useEffect(() => {
-    load();
+    loadData();
   }, []);
 
-  async function load() {
+  async function loadData() {
     const {
       data: { user }
     } = await supabase.auth.getUser();
@@ -27,59 +27,63 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const { data: profile, error: profileError } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    if (profile?.role !== "admin") {
+    if (profileError || profile?.role !== "admin") {
       window.location.href = "/dashboard";
       return;
     }
 
-    await getCustomers();
-    await getMessages();
-  }
+    const { data: accountData, error: accountError } =
+      await supabase
+        .from("customer_accounts")
+        .select(
+          "id,user_id,balance,status,account_type,created_at"
+        )
+        .order("created_at", {
+          ascending: false
+        });
 
-  async function getCustomers() {
-    const { data, error } = await supabase
-      .from("customer_accounts")
-      .select(
-        "id,user_id,balance,status,account_type,created_at"
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setNotice(error.message);
+    if (accountError) {
+      setNotice(accountError.message);
       return;
     }
 
-    setCustomers(data || []);
-  }
+    const { data: messageData, error: messageError } =
+      await supabase
+        .from("support_messages")
+        .select(
+          "id,user_id,subject,message,reply,status,created_at,replied_at"
+        )
+        .order("created_at", {
+          ascending: false
+        });
 
-  async function getMessages() {
-    const { data, error } = await supabase
-      .from("support_messages")
-      .select(
-        "id,user_id,subject,message,reply,status,created_at"
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setNotice(error.message);
+    if (messageError) {
+      setNotice(messageError.message);
       return;
     }
 
-    setMessages(data || []);
+    setAccounts(accountData || []);
+    setMessages(messageData || []);
+    setNotice("");
   }
 
-  async function updateAccount(id, balance, status) {
+  async function updateBalance(id) {
+    const input =
+      document.getElementById(
+        `balance-${id}`
+      );
+
     const { error } = await supabase
       .from("customer_accounts")
       .update({
-        balance: Number(balance),
-        status,
+        balance: Number(input.value),
         updated_at: new Date().toISOString()
       })
       .eq("id", id);
@@ -89,17 +93,43 @@ export default function AdminDashboard() {
       return;
     }
 
-    setNotice("Account updated.");
-    getCustomers();
+    setNotice("Balance updated successfully.");
+    loadData();
   }
 
-  async function reply(id, text) {
-    if (!text.trim()) return;
+  async function toggleFreeze(account) {
+    const newStatus =
+      account.status === "active"
+        ? "frozen"
+        : "active";
+
+    const { error } = await supabase
+      .from("customer_accounts")
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", account.id);
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setNotice("Account status updated.");
+    loadData();
+  }
+
+  async function sendReply(id) {
+    const input =
+      document.getElementById(`reply-${id}`);
+
+    if (!input.value.trim()) return;
 
     const { error } = await supabase
       .from("support_messages")
       .update({
-        reply: text.trim(),
+        reply: input.value.trim(),
         status: "replied",
         replied_at: new Date().toISOString()
       })
@@ -111,7 +141,7 @@ export default function AdminDashboard() {
     }
 
     setNotice("Reply sent.");
-    getMessages();
+    loadData();
   }
 
   return (
@@ -125,50 +155,51 @@ export default function AdminDashboard() {
       <section>
         <h2>Customer Accounts</h2>
 
-        {customers.length === 0 ? (
+        {accounts.length === 0 ? (
           <p>No customer accounts found.</p>
         ) : (
-          customers.map((customer) => (
+          accounts.map((account) => (
             <div
               className="notification"
-              key={customer.id}
+              key={account.id}
             >
               <h3>Customer Account</h3>
 
               <p>
-                Status: <strong>{customer.status}</strong>
+                <strong>User ID:</strong>{" "}
+                {account.user_id}
               </p>
 
               <p>
-                Type: {customer.account_type}
+                <strong>Status:</strong>{" "}
+                {account.status}
               </p>
 
               <p>
-                Test balance: $
-                {Number(customer.balance).toFixed(2)}
+                <strong>Type:</strong>{" "}
+                {account.account_type}
+              </p>
+
+              <p>
+                <strong>Test Balance:</strong>{" "}
+                $
+                {Number(account.balance).toFixed(
+                  2
+                )}
               </p>
 
               <input
-                id={`balance-${customer.id}`}
+                id={`balance-${account.id}`}
                 type="number"
                 step="0.01"
-                defaultValue={customer.balance}
+                defaultValue={account.balance}
               />
 
               <button
                 className="primary-button"
-                onClick={() => {
-                  const value =
-                    document.getElementById(
-                      `balance-${customer.id}`
-                    ).value;
-
-                  updateAccount(
-                    customer.id,
-                    value,
-                    customer.status
-                  );
-                }}
+                onClick={() =>
+                  updateBalance(account.id)
+                }
               >
                 Update Balance
               </button>
@@ -176,16 +207,10 @@ export default function AdminDashboard() {
               <button
                 className="primary-button"
                 onClick={() =>
-                  updateAccount(
-                    customer.id,
-                    customer.balance,
-                    customer.status === "active"
-                      ? "frozen"
-                      : "active"
-                  )
+                  toggleFreeze(account)
                 }
               >
-                {customer.status === "active"
+                {account.status === "active"
                   ? "Freeze Account"
                   : "Unfreeze Account"}
               </button>
@@ -206,35 +231,35 @@ export default function AdminDashboard() {
               key={item.id}
             >
               <h3>
-                {item.subject || "Customer Support"}
+                {item.subject ||
+                  "Customer Support"}
               </h3>
 
               <p>{item.message}</p>
 
               <p>
-                Status: <strong>{item.status}</strong>
+                <strong>Status:</strong>{" "}
+                {item.status}
               </p>
 
               {item.reply && (
-                <p>Reply: {item.reply}</p>
+                <p>
+                  <strong>Reply:</strong>{" "}
+                  {item.reply}
+                </p>
               )}
 
               <textarea
                 id={`reply-${item.id}`}
                 rows="4"
-                placeholder="Write your reply..."
+                placeholder="Write a reply..."
               />
 
               <button
                 className="primary-button"
-                onClick={() => {
-                  const text =
-                    document.getElementById(
-                      `reply-${item.id}`
-                    ).value;
-
-                  reply(item.id, text);
-                }}
+                onClick={() =>
+                  sendReply(item.id)
+                }
               >
                 Send Reply
               </button>
@@ -245,8 +270,9 @@ export default function AdminDashboard() {
 
       <section className="real-notice">
         <h2>Test Environment</h2>
+
         <p>
-          Balances and account controls are for
+          Account balances and controls are for
           testing and development only.
         </p>
       </section>
