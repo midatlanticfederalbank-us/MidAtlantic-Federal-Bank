@@ -1,45 +1,58 @@
 export default function Signup() {
   return (
-    <main>
-      <h1>Create a Account</h1>
+    <main className="auth-page">
+      <section className="auth-card">
+        <span className="real-badge">REAL ACCOUNT</span>
 
-      <p>
-        This form is for bank purposes only. enter your
-        banking information.
-      </p>
+        <h1>Create Your Account</h1>
 
-      <form>
-        <label>
-          Full Name
-          <input type="text" name="name" required />
-        </label>
+        <p>Set up a real account to explore the site.</p>
 
-        <br />
+        <form>
+          <label>
+            Full Name
+            <input
+              type="text"
+              name="name"
+              placeholder="Your name"
+              required
+            />
+          </label>
 
-        <label>
-          Email
-          <input type="email" name="email" required />
-        </label>
+          <label>
+            Email Address
+            <input
+              type="email"
+              name="email"
+              placeholder="real@example.com"
+              required
+            />
+          </label>
 
-        <br />
+          <label>
+            Password
+            <input
+              type="password"
+              name="password"
+              placeholder="Create a password"
+              required
+            />
+          </label>
 
-        <label>
-          Password
-          <input type="password" name="password" required />
-        </label>
+          <button type="submit" className="primary-button">
+            Create Real Account
+          </button>
+        </form>
 
-        <br />
+        <p className="real-warning">
+          Real only — do not enter wrong banking or financial information.
+        </p>
 
-        <button type="submit">Create Account</button>
-      </form>
-
-      <p>
-        Already have a account? <a href="/login">Log in</a>
-      </p>
-
-      <p>
-        <a href="/">Back to Home</a>
-      </p>
+        <p>
+          Already have an account?{" "}
+          <a href="/login">Sign in</a>
+        </p>
+      </section>
     </main>
   );
 }
