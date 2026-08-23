@@ -6,6 +6,7 @@ const resend = new Resend(
 );
 
 export async function POST(request) {
+  console.log("APPROVAL EMAIL ROUTE CALLED");
   try {
     const {
       email,
