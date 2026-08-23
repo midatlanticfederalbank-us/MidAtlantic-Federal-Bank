@@ -19,44 +19,110 @@ export default function Signup() {
 
     const formData = new FormData(event.currentTarget);
 
-    const name = formData.get("name");
-    const email = formData.get("email");
-    const password = formData.get("password");
+    const name = formData.get("name")?.toString().trim();
+    const email = formData.get("email")?.toString().trim();
+    const password = formData.get("password")?.toString();
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage(error.message);
+    if (!name || !email || !password) {
+      setLoading(false);
+      setMessage("Please complete all required fields.");
       return;
     }
 
-    setMessage(
-      "Account created. Please check your email to confirm your account."
-    );
+    try {
+      const { data, error } =
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+            },
+          },
+        });
+
+      if (error) {
+        setLoading(false);
+        setMessage(error.message);
+        return;
+      }
+
+      if (!data.user) {
+        setLoading(false);
+        setMessage(
+          "The account could not be created."
+        );
+        return;
+      }
+
+      const { error: profileError } =
+        await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: data.user.id,
+              full_name: name,
+              email: email,
+              role: "customer",
+              approval_status: "pending",
+            },
+            {
+              onConflict: "id",
+            }
+          );
+
+      if (profileError) {
+        console.error(
+          "PROFILE ERROR:",
+          profileError
+        );
+
+        setLoading(false);
+        setMessage(
+          "Your account was created, but your customer profile could not be created. Please contact support."
+        );
+        return;
+      }
+
+      setLoading(false);
+
+      setMessage(
+        "Account created successfully. Please check your email to confirm your account."
+      );
+
+      event.currentTarget.reset();
+    } catch (error) {
+      console.error(
+        "SIGNUP ERROR:",
+        error
+      );
+
+      setLoading(false);
+
+      setMessage(
+        error?.message ||
+          "Unable to create your account."
+      );
+    }
   }
 
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <span className="real-badge">REAL ACCOUNT</span>
+        <span className="real-badge">
+          REAL ACCOUNT
+        </span>
 
         <h1>Create Your Account</h1>
 
-        <p>Create your customer account securely.</p>
+        <p>
+          Create your customer account securely.
+        </p>
 
         <form onSubmit={handleSignup}>
           <label>
             Full Name
+
             <input
               type="text"
               name="name"
@@ -67,6 +133,7 @@ export default function Signup() {
 
           <label>
             Email Address
+
             <input
               type="email"
               name="email"
@@ -77,6 +144,7 @@ export default function Signup() {
 
           <label>
             Password
+
             <input
               type="password"
               name="password"
@@ -91,15 +159,21 @@ export default function Signup() {
             className="primary-button"
             disabled={loading}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
         </form>
 
-        {message && <p>{message}</p>}
+        {message && (
+          <p>{message}</p>
+        )}
 
         <p>
           Already have an account?{" "}
-          <a href="/login">Sign in</a>
+          <a href="/login">
+            Sign in
+          </a>
         </p>
       </section>
     </main>
