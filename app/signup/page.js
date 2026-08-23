@@ -52,7 +52,6 @@ export default function Signup() {
         "Account created. Please check your email to confirm your account."
       );
 
-      event.currentTarget.reset();
     } catch (error) {
       console.error("SIGNUP ERROR:", error);
 
