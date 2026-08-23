@@ -52,7 +52,6 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-       .select(
   "id, full_name, email, role, approval_status, created_at"
 )
       .eq("role", "customer")
