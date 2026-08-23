@@ -30,16 +30,15 @@ export default function Signup() {
     }
 
     try {
-      const { data, error } =
-        await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-            },
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
           },
-        });
+        },
+      });
 
       if (error) {
         setLoading(false);
@@ -47,55 +46,15 @@ export default function Signup() {
         return;
       }
 
-      if (!data.user) {
-        setLoading(false);
-        setMessage(
-          "The account could not be created."
-        );
-        return;
-      }
-
-      const { error: profileError } =
-        await supabase
-          .from("profiles")
-          .upsert(
-            {
-              id: data.user.id,
-              full_name: name,
-              email: email,
-              role: "customer",
-              approval_status: "pending",
-            },
-            {
-              onConflict: "id",
-            }
-          );
-
-      if (profileError) {
-        console.error(
-          "PROFILE ERROR:",
-          profileError
-        );
-
-        setLoading(false);
-        setMessage(
-          "Your account was created, but your customer profile could not be created. Please contact support."
-        );
-        return;
-      }
-
       setLoading(false);
 
       setMessage(
-        "Account created successfully. Please check your email to confirm your account."
+        "Account created. Please check your email to confirm your account."
       );
 
       event.currentTarget.reset();
     } catch (error) {
-      console.error(
-        "SIGNUP ERROR:",
-        error
-      );
+      console.error("SIGNUP ERROR:", error);
 
       setLoading(false);
 
@@ -165,15 +124,11 @@ export default function Signup() {
           </button>
         </form>
 
-        {message && (
-          <p>{message}</p>
-        )}
+        {message && <p>{message}</p>}
 
         <p>
           Already have an account?{" "}
-          <a href="/login">
-            Sign in
-          </a>
+          <a href="/login">Sign in</a>
         </p>
       </section>
     </main>
