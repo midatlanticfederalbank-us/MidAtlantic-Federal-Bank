@@ -135,135 +135,104 @@ export default function AdminDashboard() {
   }
 
   async function approveCustomer(customer) {
-    setNotice("Creating customer account...");
+  setNotice("Approving customer...");
 
-    try {
-      const { data: existing, error: existingError } =
-        await supabase
+  try {
+    const { data: existing, error: existingError } =
+      await supabase
+        .from("customer_accounts")
+        .select(
+          "id, account_number, account_type, status"
+        )
+        .eq("user_id", customer.id)
+        .maybeSingle();
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    let accountNumber =
+      existing?.account_number;
+
+    if (!accountNumber) {
+      accountNumber =
+        await getUniqueAccountNumber();
+
+      if (existing) {
+        const { error } = await supabase
           .from("customer_accounts")
-          .select(
-            "id, account_number, account_type, status"
-          )
-          .eq("user_id", customer.id)
-          .maybeSingle();
+          .update({
+            account_number: accountNumber,
+            account_type:
+              existing.account_type ||
+              "checking",
+            status: "active",
+          })
+          .eq("id", existing.id);
 
-      if (existingError) {
-        throw new Error(existingError.message);
-      }
+        if (error) {
+          throw new Error(error.message);
+        }
+      } else {
+        const { error } = await supabase
+          .from("customer_accounts")
+          .insert({
+            user_id: customer.id,
+            account_number: accountNumber,
+            balance: 0,
+            account_type: "checking",
+            status: "active",
+          });
 
-      let accountNumber =
-        existing?.account_number;
-
-      if (!accountNumber) {
-        accountNumber =
-          await getUniqueAccountNumber();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("customer_accounts")
-            .update({
-              account_number: accountNumber,
-              account_type:
-                existing.account_type ||
-                "checking",
-              status: "active",
-            })
-            .eq("id", existing.id);
-
-          if (error) {
-            throw new Error(error.message);
-          }
-        } else {
-          const { error } = await supabase
-            .from("customer_accounts")
-            .insert({
-              user_id: customer.id,
-              account_number: accountNumber,
-              balance: 0,
-              account_type: "checking",
-              status: "active",
-            });
-
-          if (error) {
-            throw new Error(error.message);
-          }
+        if (error) {
+          throw new Error(error.message);
         }
       }
-
-      const { data: verified, error: verifyError } =
-        await supabase
-          .from("customer_accounts")
-          .select(
-            "id, account_number, account_type, status"
-          )
-          .eq("user_id", customer.id)
-          .maybeSingle();
-
-      if (verifyError) {
-        throw new Error(verifyError.message);
-      }
-
-      if (!verified?.account_number) {
-        throw new Error(
-          "The account number could not be verified."
-        );
-      }
-
-      const { error: approvalError } =
-        await supabase
-          .from("profiles")
-          .update({
-            approval_status: "approved",
-          })
-          .eq("id", customer.id);
-
-      if (approvalError) {
-        throw new Error(approvalError.message);
-      }
-
-      setNotice(
-        `Congratulations ${
-          customer.full_name || "Customer"
-        }! Your account has been approved. Account No: ${
-          verified.account_number
-        }`
-      );
-if (customer.email) {
-  const emailResponse = await fetch(
-    "/api/send-approval-email",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: customer.email,
-        fullName:
-          customer.full_name || "Customer",
-        accountNumber:
-          verified.account_number,
-        accountType:
-          verified.account_type || "checking",
-      }),
     }
-  );
 
-  const emailResult =
-    await emailResponse.json();
+    const { data: verified, error: verifyError } =
+      await supabase
+        .from("customer_accounts")
+        .select(
+          "id, account_number, account_type, status"
+        )
+        .eq("user_id", customer.id)
+        .maybeSingle();
 
-  if (!emailResponse.ok) {
-    throw new Error(
-      emailResult.error ||
-        "Account approved, but the email could not be sent."
+    if (verifyError) {
+      throw new Error(verifyError.message);
+    }
+
+    if (!verified?.account_number) {
+      throw new Error(
+        "The account number could not be verified."
+      );
+    }
+
+    const { error: approvalError } =
+      await supabase
+        .from("profiles")
+        .update({
+          approval_status: "approved",
+        })
+        .eq("id", customer.id);
+
+    if (approvalError) {
+      throw new Error(approvalError.message);
+    }
+
+    setNotice(
+      `Customer approved successfully. Reference No: ${
+        verified.account_number
+      }`
     );
+
+    await loadPending();
+    await loadAccounts();
+  } catch (error) {
+    setNotice(error.message);
   }
 }
-      await loadPending();
-      await loadAccounts();
-    } catch (error) {
-      setNotice(error.message);
-    }
-  }
 
   async function updateBalance(account) {
     const value = window.prompt(
