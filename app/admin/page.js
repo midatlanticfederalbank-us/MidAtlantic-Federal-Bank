@@ -217,8 +217,13 @@ export default function AdminDashboard() {
     if (approvalError) {
       throw new Error(approvalError.message);
     }
-console.log("CUSTOMER EMAIL:", customer.email);
-    if (customer.email) {
+ console.log("CUSTOMER EMAIL:", customer.email);
+
+if (!customer.email) {
+  throw new Error("This customer does not have an email address.");
+}
+
+if (customer.email) {
       const emailResponse = await fetch(
         "/api/send-approval-email",
         {
