@@ -52,8 +52,9 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, role, approval_status, created_at"
-      )
+       .select(
+  "id, full_name, email, role, approval_status, created_at"
+)
       .eq("role", "customer")
       .eq("approval_status", "pending")
       .order("created_at", {
@@ -228,7 +229,36 @@ export default function AdminDashboard() {
           verified.account_number
         }`
       );
+if (customer.email) {
+  const emailResponse = await fetch(
+    "/api/send-approval-email",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: customer.email,
+        fullName:
+          customer.full_name || "Customer",
+        accountNumber:
+          verified.account_number,
+        accountType:
+          verified.account_type || "checking",
+      }),
+    }
+  );
 
+  const emailResult =
+    await emailResponse.json();
+
+  if (!emailResponse.ok) {
+    throw new Error(
+      emailResult.error ||
+        "Account approved, but the email could not be sent."
+    );
+  }
+}
       await loadPending();
       await loadAccounts();
     } catch (error) {
