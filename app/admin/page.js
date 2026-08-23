@@ -220,7 +220,34 @@ export default function AdminDashboard() {
     if (approvalError) {
       throw new Error(approvalError.message);
     }
+if (customer.email) {
+  const emailResponse = await fetch(
+    "/api/send-approval-email",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: customer.email,
+        fullName:
+          customer.full_name || "Customer",
+        accountReference:
+          verified.account_number,
+      }),
+    }
+  );
 
+  const emailResult =
+    await emailResponse.json();
+
+  if (!emailResponse.ok) {
+    throw new Error(
+      emailResult.error ||
+        "The approval email could not be sent."
+    );
+  }
+}
     setNotice(
       `Customer approved successfully. Reference No: ${
         verified.account_number
