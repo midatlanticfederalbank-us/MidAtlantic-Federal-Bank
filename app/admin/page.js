@@ -232,7 +232,7 @@ if (customer.email) {
         email: customer.email,
         fullName:
           customer.full_name || "Customer",
-        accountReference:
+        accountNumber:
           verified.account_number,
       }),
     }
@@ -249,7 +249,7 @@ if (customer.email) {
   }
 }
     setNotice(
-      `Customer approved successfully. Reference No: ${
+      `Customer approved successfully. Account No: ${
         verified.account_number
       }`
     );
