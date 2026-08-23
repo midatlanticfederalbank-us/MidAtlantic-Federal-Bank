@@ -5,19 +5,37 @@ const resend = new Resend(
   process.env.RESEND_API_KEY
 );
 
-export async function POST() {
+export async function POST(request) {
   try {
-    console.log("RESEND TEST ROUTE CALLED");
+    const {
+      email,
+      fullName,
+      customerNumber,
+    } = await request.json();
+
+    if (!email) {
+      return NextResponse.json(
+        { error: "Customer email is required." },
+        { status: 400 }
+      );
+    }
 
     const { data, error } =
       await resend.emails.send({
         from: "Resend <onboarding@resend.dev>",
-        to: ["midatlanticfederalbank@gmail.com"],
-        subject: "Email System Test",
+        to: [email],
+        subject: "Registration Approved",
         html: `
-          <h2>Email System Test</h2>
-          <p>This is a development test of the website email system.</p>
-          <p>If you received this message, the Resend connection is working.</p>
+          <h2>Your registration has been approved.</h2>
+
+          <p>
+            <strong>Customer Number:</strong>
+            ${customerNumber || "Not assigned"}
+          </p>
+
+          <p>
+            You can now sign in to your account dashboard.
+          </p>
         `,
       });
 
@@ -25,12 +43,10 @@ export async function POST() {
       console.error("RESEND ERROR:", error);
 
       return NextResponse.json(
-        { success: false, error: error.message },
+        { error: error.message },
         { status: 500 }
       );
     }
-
-    console.log("RESEND SUCCESS:", data?.id);
 
     return NextResponse.json({
       success: true,
@@ -41,8 +57,9 @@ export async function POST() {
 
     return NextResponse.json(
       {
-        success: false,
-        error: error?.message || "Email test failed.",
+        error:
+          error?.message ||
+          "Unable to send registration email.",
       },
       { status: 500 }
     );
