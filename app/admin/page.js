@@ -232,8 +232,6 @@ if (customer.email) {
   email: customer.email,
   fullName:
     customer.full_name || "Customer",
-  customerNumber:
-    verified.account_number,
 }),
     }
   );
