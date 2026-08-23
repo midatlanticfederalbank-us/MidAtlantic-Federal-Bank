@@ -20,10 +20,10 @@ export async function POST(request) {
     const msg = {
       to: email,
       from: {
-        email: "midatlanticfederalbank@gmail.com",
-        name: "MidAtlantic Federal Bank Demo",
+        email: "midfb@outlook.com",
+        name: "MidAtlantic Federal Bank",
       },
-      replyTo: "midatlanticfederalbank@gmail.com",
+      replyTo: "midfb@outlook.com",
       subject: "Registration Approved",
       html: `
         <h2>Your registration has been approved.</h2>
