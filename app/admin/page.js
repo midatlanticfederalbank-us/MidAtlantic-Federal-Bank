@@ -232,10 +232,11 @@ if (customer.email) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email: customer.email,
-            fullName:
-              customer.full_name || "Customer",
-          }),
+  email: customer.email,
+  fullName:
+    customer.full_name || "Customer",
+  accountNumber: verified.account_number,
+}),
         }
       );
 
