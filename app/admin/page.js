@@ -151,12 +151,10 @@ export default function AdminDashboard() {
       throw new Error(existingError.message);
     }
 
-    let accountNumber =
-      existing?.account_number;
+    let accountNumber = existing?.account_number;
 
     if (!accountNumber) {
-      accountNumber =
-        await getUniqueAccountNumber();
+      accountNumber = await getUniqueAccountNumber();
 
       if (existing) {
         const { error } = await supabase
@@ -164,8 +162,7 @@ export default function AdminDashboard() {
           .update({
             account_number: accountNumber,
             account_type:
-              existing.account_type ||
-              "checking",
+              existing.account_type || "checking",
             status: "active",
           })
           .eq("id", existing.id);
@@ -220,42 +217,50 @@ export default function AdminDashboard() {
     if (approvalError) {
       throw new Error(approvalError.message);
     }
-if (customer.email) {
-  const emailResponse = await fetch(
-    "/api/send-approval-email",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-  email: customer.email,
-  fullName:
-    customer.full_name || "Customer",
-}),
+
+    if (customer.email) {
+      const emailResponse = await fetch(
+        "/api/send-approval-email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: customer.email,
+            fullName:
+              customer.full_name || "Customer",
+          }),
+        }
+      );
+
+      const emailResult =
+        await emailResponse.json();
+
+      if (!emailResponse.ok) {
+        throw new Error(
+          emailResult.error ||
+            "The approval email could not be sent."
+        );
+      }
     }
-  );
 
-  const emailResult =
-    await emailResponse.json();
-
-  if (!emailResponse.ok) {
-    throw new Error(
-      emailResult.error ||
-        "The approval email could not be sent."
-    );
-  }
-}
     setNotice(
-      `Customer approved successfully. Account No: ${
-        verified.account_number
-      }`
+      "Customer approved successfully."
     );
 
     await loadPending();
     await loadAccounts();
   } catch (error) {
-    setNotice(error.message);
+    console.error(
+      "APPROVAL ERROR:",
+      error
+    );
+
+    setNotice(
+      error?.message ||
+        "Unable to approve customer."
+    );
   }
 }
 
