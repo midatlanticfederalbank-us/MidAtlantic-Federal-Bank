@@ -1,164 +1,144 @@
-```jsx
 export default function Home() {
-  return (
-    <main>
-      {/* HERO */}
+return ( <main> <section className="hero"> <span className="real-badge">
+MIDATLANTIC FEDERAL BANK </span>
 
-      <section className="hero">
-        <div>
-          <span className="real-badge">
-            MIDATLANTIC FEDERAL BANK
-          </span>
+```
+    <h1>Secure Online Banking</h1>
 
-          <h1>Secure Online Banking</h1>
+    <p>
+      Manage your account conveniently with access to your
+      account information, transaction history, notifications,
+      and customer support services.
+    </p>
 
-          <p>
-            A convenient online banking experience for managing your
-            account information, reviewing account activity, receiving
-            notifications, and accessing customer support.
-          </p>
+    <div className="hero-actions">
+      <a className="primary-button" href="/login">
+        Sign In
+      </a>
 
-          <div className="hero-actions">
-            <a className="primary-button" href="/login">
-              Sign In
-            </a>
+      <a className="secondary-button" href="/signup">
+        Open an Account
+      </a>
+    </div>
+  </section>
 
-            <a className="secondary-button" href="/signup">
-              Open an Account
-            </a>
-          </div>
-        </div>
-      </section>
+  <section>
+    <h2>Banking Services</h2>
 
-      {/* BANKING FEATURES */}
+    <p>
+      Manage your banking experience from one convenient place.
+    </p>
 
-      <section>
-        <h2>Banking Services</h2>
+    <div className="feature-grid">
+      <div className="feature-card">
+        <h3>Account Dashboard</h3>
+        <p>
+          View your account information, available balance,
+          account status, and other important details.
+        </p>
+      </div>
+
+      <div className="feature-card">
+        <h3>Transaction History</h3>
+        <p>
+          Review your available account activity and recent
+          transactions.
+        </p>
+      </div>
+
+      <div className="feature-card">
+        <h3>Notifications</h3>
+        <p>
+          Stay informed about important account notifications
+          and service updates.
+        </p>
+      </div>
+
+      <div className="feature-card">
+        <h3>Customer Support</h3>
+        <p>
+          Get assistance through our customer support resources
+          and available service channels.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section className="real-notice">
+    <h2>Security & Privacy</h2>
+
+    <p>
+      Keep your password, PIN, and verification codes private.
+      Never share sensitive account information with anyone.
+    </p>
+
+    <p>
+      Always access your account through the official website
+      and sign out when you have finished using your account.
+    </p>
+  </section>
+
+  <section>
+    <h2>Quick Access</h2>
+
+    <div className="feature-grid">
+      <div className="feature-card">
+        <h3>Sign In</h3>
 
         <p>
-          Manage your banking experience from one convenient place.
+          Access your customer account and manage your account
+          information.
         </p>
 
-        <div className="feature-grid">
-          <div className="feature-card">
-            <h3>Account Dashboard</h3>
-            <p>
-              View your account information, available balance, account
-              status, and other account details.
-            </p>
-          </div>
+        <a href="/login">Sign In →</a>
+      </div>
 
-          <div className="feature-card">
-            <h3>Transaction History</h3>
-            <p>
-              Review available account activity and transaction history
-              from your customer dashboard.
-            </p>
-          </div>
-
-          <div className="feature-card">
-            <h3>Notifications</h3>
-            <p>
-              Stay informed about important account activity and
-              service notifications.
-            </p>
-          </div>
-
-          <div className="feature-card">
-            <h3>Customer Support</h3>
-            <p>
-              Access customer support resources and submit questions or
-              service requests.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* SECURITY */}
-
-      <section className="real-notice">
-        <h2>Security & Privacy</h2>
+      <div className="feature-card">
+        <h3>Open an Account</h3>
 
         <p>
-          Protect your account by keeping your password, PIN, and
-          verification codes private. Never share sensitive login
-          information with anyone.
+          Begin your account registration and provide the
+          required information.
         </p>
+
+        <a href="/signup">Get Started →</a>
+      </div>
+
+      <div className="feature-card">
+        <h3>Customer Support</h3>
 
         <p>
-          For your security, only enter account credentials on the
-          official website and always sign out when you are finished.
+          Find answers and contact customer support for
+          account-related questions.
         </p>
-      </section>
 
-      {/* QUICK ACCESS */}
+        <a href="/support">Visit Support →</a>
+      </div>
 
-      <section>
-        <h2>Quick Access</h2>
-
-        <div className="feature-grid">
-          <div className="feature-card">
-            <h3>Sign In</h3>
-            <p>
-              Access your customer account and view available account
-              information.
-            </p>
-
-            <a href="/login">
-              Sign In →
-            </a>
-          </div>
-
-          <div className="feature-card">
-            <h3>Open an Account</h3>
-            <p>
-              Begin the account registration process.
-            </p>
-
-            <a href="/signup">
-              Get Started →
-            </a>
-          </div>
-
-          <div className="feature-card">
-            <h3>Customer Support</h3>
-            <p>
-              Find help and information about available support
-              services.
-            </p>
-
-            <a href="/support">
-              Visit Support →
-            </a>
-          </div>
-
-          <div className="feature-card">
-            <h3>Latest News</h3>
-            <p>
-              View announcements and important service information.
-            </p>
-
-            <a href="/news">
-              View News →
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER NOTICE */}
-
-      <section className="real-notice">
-        <p>
-          MIDATLANTIC FEDERAL BANK
-        </p>
+      <div className="feature-card">
+        <h3>Latest News</h3>
 
         <p>
-          Please review all account information carefully and contact
-          customer support if you notice anything unusual.
+          Stay informed about announcements and important
+          service updates.
         </p>
-      </section>
-    </main>
-  );
-}
+
+        <a href="/news">View News →</a>
+      </div>
+    </div>
+  </section>
+
+  <section className="real-notice">
+    <h2>MIDATLANTIC FEDERAL BANK</h2>
+
+    <p>
+      Your account security and privacy are important to us.
+      If you notice unusual activity or have questions about
+      your account, please contact customer support.
+    </p>
+  </section>
+</main>
 ```
 
+);
+}
