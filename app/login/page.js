@@ -37,6 +37,9 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
+
+        {/* BANK BRANDING */}
+
         <div className="auth-brand">
           <div className="bank-mark">M</div>
 
@@ -46,13 +49,17 @@ export default function LoginPage() {
             </div>
 
             <div className="bank-subtitle">
-              Customer Banking Portal
+              CUSTOMER BANKING PORTAL
             </div>
           </div>
         </div>
 
+        {/* LOGIN HEADING */}
+
         <div className="auth-heading">
-          <span className="account-label">CUSTOMER ACCOUNT</span>
+          <span className="account-label">
+            CUSTOMER ACCOUNT
+          </span>
 
           <h1>Welcome Back</h1>
 
@@ -61,20 +68,27 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* ERROR MESSAGE */}
+
         {error && (
           <div className="auth-error">
             {error}
           </div>
         )}
 
+        {/* LOGIN FORM */}
+
         <form onSubmit={handleLogin}>
+
           <label>
             Email Address
 
             <input
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               placeholder="Enter your email address"
               autoComplete="email"
               required
@@ -87,7 +101,9 @@ export default function LoginPage() {
             <input
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               placeholder="Enter your password"
               autoComplete="current-password"
               required
@@ -101,28 +117,29 @@ export default function LoginPage() {
           >
             {loading ? "Signing In..." : "Sign In"}
           </button>
+
         </form>
 
+        {/* ACCOUNT LINKS */}
+
         <div className="auth-links">
+
           <p>
-            Don't have an account?
-            <a href="/signup"> Create an Account</a>
+            Don't have an account?{" "}
+            <a href="/signup">
+              Create an Account
+            </a>
           </p>
 
-          <a className="back-home" href="/">
+          <a
+            className="back-home"
+            href="/"
+          >
             ← Back to Home
           </a>
+
         </div>
 
-        <div className="demo-notice">
-          <strong>Demo Environment</strong>
-
-          <p>
-            This customer portal is part of a demonstration
-            banking application. Do not enter real banking
-            credentials or sensitive financial information.
-          </p>
-        </div>
       </div>
     </main>
   );
