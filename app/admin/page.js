@@ -123,19 +123,63 @@ export default function AdminDashboard() {
   }
 
   async function loadMessages() {
-    const { data, error } = await supabase
-      .from("support_messages")
-      .select(
-        "id, user_id, subject, message, reply, status, created_at, replied_at"
-      )
-      .order("created_at", { ascending: false });
+    const { data: messageData, error: messageError } =
+      await supabase
+        .from("support_messages")
+        .select(
+          "id, user_id, subject, message, reply, status, created_at, replied_at"
+        )
+        .order("created_at", {
+          ascending: false,
+        });
 
-    if (error) {
-      setNotice(error.message);
+    if (messageError) {
+      setNotice(messageError.message);
       return;
     }
 
-    setMessages(data || []);
+    if (!messageData || messageData.length === 0) {
+      setMessages([]);
+      return;
+    }
+
+    const userIds = [
+      ...new Set(
+        messageData.map(
+          (message) => message.user_id
+        )
+      ),
+    ];
+
+    const { data: profileData, error: profileError } =
+      await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+    if (profileError) {
+      setNotice(profileError.message);
+      return;
+    }
+
+    const profileMap = {};
+
+    (profileData || []).forEach((profile) => {
+      profileMap[profile.id] = profile;
+    });
+
+    const combinedMessages =
+      messageData.map((message) => ({
+        ...message,
+        customerName:
+          profileMap[message.user_id]
+            ?.full_name || "Customer",
+        customerEmail:
+          profileMap[message.user_id]
+            ?.email || "",
+      }));
+
+    setMessages(combinedMessages);
   }
 
   async function loadTransactions() {
