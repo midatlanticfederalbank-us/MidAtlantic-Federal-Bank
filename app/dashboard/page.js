@@ -22,6 +22,7 @@ export default function Dashboard() {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
+
   const [chatMessages, setChatMessages] = useState([
     {
       sender: "support",
@@ -141,6 +142,18 @@ export default function Dashboard() {
     });
   }
 
+  function maskedAccountNumber(accountNumber) {
+    if (!accountNumber) return "Not available";
+
+    const value = String(accountNumber);
+
+    if (value.length <= 4) {
+      return value;
+    }
+
+    return `•••• ${value.slice(-4)}`;
+  }
+
   function sendChatMessage(event) {
     event.preventDefault();
 
@@ -174,7 +187,9 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <div className="loading-logo">M</div>
+
           <h2>MIDATLANTIC FEDERAL BANK</h2>
+
           <p>Loading your customer portal...</p>
         </div>
       </main>
@@ -186,6 +201,7 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <h2>Unable to Load Account</h2>
+
           <p>{error}</p>
 
           <button className="portal-button" onClick={logout}>
@@ -196,10 +212,7 @@ export default function Dashboard() {
     );
   }
 
-  if (
-    profile &&
-    profile.approval_status !== "approved"
-  ) {
+  if (profile && profile.approval_status !== "approved") {
     return (
       <main className="portal-page">
         <div className="portal-header">
@@ -207,6 +220,7 @@ export default function Dashboard() {
             <div className="bank-name">
               MIDATLANTIC FEDERAL BANK
             </div>
+
             <div className="portal-label">
               CUSTOMER BANKING PORTAL
             </div>
@@ -219,7 +233,7 @@ export default function Dashboard() {
 
         <section className="pending-card">
           <span className="status-badge pending">
-            PENDING
+            PENDING APPROVAL
           </span>
 
           <h1>
@@ -245,6 +259,7 @@ export default function Dashboard() {
             <div className="bank-name">
               MIDATLANTIC FEDERAL BANK
             </div>
+
             <div className="portal-label">
               CUSTOMER BANKING PORTAL
             </div>
@@ -277,7 +292,6 @@ export default function Dashboard() {
       {/* HEADER */}
 
       <header className="portal-header">
-
         <div>
           <div className="bank-name">
             MIDATLANTIC FEDERAL BANK
@@ -289,7 +303,6 @@ export default function Dashboard() {
         </div>
 
         <div className="header-actions">
-
           <span className="online-status">
             <span className="online-dot"></span>
             Online
@@ -299,35 +312,35 @@ export default function Dashboard() {
             className="menu-trigger"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Open customer menu"
+            aria-expanded={menuOpen}
           >
             <span></span>
             <span></span>
             <span></span>
           </button>
-
         </div>
 
-        {/* MENU */}
+        {/* CUSTOMER MENU */}
 
         {menuOpen && (
           <div className="customer-menu">
 
             <div className="menu-title">
-              CUSTOMER MENU
+              CUSTOMER PORTAL
             </div>
 
             <button onClick={() => openPage("dashboard")}>
-              <span className="menu-number">01</span>
+              <span className="menu-icon">⌂</span>
               <span>Dashboard</span>
             </button>
 
             <button onClick={() => openPage("profile")}>
-              <span className="menu-number">02</span>
+              <span className="menu-icon">○</span>
               <span>My Profile</span>
             </button>
 
             <button onClick={() => openPage("account")}>
-              <span className="menu-number">03</span>
+              <span className="menu-icon">▣</span>
               <span>Account Information</span>
             </button>
 
@@ -336,22 +349,22 @@ export default function Dashboard() {
             </div>
 
             <button onClick={() => openPage("withdraw")}>
-              <span className="menu-number">04</span>
+              <span className="menu-icon">↓</span>
               <span>Withdraw</span>
             </button>
 
             <button onClick={() => openPage("transfer")}>
-              <span className="menu-number">05</span>
+              <span className="menu-icon">↗</span>
               <span>Transfer</span>
             </button>
 
             <button onClick={() => openPage("wire")}>
-              <span className="menu-number">06</span>
+              <span className="menu-icon">⇄</span>
               <span>Wire Transfer</span>
             </button>
 
             <button onClick={() => openPage("local")}>
-              <span className="menu-number">07</span>
+              <span className="menu-icon">→</span>
               <span>Local Transfer</span>
             </button>
 
@@ -360,12 +373,12 @@ export default function Dashboard() {
             </div>
 
             <button onClick={() => openPage("transactions")}>
-              <span className="menu-number">08</span>
+              <span className="menu-icon">▤</span>
               <span>Transaction History</span>
             </button>
 
             <button onClick={() => openPage("notifications")}>
-              <span className="menu-number">09</span>
+              <span className="menu-icon">○</span>
               <span>Notifications</span>
             </button>
 
@@ -374,7 +387,7 @@ export default function Dashboard() {
             </div>
 
             <button onClick={() => openPage("support")}>
-              <span className="menu-number">10</span>
+              <span className="menu-icon">?</span>
               <span>Customer Support</span>
             </button>
 
@@ -383,12 +396,12 @@ export default function Dashboard() {
             </div>
 
             <button onClick={() => openPage("security")}>
-              <span className="menu-number">11</span>
+              <span className="menu-icon">◇</span>
               <span>Security Center</span>
             </button>
 
             <button onClick={() => openPage("settings")}>
-              <span className="menu-number">12</span>
+              <span className="menu-icon">⚙</span>
               <span>Account Settings</span>
             </button>
 
@@ -398,18 +411,19 @@ export default function Dashboard() {
               className="signout-menu"
               onClick={logout}
             >
-              <span className="menu-number">13</span>
+              <span className="menu-icon">↪</span>
               <span>Sign Out</span>
             </button>
 
           </div>
         )}
-
       </header>
 
-      {/* CONTENT */}
+      {/* MAIN CONTENT */}
 
       <div className="portal-content">
+
+        {/* DASHBOARD */}
 
         {activePage === "dashboard" && (
           <>
@@ -468,7 +482,9 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">↓</span>
+
                   <strong>Withdraw</strong>
+
                   <small>
                     Submit a withdrawal request
                   </small>
@@ -479,7 +495,9 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">↗</span>
+
                   <strong>Transfer</strong>
+
                   <small>
                     Submit a transfer request
                   </small>
@@ -489,8 +507,10 @@ export default function Dashboard() {
                   onClick={() => openPage("wire")}
                   className="quick-action"
                 >
-                  <span className="action-icon">$</span>
+                  <span className="action-icon">⇄</span>
+
                   <strong>Wire Transfer</strong>
+
                   <small>
                     Enter recipient information
                   </small>
@@ -501,7 +521,9 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">→</span>
+
                   <strong>Local Transfer</strong>
+
                   <small>
                     Submit a local transfer request
                   </small>
@@ -521,16 +543,25 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Holder</span>
-                  <strong>{profile?.full_name}</strong>
+
+                  <strong>
+                    {profile?.full_name}
+                  </strong>
                 </div>
 
                 <div className="detail-row">
                   <span>Account Number</span>
-                  <strong>{account.account_number}</strong>
+
+                  <strong>
+                    {maskedAccountNumber(
+                      account.account_number
+                    )}
+                  </strong>
                 </div>
 
                 <div className="detail-row">
                   <span>Account Type</span>
+
                   <strong>
                     {account.account_type || "Checking"}
                   </strong>
@@ -538,6 +569,7 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Status</span>
+
                   <strong className="active-text">
                     {account.status || "Active"}
                   </strong>
@@ -651,9 +683,13 @@ export default function Dashboard() {
           </>
         )}
 
-        {activePage === "profile" && (
-          <PortalPage title="My Profile" label="CUSTOMER">
+        {/* PROFILE */}
 
+        {activePage === "profile" && (
+          <PortalPage
+            title="My Profile"
+            label="CUSTOMER"
+          >
             <div className="profile-header">
               <div className="profile-avatar">
                 {(profile?.full_name || "C")
@@ -663,6 +699,7 @@ export default function Dashboard() {
 
               <div>
                 <h2>{profile?.full_name}</h2>
+
                 <p>Customer Account</p>
               </div>
             </div>
@@ -679,16 +716,19 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={account.account_number}
+              value={maskedAccountNumber(
+                account.account_number
+              )}
             />
 
             <InfoRow
               label="Account Type"
               value={account.account_type || "Checking"}
             />
-
           </PortalPage>
         )}
+
+        {/* ACCOUNT INFORMATION */}
 
         {activePage === "account" && (
           <PortalPage
@@ -702,7 +742,9 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={account.account_number}
+              value={maskedAccountNumber(
+                account.account_number
+              )}
             />
 
             <InfoRow
@@ -721,6 +763,8 @@ export default function Dashboard() {
             />
           </PortalPage>
         )}
+
+        {/* TRANSFERS & PAYMENTS */}
 
         {[
           "withdraw",
@@ -742,6 +786,7 @@ export default function Dashboard() {
           >
             <div className="request-notice">
               <strong>Request Information</strong>
+
               <p>
                 Complete the form below to submit a request.
                 This interface does not directly move funds.
@@ -752,6 +797,7 @@ export default function Dashboard() {
               <>
                 <label className="form-label">
                   Recipient Name
+
                   <input
                     className="portal-input"
                     type="text"
@@ -761,6 +807,7 @@ export default function Dashboard() {
 
                 <label className="form-label">
                   Recipient Account Number
+
                   <input
                     className="portal-input"
                     type="text"
@@ -770,6 +817,7 @@ export default function Dashboard() {
 
                 <label className="form-label">
                   Bank Name
+
                   <input
                     className="portal-input"
                     type="text"
@@ -781,6 +829,7 @@ export default function Dashboard() {
 
             <label className="form-label">
               Amount
+
               <input
                 className="portal-input"
                 type="number"
@@ -792,6 +841,7 @@ export default function Dashboard() {
 
             <label className="form-label">
               Description
+
               <textarea
                 className="portal-textarea"
                 rows="4"
@@ -811,6 +861,8 @@ export default function Dashboard() {
             </button>
           </PortalPage>
         )}
+
+        {/* TRANSACTION HISTORY */}
 
         {activePage === "transactions" && (
           <PortalPage
@@ -858,6 +910,8 @@ export default function Dashboard() {
           </PortalPage>
         )}
 
+        {/* NOTIFICATIONS */}
+
         {activePage === "notifications" && (
           <PortalPage
             title="Notifications"
@@ -870,6 +924,7 @@ export default function Dashboard() {
 
               <div>
                 <strong>Account Active</strong>
+
                 <p>
                   Your customer account is currently active.
                 </p>
@@ -883,6 +938,7 @@ export default function Dashboard() {
 
               <div>
                 <strong>Security Reminder</strong>
+
                 <p>
                   Never share your password, PIN, or
                   verification codes.
@@ -891,6 +947,8 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
+
+        {/* CUSTOMER SUPPORT */}
 
         {activePage === "support" && (
           <PortalPage
@@ -913,7 +971,9 @@ export default function Dashboard() {
                 className="support-option"
               >
                 <span>💬</span>
+
                 <strong>Live Chat</strong>
+
                 <small>
                   Chat with customer support
                 </small>
@@ -921,7 +981,9 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>🎫</span>
+
                 <strong>Support Ticket</strong>
+
                 <small>
                   Submit a question or complaint
                 </small>
@@ -929,7 +991,11 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>?</span>
-                <strong>Frequently Asked Questions</strong>
+
+                <strong>
+                  Frequently Asked Questions
+                </strong>
+
                 <small>
                   Find answers to common questions
                 </small>
@@ -937,7 +1003,9 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>!</span>
+
                 <strong>Report a Problem</strong>
+
                 <small>
                   Report an account or security issue
                 </small>
@@ -946,6 +1014,8 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
+
+        {/* SECURITY */}
 
         {activePage === "security" && (
           <PortalPage
@@ -972,6 +1042,8 @@ export default function Dashboard() {
           </PortalPage>
         )}
 
+        {/* SETTINGS */}
+
         {activePage === "settings" && (
           <PortalPage
             title="Account Settings"
@@ -980,6 +1052,7 @@ export default function Dashboard() {
             <div className="settings-row">
               <div>
                 <strong>Password</strong>
+
                 <p>
                   Change your account password.
                 </p>
@@ -1000,6 +1073,7 @@ export default function Dashboard() {
             <div className="settings-row">
               <div>
                 <strong>Email Address</strong>
+
                 <p>{user?.email}</p>
               </div>
             </div>
@@ -1007,6 +1081,7 @@ export default function Dashboard() {
             <div className="settings-row">
               <div>
                 <strong>Sign Out</strong>
+
                 <p>
                   End your current customer session.
                 </p>
@@ -1032,7 +1107,10 @@ export default function Dashboard() {
         aria-label="Open live chat"
       >
         <span className="chat-online-dot"></span>
-        <span className="chat-symbol">💬</span>
+
+        <span className="chat-symbol">
+          💬
+        </span>
       </button>
 
       {/* CHAT WINDOW */}
@@ -1053,13 +1131,13 @@ export default function Dashboard() {
             <button
               onClick={() => setChatOpen(false)}
               className="chat-close"
+              aria-label="Close chat"
             >
               ×
             </button>
           </div>
 
           <div className="chat-body">
-
             {chatMessages.map((message, index) => (
               <div
                 key={index}
@@ -1072,7 +1150,6 @@ export default function Dashboard() {
                 {message.text}
               </div>
             ))}
-
           </div>
 
           <form
@@ -1125,7 +1202,10 @@ function InfoRow({ label, value }) {
   return (
     <div className="detail-row large">
       <span>{label}</span>
-      <strong>{value || "Not available"}</strong>
+
+      <strong>
+        {value || "Not available"}
+      </strong>
     </div>
   );
 }
