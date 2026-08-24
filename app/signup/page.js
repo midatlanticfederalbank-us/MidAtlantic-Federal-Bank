@@ -8,74 +8,115 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function Signup() {
-  const [message, setMessage] = useState("");
+export default function SignupPage() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   async function handleSignup(event) {
     event.preventDefault();
+
     setLoading(true);
     setMessage("");
+    setError("");
 
-    const formData = new FormData(event.currentTarget);
+    const {
+      data,
+      error: signupError,
+    } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
 
-    const name = formData.get("name")?.toString().trim();
-    const email = formData.get("email")?.toString().trim();
-    const password = formData.get("password")?.toString();
-
-    if (!name || !email || !password) {
+    if (signupError) {
+      setError(signupError.message);
       setLoading(false);
-      setMessage("Please complete all required fields.");
       return;
     }
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-          },
-        },
+    if (!data.user) {
+      setError("Unable to create the account.");
+      setLoading(false);
+      return;
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert({
+        id: data.user.id,
+        full_name: fullName,
+        role: "customer",
+        approval_status: "pending",
       });
 
-      if (error) {
-        setLoading(false);
-        setMessage(error.message);
-        return;
-      }
+    if (profileError) {
+      console.error("PROFILE ERROR:", profileError);
 
-      setLoading(false);
-
-      setMessage(
-        "Account created. Please check your email to confirm your account."
+      setError(
+        "Your account was created, but your customer profile could not be completed."
       );
 
-    } catch (error) {
-      console.error("SIGNUP ERROR:", error);
-
       setLoading(false);
-
-      setMessage(
-        error?.message ||
-          "Unable to create your account."
-      );
+      return;
     }
+
+    setMessage(
+      "Your account has been created successfully and is awaiting approval."
+    );
+
+    setFullName("");
+    setEmail("");
+    setPassword("");
+    setLoading(false);
   }
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
-        <span className="real-badge">
-          REAL ACCOUNT
-        </span>
+      <div className="auth-card">
+        <div className="auth-brand">
+          <div className="bank-mark">M</div>
 
-        <h1>Create Your Account</h1>
+          <div>
+            <div className="bank-name">
+              MIDATLANTIC FEDERAL BANK
+            </div>
 
-        <p>
-          Create your customer account securely.
-        </p>
+            <div className="bank-subtitle">
+              Customer Banking Portal
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-heading">
+          <span className="account-label">CUSTOMER ACCOUNT</span>
+
+          <h1>Open Your Account</h1>
+
+          <p>
+            Create your customer account securely.
+          </p>
+        </div>
+
+        {error && (
+          <div className="auth-error">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="auth-success">
+            {message}
+          </div>
+        )}
 
         <form onSubmit={handleSignup}>
           <label>
@@ -83,8 +124,10 @@ export default function Signup() {
 
             <input
               type="text"
-              name="name"
-              placeholder="Your name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Enter your full name"
+              autoComplete="name"
               required
             />
           </label>
@@ -94,8 +137,10 @@ export default function Signup() {
 
             <input
               type="email"
-              name="email"
-              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Enter your email address"
+              autoComplete="email"
               required
             />
           </label>
@@ -105,31 +150,45 @@ export default function Signup() {
 
             <input
               type="password"
-              name="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="Create a password"
-              minLength={8}
+              autoComplete="new-password"
+              minLength={6}
               required
             />
           </label>
 
           <button
             type="submit"
-            className="primary-button"
+            className="auth-submit"
             disabled={loading}
           >
-            {loading
-              ? "Creating Account..."
-              : "Create Account"}
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 
-        {message && <p>{message}</p>}
+        <div className="auth-links">
+          <p>
+            Already have an account?
+            <a href="/login"> Sign In</a>
+          </p>
 
-        <p>
-          Already have an account?{" "}
-          <a href="/login">Sign in</a>
-        </p>
-      </section>
+          <a className="back-home" href="/">
+            ← Back to Home
+          </a>
+        </div>
+
+        <div className="demo-notice">
+          <strong>Demo Environment</strong>
+
+          <p>
+            This customer portal is part of a demonstration
+            banking application. Do not enter real banking
+            credentials or sensitive financial information.
+          </p>
+        </div>
+      </div>
     </main>
   );
 }
