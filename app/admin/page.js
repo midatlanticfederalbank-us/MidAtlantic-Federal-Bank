@@ -977,14 +977,16 @@ export default function AdminDashboard() {
         </section>
       )}
 
-  <section className="real-notice">
-  <h2>⛔ Security Warning</h2>
+      <section className="real-notice">
+        <h2>⛔ Security Warning</h2>
 
-  <p>
-    Never share your password, PIN, verification
-    codes, or other sensitive account information
-    with anyone. Our support team will never ask
-    you to disclose your password or security codes.
-  </p>
-</section>
+        <p>
+          Never share your password, PIN, verification
+          codes, or other sensitive account information
+          with anyone. Our support team will never ask
+          you to disclose your password or security codes.
+        </p>
+      </section>
+    </main>
+  );
 }
