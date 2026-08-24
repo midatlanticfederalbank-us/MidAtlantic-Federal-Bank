@@ -936,10 +936,14 @@ export default function AdminDashboard() {
                   className="notification"
                   key={item.id}
                 >
-                  <h3>
-                    {item.subject ||
-                      "Customer Support"}
-                  </h3>
+               <h3>
+  {item.customerName || "Customer"}
+</h3>
+
+<p>
+  <strong>Subject:</strong>{" "}
+  {item.subject || "Customer Support"}
+</p>
 
                   <p>
                     <strong>Status:</strong>{" "}
