@@ -3,16 +3,13 @@ import Navbar from "./components/Navbar";
 
 export const metadata = {
   title: "MidAtlantic Federal Bank",
-  description: "Real banking application",
+  description: "Banking application",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <Navbar />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
