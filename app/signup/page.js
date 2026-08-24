@@ -82,6 +82,9 @@ export default function SignupPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
+
+        {/* BANK BRANDING */}
+
         <div className="auth-brand">
           <div className="bank-mark">M</div>
 
@@ -91,13 +94,17 @@ export default function SignupPage() {
             </div>
 
             <div className="bank-subtitle">
-              Customer Banking Portal
+              CUSTOMER BANKING PORTAL
             </div>
           </div>
         </div>
 
+        {/* SIGNUP HEADING */}
+
         <div className="auth-heading">
-          <span className="account-label">CUSTOMER ACCOUNT</span>
+          <span className="account-label">
+            CUSTOMER ACCOUNT
+          </span>
 
           <h1>Open Your Account</h1>
 
@@ -106,11 +113,15 @@ export default function SignupPage() {
           </p>
         </div>
 
+        {/* ERROR MESSAGE */}
+
         {error && (
           <div className="auth-error">
             {error}
           </div>
         )}
+
+        {/* SUCCESS MESSAGE */}
 
         {message && (
           <div className="auth-success">
@@ -118,14 +129,19 @@ export default function SignupPage() {
           </div>
         )}
 
+        {/* SIGNUP FORM */}
+
         <form onSubmit={handleSignup}>
+
           <label>
             Full Name
 
             <input
               type="text"
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) =>
+                setFullName(event.target.value)
+              }
               placeholder="Enter your full name"
               autoComplete="name"
               required
@@ -138,7 +154,9 @@ export default function SignupPage() {
             <input
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               placeholder="Enter your email address"
               autoComplete="email"
               required
@@ -151,7 +169,9 @@ export default function SignupPage() {
             <input
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               placeholder="Create a password"
               autoComplete="new-password"
               minLength={6}
@@ -164,30 +184,33 @@ export default function SignupPage() {
             className="auth-submit"
             disabled={loading}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
+
         </form>
 
+        {/* ACCOUNT LINKS */}
+
         <div className="auth-links">
+
           <p>
-            Already have an account?
-            <a href="/login"> Sign In</a>
+            Already have an account?{" "}
+            <a href="/login">
+              Sign In
+            </a>
           </p>
 
-          <a className="back-home" href="/">
+          <a
+            className="back-home"
+            href="/"
+          >
             ← Back to Home
           </a>
+
         </div>
 
-        <div className="demo-notice">
-          <strong>Demo Environment</strong>
-
-          <p>
-            This customer portal is part of a demonstration
-            banking application. Do not enter real banking
-            credentials or sensitive financial information.
-          </p>
-        </div>
       </div>
     </main>
   );
