@@ -37,7 +37,14 @@ export async function POST(request) {
       },
 
       replyTo: "midfb@outlook.com",
-
+trackingSettings: {
+  clickTracking: {
+    enable: false,
+  },
+  openTracking: {
+    enable: false,
+  },
+},
       subject: "Your Registration Has Been Approved",
 
       html: `
