@@ -69,7 +69,8 @@ export default function AdminDashboard() {
   }
 
   async function loadAccounts() {
-    const { data, error } = await supabase
+  const { data: accountData, error: accountError } =
+    await supabase
       .from("customer_accounts")
       .select(
         "id, user_id, account_number, account_type, status, balance, created_at"
@@ -78,14 +79,51 @@ export default function AdminDashboard() {
         ascending: false,
       });
 
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setAccounts(data || []);
+  if (accountError) {
+    setNotice(accountError.message);
+    return;
   }
 
+  if (!accountData || accountData.length === 0) {
+    setAccounts([]);
+    return;
+  }
+
+  const userIds = accountData.map(
+    (account) => account.user_id
+  );
+
+  const { data: profileData, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", userIds);
+
+  if (profileError) {
+    setNotice(profileError.message);
+    return;
+  }
+
+  const profileMap = {};
+
+  (profileData || []).forEach((profile) => {
+    profileMap[profile.id] = profile;
+  });
+
+  const combinedAccounts = accountData.map(
+    (account) => ({
+      ...account,
+      customerName:
+        profileMap[account.user_id]?.full_name ||
+        "Customer",
+      customerEmail:
+        profileMap[account.user_id]?.email ||
+        "",
+    })
+  );
+
+  setAccounts(combinedAccounts);
+}
   async function loadMessages() {
     const { data, error } = await supabase
       .from("support_messages")
