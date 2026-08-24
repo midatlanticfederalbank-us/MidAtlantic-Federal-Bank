@@ -123,14 +123,16 @@ export async function POST(request) {
                 </p>
 
                 <p style="
-                  margin:0;
-                  color:#172033;
-                  font-size:22px;
-                  font-weight:bold;
-                  letter-spacing:1px;
-                ">
-                  ${accountNumber}
-                </p>
+  margin:0;
+  color:#172033;
+  font-size:22px;
+  font-weight:bold;
+  letter-spacing:1px;
+">
+  <span style="color:#172033;">
+    ${accountNumber}
+  </span>
+</p>
 
               </div>
 
