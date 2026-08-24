@@ -12,8 +12,11 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [account, setAccount] = useState(null);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transactionLoading, setTransactionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [transactionError, setTransactionError] = useState("");
 
   useEffect(() => {
     loadDashboard();
@@ -38,9 +41,7 @@ export default function Dashboard() {
     const { data: profileData, error: profileError } =
       await supabase
         .from("profiles")
-        .select(
-          "id, full_name, role, approval_status"
-        )
+        .select("id, full_name, role, approval_status")
         .eq("id", user.id)
         .single();
 
@@ -73,12 +74,68 @@ export default function Dashboard() {
     }
 
     setAccount(accountData);
+
+    if (accountData) {
+      await loadTransactions(accountData.id);
+    }
+
     setLoading(false);
+  }
+
+  async function loadTransactions(accountId) {
+    setTransactionLoading(true);
+    setTransactionError("");
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(
+        "id, transaction_type, amount, description, transaction_date, created_at"
+      )
+      .eq("account_id", accountId)
+      .order("transaction_date", {
+        ascending: false,
+      });
+
+    if (error) {
+      console.error("TRANSACTION ERROR:", error);
+      setTransactionError(error.message);
+      setTransactions([]);
+      setTransactionLoading(false);
+      return;
+    }
+
+    setTransactions(data || []);
+    setTransactionLoading(false);
   }
 
   async function logout() {
     await supabase.auth.signOut();
     window.location.href = "/login";
+  }
+
+  function formatAmount(amount, type) {
+    const number = Number(amount || 0);
+
+    const formatted = number.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    return type === "debit"
+      ? `-$${formatted}`
+      : `+$${formatted}`;
+  }
+
+  function formatDate(date) {
+    if (!date) return "—";
+
+    return new Date(date).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
 
   if (loading) {
@@ -130,7 +187,10 @@ export default function Dashboard() {
               CUSTOMER
             </span>
 
-            <h1>Welcome, {profile.full_name || "Customer"}</h1>
+            <h1>
+              Welcome,{" "}
+              {profile.full_name || "Customer"}
+            </h1>
 
             <p>
               Your account is awaiting approval.
@@ -325,6 +385,72 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* TRANSACTION HISTORY */}
+
+      <section>
+        <h2>Transaction History</h2>
+
+        {transactionLoading ? (
+          <div className="notification">
+            <p>Loading transactions...</p>
+          </div>
+        ) : transactionError ? (
+          <div className="notification">
+            <p>
+              Unable to load transaction history.
+            </p>
+          </div>
+        ) : transactions.length === 0 ? (
+          <div className="notification">
+            <p>
+              No transactions are available for this
+              account.
+            </p>
+          </div>
+        ) : (
+          <div className="transaction-list">
+            {transactions.map((transaction) => (
+              <div
+                className="transaction"
+                key={transaction.id}
+              >
+                <div>
+                  <strong>
+                    {transaction.description ||
+                      "Account Transaction"}
+                  </strong>
+
+                  <p>
+                    {formatDate(
+                      transaction.transaction_date
+                    )}
+                  </p>
+
+                  <p>
+                    Type:{" "}
+                    {transaction.transaction_type
+                      ? transaction.transaction_type
+                          .charAt(0)
+                          .toUpperCase() +
+                        transaction.transaction_type.slice(
+                          1
+                        )
+                      : "Transaction"}
+                  </p>
+                </div>
+
+                <strong>
+                  {formatAmount(
+                    transaction.amount,
+                    transaction.transaction_type
+                  )}
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="real-notice">
