@@ -15,14 +15,19 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [transactionLoading, setTransactionLoading] = useState(false);
-
   const [error, setError] = useState("");
-  const [transactionError, setTransactionError] = useState("");
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState(null);
-  const [transferType, setTransferType] = useState(null);
+  const [activePage, setActivePage] = useState("dashboard");
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatMessages, setChatMessages] = useState([
+    {
+      sender: "support",
+      text: "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+    },
+  ]);
 
   useEffect(() => {
     loadDashboard();
@@ -33,22 +38,22 @@ export default function Dashboard() {
     setError("");
 
     const {
-      data: { user: currentUser },
+      data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError || !currentUser) {
+    if (userError || !user) {
       window.location.href = "/login";
       return;
     }
 
-    setUser(currentUser);
+    setUser(user);
 
     const { data: profileData, error: profileError } =
       await supabase
         .from("profiles")
         .select("id, full_name, role, approval_status")
-        .eq("id", currentUser.id)
+        .eq("id", user.id)
         .single();
 
     if (profileError) {
@@ -70,7 +75,7 @@ export default function Dashboard() {
         .select(
           "id, user_id, account_number, balance, status, account_type, created_at"
         )
-        .eq("user_id", currentUser.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
     if (accountError) {
@@ -82,36 +87,20 @@ export default function Dashboard() {
     setAccount(accountData);
 
     if (accountData) {
-      await loadTransactions(accountData.id);
+      const { data: transactionData } = await supabase
+        .from("transactions")
+        .select(
+          "id, transaction_type, amount, description, transaction_date, created_at"
+        )
+        .eq("account_id", accountData.id)
+        .order("transaction_date", {
+          ascending: false,
+        });
+
+      setTransactions(transactionData || []);
     }
 
     setLoading(false);
-  }
-
-  async function loadTransactions(accountId) {
-    setTransactionLoading(true);
-    setTransactionError("");
-
-    const { data, error: transactionsError } = await supabase
-      .from("transactions")
-      .select(
-        "id, transaction_type, amount, description, transaction_date, created_at"
-      )
-      .eq("account_id", accountId)
-      .order("transaction_date", {
-        ascending: false,
-      });
-
-    if (transactionsError) {
-      console.error("TRANSACTION ERROR:", transactionsError);
-      setTransactionError(transactionsError.message);
-      setTransactions([]);
-      setTransactionLoading(false);
-      return;
-    }
-
-    setTransactions(data || []);
-    setTransactionLoading(false);
   }
 
   async function logout() {
@@ -119,101 +108,74 @@ export default function Dashboard() {
     window.location.href = "/login";
   }
 
-  function getGreeting() {
+  function greeting() {
     const hour = new Date().getHours();
 
-    if (hour < 12) {
-      return "Good morning";
-    }
-
-    if (hour < 18) {
-      return "Good afternoon";
-    }
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
 
     return "Good evening";
   }
 
-  function formatBalance(amount) {
+  function openPage(page) {
+    setActivePage(page);
+    setMenuOpen(false);
+  }
+
+  function formatMoney(amount) {
     return Number(amount || 0).toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
   }
 
-  function formatAmount(amount, type) {
-    const number = Number(amount || 0);
-
-    const formatted = number.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    return type === "debit"
-      ? `-$${formatted}`
-      : `+$${formatted}`;
-  }
-
   function formatDate(date) {
     if (!date) return "—";
 
     return new Date(date).toLocaleString("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
+      year: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
   }
 
-  function openPanel(panel) {
-    setMenuOpen(false);
-    setTransferType(null);
-    setActivePanel(panel);
-  }
+  function sendChatMessage(event) {
+    event.preventDefault();
 
-  function openTransfer(type) {
-    setMenuOpen(false);
-    setActivePanel(null);
-    setTransferType(type);
-  }
+    const message = chatMessage.trim();
 
-  function closePanels() {
-    setActivePanel(null);
-    setTransferType(null);
-  }
+    if (!message) return;
 
-  function getPanelTitle() {
-    const titles = {
-      profile: "My Profile",
-      account: "Account Information",
-      transactions: "Transaction History",
-      support: "Customer Support",
-      notifications: "Notifications",
-      security: "Security Center",
-      settings: "Account Settings",
-    };
+    setChatMessages((messages) => [
+      ...messages,
+      {
+        sender: "customer",
+        text: message,
+      },
+    ]);
 
-    return titles[activePanel] || "";
-  }
+    setChatMessage("");
 
-  function getTransferTitle() {
-    const titles = {
-      withdraw: "Withdrawal Request",
-      transfer: "Transfer",
-      wire: "Wire Transfer",
-      local: "Local Transfer",
-    };
-
-    return titles[transferType] || "";
+    setTimeout(() => {
+      setChatMessages((messages) => [
+        ...messages,
+        {
+          sender: "support",
+          text: "Thank you for your message. A customer-service representative can review your request.",
+        },
+      ]);
+    }, 700);
   }
 
   if (loading) {
     return (
-      <main className="dashboard-page">
-        <div className="dashboard-loading">
+      <main className="portal-loading">
+        <div className="loading-card">
           <div className="loading-logo">M</div>
           <h2>MIDATLANTIC FEDERAL BANK</h2>
-          <p>Loading your customer dashboard...</p>
+          <p>Loading your customer portal...</p>
         </div>
       </main>
     );
@@ -221,18 +183,12 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <main className="dashboard-page">
-        <div className="dashboard-error-card">
-          <span className="dashboard-label">CUSTOMER PORTAL</span>
-
-          <h1>Unable to Load Dashboard</h1>
-
+      <main className="portal-loading">
+        <div className="loading-card">
+          <h2>Unable to Load Account</h2>
           <p>{error}</p>
 
-          <button
-            className="dashboard-primary-button"
-            onClick={logout}
-          >
+          <button className="portal-button" onClick={logout}>
             Sign Out
           </button>
         </div>
@@ -245,481 +201,636 @@ export default function Dashboard() {
     profile.approval_status !== "approved"
   ) {
     return (
-      <main className="dashboard-page">
-        <div className="dashboard-shell">
-          <header className="customer-topbar">
-            <div className="bank-header">
-              <div className="bank-header-mark">M</div>
-
-              <div>
-                <strong>MIDATLANTIC FEDERAL BANK</strong>
-                <span>Customer Banking Portal</span>
-              </div>
+      <main className="portal-page">
+        <div className="portal-header">
+          <div>
+            <div className="bank-name">
+              MIDATLANTIC FEDERAL BANK
             </div>
+            <div className="portal-label">
+              CUSTOMER BANKING PORTAL
+            </div>
+          </div>
 
-            <button
-              className="dashboard-signout"
-              onClick={logout}
-            >
-              Sign Out
-            </button>
-          </header>
-
-          <section className="pending-card">
-            <span className="dashboard-label">
-              CUSTOMER ACCOUNT
-            </span>
-
-            <h1>
-              {getGreeting()},{" "}
-              {profile.full_name || "Customer"}
-            </h1>
-
-            <h2>Account Pending Approval</h2>
-
-            <p>
-              Your registration has been received and is
-              currently awaiting approval.
-            </p>
-
-            <p>
-              Your customer account information will become
-              available here once the account has been approved.
-            </p>
-          </section>
+          <button className="portal-button" onClick={logout}>
+            Sign Out
+          </button>
         </div>
+
+        <section className="pending-card">
+          <span className="status-badge pending">
+            PENDING
+          </span>
+
+          <h1>
+            {greeting()}, {profile.full_name || "Customer"}
+          </h1>
+
+          <h2>Account Awaiting Approval</h2>
+
+          <p>
+            Your registration has been received and is
+            awaiting account approval.
+          </p>
+        </section>
       </main>
     );
   }
 
   if (!account) {
     return (
-      <main className="dashboard-page">
-        <div className="dashboard-shell">
-          <header className="customer-topbar">
-            <div className="bank-header">
-              <div className="bank-header-mark">M</div>
-
-              <div>
-                <strong>MIDATLANTIC FEDERAL BANK</strong>
-                <span>Customer Banking Portal</span>
-              </div>
+      <main className="portal-page">
+        <div className="portal-header">
+          <div>
+            <div className="bank-name">
+              MIDATLANTIC FEDERAL BANK
             </div>
+            <div className="portal-label">
+              CUSTOMER BANKING PORTAL
+            </div>
+          </div>
 
-            <button
-              className="dashboard-signout"
-              onClick={logout}
-            >
-              Sign Out
-            </button>
-          </header>
-
-          <section className="pending-card">
-            <span className="dashboard-label">
-              CUSTOMER ACCOUNT
-            </span>
-
-            <h1>
-              {getGreeting()},{" "}
-              {profile?.full_name || "Customer"}
-            </h1>
-
-            <h2>Account Information Unavailable</h2>
-
-            <p>
-              Your customer profile has been approved, but
-              an account record has not yet been created.
-            </p>
-          </section>
+          <button className="portal-button" onClick={logout}>
+            Sign Out
+          </button>
         </div>
+
+        <section className="pending-card">
+          <h1>
+            {greeting()}, {profile?.full_name || "Customer"}
+          </h1>
+
+          <h2>Account Information Unavailable</h2>
+
+          <p>
+            Your customer profile has been approved, but an
+            account record has not yet been assigned.
+          </p>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="dashboard-page">
-      <div className="dashboard-shell">
+    <main className="portal-page">
 
-        {/* TOP BAR */}
+      {/* HEADER */}
 
-        <header className="customer-topbar">
-          <a href="/" className="bank-header">
-            <div className="bank-header-mark">M</div>
+      <header className="portal-header">
 
-            <div>
-              <strong>MIDATLANTIC FEDERAL BANK</strong>
-              <span>Customer Banking Portal</span>
-            </div>
-          </a>
-
-          <div className="customer-actions">
-            <button
-              className="dashboard-menu-button"
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Open customer menu"
-            >
-              <span></span>
-              <span></span>
-              <span></span>
-            </button>
-
-            <button
-              className="dashboard-signout"
-              onClick={logout}
-            >
-              Sign Out
-            </button>
+        <div>
+          <div className="bank-name">
+            MIDATLANTIC FEDERAL BANK
           </div>
 
-          {/* MENU */}
+          <div className="portal-label">
+            CUSTOMER BANKING PORTAL
+          </div>
+        </div>
 
-          {menuOpen && (
-            <div className="customer-menu">
-              <div className="customer-menu-header">
-                <strong>
+        <div className="header-actions">
+
+          <span className="online-status">
+            <span className="online-dot"></span>
+            Online
+          </span>
+
+          <button
+            className="menu-trigger"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Open customer menu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
+        </div>
+
+        {/* MENU */}
+
+        {menuOpen && (
+          <div className="customer-menu">
+
+            <div className="menu-title">
+              CUSTOMER MENU
+            </div>
+
+            <button onClick={() => openPage("dashboard")}>
+              <span className="menu-number">01</span>
+              <span>Dashboard</span>
+            </button>
+
+            <button onClick={() => openPage("profile")}>
+              <span className="menu-number">02</span>
+              <span>My Profile</span>
+            </button>
+
+            <button onClick={() => openPage("account")}>
+              <span className="menu-number">03</span>
+              <span>Account Information</span>
+            </button>
+
+            <div className="menu-section">
+              TRANSFERS & PAYMENTS
+            </div>
+
+            <button onClick={() => openPage("withdraw")}>
+              <span className="menu-number">04</span>
+              <span>Withdraw</span>
+            </button>
+
+            <button onClick={() => openPage("transfer")}>
+              <span className="menu-number">05</span>
+              <span>Transfer</span>
+            </button>
+
+            <button onClick={() => openPage("wire")}>
+              <span className="menu-number">06</span>
+              <span>Wire Transfer</span>
+            </button>
+
+            <button onClick={() => openPage("local")}>
+              <span className="menu-number">07</span>
+              <span>Local Transfer</span>
+            </button>
+
+            <div className="menu-section">
+              ACTIVITY
+            </div>
+
+            <button onClick={() => openPage("transactions")}>
+              <span className="menu-number">08</span>
+              <span>Transaction History</span>
+            </button>
+
+            <button onClick={() => openPage("notifications")}>
+              <span className="menu-number">09</span>
+              <span>Notifications</span>
+            </button>
+
+            <div className="menu-section">
+              SUPPORT
+            </div>
+
+            <button onClick={() => openPage("support")}>
+              <span className="menu-number">10</span>
+              <span>Customer Support</span>
+            </button>
+
+            <div className="menu-section">
+              SECURITY
+            </div>
+
+            <button onClick={() => openPage("security")}>
+              <span className="menu-number">11</span>
+              <span>Security Center</span>
+            </button>
+
+            <button onClick={() => openPage("settings")}>
+              <span className="menu-number">12</span>
+              <span>Account Settings</span>
+            </button>
+
+            <div className="menu-divider"></div>
+
+            <button
+              className="signout-menu"
+              onClick={logout}
+            >
+              <span className="menu-number">13</span>
+              <span>Sign Out</span>
+            </button>
+
+          </div>
+        )}
+
+      </header>
+
+      {/* CONTENT */}
+
+      <div className="portal-content">
+
+        {activePage === "dashboard" && (
+          <>
+            <section className="welcome-section">
+              <div>
+                <span className="customer-badge">
+                  CUSTOMER ACCOUNT
+                </span>
+
+                <h1>
+                  {greeting()},{" "}
                   {profile?.full_name || "Customer"}
-                </strong>
+                </h1>
+
+                <p>
+                  Here's an overview of your customer account.
+                </p>
+              </div>
+            </section>
+
+            <section className="balance-card-professional">
+              <div>
+                <p>AVAILABLE BALANCE</p>
+
+                <h2>
+                  ${formatMoney(account.balance)}
+                </h2>
 
                 <span>
-                  Customer Account
+                  Account ending in{" "}
+                  {String(account.account_number || "").slice(-4)}
                 </span>
               </div>
 
-              <button
-                onClick={() => openPanel("profile")}
-              >
-                <span>👤</span>
-                My Profile
-              </button>
+              <div className="balance-status">
+                <span className="online-dot"></span>
+                {account.status || "Active"}
+              </div>
+            </section>
 
-              <button
-                onClick={() => openPanel("account")}
-              >
-                <span>🏦</span>
-                Account Information
-              </button>
+            <section className="portal-section">
+              <div className="section-heading">
+                <div>
+                  <span className="section-label">
+                    ACCOUNT SERVICES
+                  </span>
 
-              <button
-                onClick={() => openPanel("transactions")}
-              >
-                <span>📋</span>
-                Transaction History
-              </button>
-
-              <button
-                onClick={() => openPanel("support")}
-              >
-                <span>💬</span>
-                Customer Support
-              </button>
-
-              <button
-                onClick={() => openPanel("notifications")}
-              >
-                <span>🔔</span>
-                Notifications
-              </button>
-
-              <button
-                onClick={() => openPanel("security")}
-              >
-                <span>🔐</span>
-                Security Center
-              </button>
-
-              <button
-                onClick={() => openPanel("settings")}
-              >
-                <span>⚙️</span>
-                Account Settings
-              </button>
-
-              <div className="customer-menu-divider"></div>
-
-              <button
-                className="customer-menu-danger"
-                onClick={logout}
-              >
-                <span>↪</span>
-                Sign Out
-              </button>
-            </div>
-          )}
-        </header>
-
-        {/* WELCOME */}
-
-        <section className="welcome-section">
-          <div>
-            <span className="dashboard-label">
-              CUSTOMER DASHBOARD
-            </span>
-
-            <h1>
-              {getGreeting()},{" "}
-              {profile?.full_name || "Customer"}
-            </h1>
-
-            <p>
-              Here's an overview of your customer account.
-            </p>
-          </div>
-
-          <div className="account-status-pill">
-            <span className="status-dot"></span>
-            {account.status || "Active"}
-          </div>
-        </section>
-
-        {/* BALANCE */}
-
-        <section className="balance-card-new">
-          <div className="balance-content">
-            <div>
-              <p className="balance-label">
-                AVAILABLE BALANCE
-              </p>
-
-              <h2>
-                ${formatBalance(account.balance)}
-              </h2>
-
-              <p className="account-number">
-                Account Number:{" "}
-                <strong>
-                  {account.account_number || "Not assigned"}
-                </strong>
-              </p>
-            </div>
-
-            <div className="balance-mark">
-              $
-            </div>
-          </div>
-        </section>
-
-        {/* QUICK ACTIONS */}
-
-        <section className="dashboard-section">
-          <div className="section-heading">
-            <div>
-              <span>ACCOUNT SERVICES</span>
-              <h2>Quick Actions</h2>
-            </div>
-          </div>
-
-          <div className="quick-actions-new">
-
-            <button
-              className="quick-action-card"
-              onClick={() => openTransfer("withdraw")}
-            >
-              <div className="quick-action-icon withdrawal-icon">
-                ↓
+                  <h2>Quick Actions</h2>
+                </div>
               </div>
 
-              <strong>Withdraw</strong>
+              <div className="quick-action-grid">
 
-              <small>
-                Submit a withdrawal request
-              </small>
-            </button>
+                <button
+                  onClick={() => openPage("withdraw")}
+                  className="quick-action"
+                >
+                  <span className="action-icon">↓</span>
+                  <strong>Withdraw</strong>
+                  <small>
+                    Submit a withdrawal request
+                  </small>
+                </button>
 
-            <button
-              className="quick-action-card"
-              onClick={() => openTransfer("transfer")}
-            >
-              <div className="quick-action-icon transfer-icon">
-                ↗
+                <button
+                  onClick={() => openPage("transfer")}
+                  className="quick-action"
+                >
+                  <span className="action-icon">↗</span>
+                  <strong>Transfer</strong>
+                  <small>
+                    Submit a transfer request
+                  </small>
+                </button>
+
+                <button
+                  onClick={() => openPage("wire")}
+                  className="quick-action"
+                >
+                  <span className="action-icon">$</span>
+                  <strong>Wire Transfer</strong>
+                  <small>
+                    Enter recipient information
+                  </small>
+                </button>
+
+                <button
+                  onClick={() => openPage("local")}
+                  className="quick-action"
+                >
+                  <span className="action-icon">→</span>
+                  <strong>Local Transfer</strong>
+                  <small>
+                    Submit a local transfer request
+                  </small>
+                </button>
+
               </div>
+            </section>
 
-              <strong>Transfer</strong>
+            <div className="two-column">
 
-              <small>
-                Send a transfer request
-              </small>
-            </button>
+              <section className="portal-section">
+                <span className="section-label">
+                  ACCOUNT
+                </span>
 
-            <button
-              className="quick-action-card"
-              onClick={() => openTransfer("wire")}
-            >
-              <div className="quick-action-icon wire-icon">
-                $
-              </div>
-
-              <strong>Wire Transfer</strong>
-
-              <small>
-                Enter recipient information
-              </small>
-            </button>
-
-            <button
-              className="quick-action-card"
-              onClick={() => openTransfer("local")}
-            >
-              <div className="quick-action-icon local-icon">
-                →
-              </div>
-
-              <strong>Local Transfer</strong>
-
-              <small>
-                Submit a local transfer request
-              </small>
-            </button>
-
-          </div>
-        </section>
-
-        {/* ACCOUNT OVERVIEW */}
-
-        <div className="dashboard-columns">
-
-          <section className="dashboard-section">
-            <div className="section-heading">
-              <div>
-                <span>ACCOUNT</span>
                 <h2>Account Overview</h2>
-              </div>
-            </div>
 
-            <div className="account-overview-list">
+                <div className="detail-row">
+                  <span>Account Holder</span>
+                  <strong>{profile?.full_name}</strong>
+                </div>
 
-              <div className="overview-row">
-                <span>Account Holder</span>
-                <strong>
-                  {profile?.full_name || "Customer"}
-                </strong>
-              </div>
+                <div className="detail-row">
+                  <span>Account Number</span>
+                  <strong>{account.account_number}</strong>
+                </div>
 
-              <div className="overview-row">
-                <span>Account Number</span>
-                <strong>
-                  {account.account_number || "Not assigned"}
-                </strong>
-              </div>
+                <div className="detail-row">
+                  <span>Account Type</span>
+                  <strong>
+                    {account.account_type || "Checking"}
+                  </strong>
+                </div>
 
-              <div className="overview-row">
-                <span>Account Type</span>
-                <strong>
-                  {account.account_type || "Checking"}
-                </strong>
-              </div>
+                <div className="detail-row">
+                  <span>Account Status</span>
+                  <strong className="active-text">
+                    {account.status || "Active"}
+                  </strong>
+                </div>
+              </section>
 
-              <div className="overview-row">
-                <span>Account Status</span>
-                <strong className="active-text">
-                  {account.status || "Active"}
-                </strong>
-              </div>
+              <section className="portal-section">
+                <span className="section-label">
+                  ACCOUNT ACTIVITY
+                </span>
 
-            </div>
-          </section>
-
-          {/* NOTIFICATIONS */}
-
-          <section className="dashboard-section">
-            <div className="section-heading">
-              <div>
-                <span>ACCOUNT ACTIVITY</span>
                 <h2>Notifications</h2>
-              </div>
 
-              <button
-                className="text-button"
-                onClick={() =>
-                  openPanel("notifications")
-                }
-              >
-                View All
-              </button>
+                <div className="notification-item">
+                  <div className="notification-icon">
+                    ✓
+                  </div>
+
+                  <div>
+                    <strong>Account Active</strong>
+
+                    <p>
+                      Your customer account is currently
+                      available.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="notification-item">
+                  <div className="notification-icon warning">
+                    !
+                  </div>
+
+                  <div>
+                    <strong>Security Reminder</strong>
+
+                    <p>
+                      Never share passwords or verification
+                      codes.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
             </div>
 
-            <div className="dashboard-notification">
-              <div className="notification-icon">
-                ✓
+            <section className="portal-section">
+
+              <div className="section-heading">
+                <div>
+                  <span className="section-label">
+                    ACCOUNT ACTIVITY
+                  </span>
+
+                  <h2>Recent Transactions</h2>
+                </div>
+
+                <button
+                  className="text-button"
+                  onClick={() => openPage("transactions")}
+                >
+                  View All
+                </button>
+              </div>
+
+              {transactions.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">▣</div>
+
+                  <strong>No Transactions Yet</strong>
+
+                  <p>
+                    Transactions associated with this
+                    account will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="transaction-list-professional">
+                  {transactions
+                    .slice(0, 5)
+                    .map((transaction) => (
+                      <div
+                        className="transaction-row"
+                        key={transaction.id}
+                      >
+                        <div>
+                          <strong>
+                            {transaction.description ||
+                              "Account Transaction"}
+                          </strong>
+
+                          <small>
+                            {formatDate(
+                              transaction.transaction_date
+                            )}
+                          </small>
+                        </div>
+
+                        <strong>
+                          $
+                          {formatMoney(
+                            transaction.amount
+                          )}
+                        </strong>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+            </section>
+          </>
+        )}
+
+        {activePage === "profile" && (
+          <PortalPage title="My Profile" label="CUSTOMER">
+
+            <div className="profile-header">
+              <div className="profile-avatar">
+                {(profile?.full_name || "C")
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
               <div>
-                <strong>Account Active</strong>
-
-                <p>
-                  Your customer account is currently
-                  active and available in this portal.
-                </p>
+                <h2>{profile?.full_name}</h2>
+                <p>Customer Account</p>
               </div>
             </div>
 
-            <div className="dashboard-notification">
-              <div className="notification-icon">
-                !
-              </div>
+            <InfoRow
+              label="Full Name"
+              value={profile?.full_name}
+            />
 
-              <div>
-                <strong>Security Reminder</strong>
+            <InfoRow
+              label="Email Address"
+              value={user?.email}
+            />
 
-                <p>
-                  Never share passwords or verification
-                  codes with anyone.
-                </p>
-              </div>
+            <InfoRow
+              label="Account Number"
+              value={account.account_number}
+            />
+
+            <InfoRow
+              label="Account Type"
+              value={account.account_type || "Checking"}
+            />
+
+          </PortalPage>
+        )}
+
+        {activePage === "account" && (
+          <PortalPage
+            title="Account Information"
+            label="ACCOUNT"
+          >
+            <InfoRow
+              label="Account Holder"
+              value={profile?.full_name}
+            />
+
+            <InfoRow
+              label="Account Number"
+              value={account.account_number}
+            />
+
+            <InfoRow
+              label="Account Type"
+              value={account.account_type || "Checking"}
+            />
+
+            <InfoRow
+              label="Account Status"
+              value={account.status || "Active"}
+            />
+
+            <InfoRow
+              label="Available Balance"
+              value={`$${formatMoney(account.balance)}`}
+            />
+          </PortalPage>
+        )}
+
+        {[
+          "withdraw",
+          "transfer",
+          "wire",
+          "local",
+        ].includes(activePage) && (
+          <PortalPage
+            title={
+              activePage === "withdraw"
+                ? "Withdraw"
+                : activePage === "transfer"
+                ? "Transfer"
+                : activePage === "wire"
+                ? "Wire Transfer"
+                : "Local Transfer"
+            }
+            label="TRANSFERS & PAYMENTS"
+          >
+            <div className="request-notice">
+              <strong>Request Information</strong>
+              <p>
+                Complete the form below to submit a request.
+                This interface does not directly move funds.
+              </p>
             </div>
-          </section>
-        </div>
 
-        {/* TRANSACTIONS */}
+            {activePage !== "withdraw" && (
+              <>
+                <label className="form-label">
+                  Recipient Name
+                  <input
+                    className="portal-input"
+                    type="text"
+                    placeholder="Enter recipient name"
+                  />
+                </label>
 
-        <section className="dashboard-section">
-          <div className="section-heading">
-            <div>
-              <span>ACCOUNT ACTIVITY</span>
-              <h2>Recent Transactions</h2>
-            </div>
+                <label className="form-label">
+                  Recipient Account Number
+                  <input
+                    className="portal-input"
+                    type="text"
+                    placeholder="Enter account number"
+                  />
+                </label>
+
+                <label className="form-label">
+                  Bank Name
+                  <input
+                    className="portal-input"
+                    type="text"
+                    placeholder="Enter bank name"
+                  />
+                </label>
+              </>
+            )}
+
+            <label className="form-label">
+              Amount
+              <input
+                className="portal-input"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </label>
+
+            <label className="form-label">
+              Description
+              <textarea
+                className="portal-textarea"
+                rows="4"
+                placeholder="Add a description or additional information"
+              />
+            </label>
 
             <button
-              className="text-button"
+              className="portal-button"
               onClick={() =>
-                openPanel("transactions")
+                alert(
+                  "Your request has been prepared for submission."
+                )
               }
             >
-              View All
+              Submit Request
             </button>
-          </div>
+          </PortalPage>
+        )}
 
-          {transactionLoading ? (
-            <div className="empty-state">
-              <p>Loading transactions...</p>
-            </div>
-          ) : transactionError ? (
-            <div className="empty-state">
-              <p>
-                Unable to load transaction history.
-              </p>
-            </div>
-          ) : transactions.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📋</div>
+        {activePage === "transactions" && (
+          <PortalPage
+            title="Transaction History"
+            label="ACTIVITY"
+          >
+            {transactions.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">▣</div>
 
-              <strong>No Transactions Yet</strong>
+                <strong>No Transactions Yet</strong>
 
-              <p>
-                Transactions associated with this account
-                will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="transaction-table">
-
-              <div className="transaction-table-header">
-                <span>Description</span>
-                <span>Date</span>
-                <span>Amount</span>
+                <p>
+                  Transactions associated with this account
+                  will appear here.
+                </p>
               </div>
-
-              {transactions.slice(0, 5).map(
-                (transaction) => (
+            ) : (
+              <div className="transaction-list-professional">
+                {transactions.map((transaction) => (
                   <div
                     className="transaction-row"
                     key={transaction.id}
@@ -731,653 +842,290 @@ export default function Dashboard() {
                       </strong>
 
                       <small>
-                        {transaction.transaction_type ||
-                          "Transaction"}
+                        {formatDate(
+                          transaction.transaction_date
+                        )}
                       </small>
                     </div>
 
-                    <span>
-                      {formatDate(
-                        transaction.transaction_date
-                      )}
-                    </span>
-
-                    <strong
-                      className={
-                        transaction.transaction_type ===
-                        "debit"
-                          ? "amount-debit"
-                          : "amount-credit"
-                      }
-                    >
-                      {formatAmount(
-                        transaction.amount,
-                        transaction.transaction_type
-                      )}
+                    <strong>
+                      ${formatMoney(transaction.amount)}
                     </strong>
                   </div>
-                )
-              )}
+                ))}
+              </div>
+            )}
+          </PortalPage>
+        )}
 
-            </div>
-          )}
-        </section>
-
-        {/* SECURITY NOTICE */}
-
-        <section className="security-notice-new">
-          <div className="security-notice-icon">
-            🔐
-          </div>
-
-          <div>
-            <strong>Security Reminder</strong>
-
-            <p>
-              Never share your password, PIN, verification
-              code, or other sensitive information. Support
-              representatives should never ask you to reveal
-              your password or security codes.
-            </p>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-
-        <footer className="dashboard-footer">
-          <strong>MIDATLANTIC FEDERAL BANK</strong>
-
-          <span>
-            Customer Banking Demonstration Portal
-          </span>
-        </footer>
-
-      </div>
-
-      {/* SAME-PAGE ACCOUNT PANELS */}
-
-      {activePanel && (
-        <div
-          className="dashboard-overlay"
-          onClick={closePanels}
-        >
-          <div
-            className="dashboard-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+        {activePage === "notifications" && (
+          <PortalPage
+            title="Notifications"
+            label="ACTIVITY"
           >
-            <div className="modal-header">
+            <div className="notification-item">
+              <div className="notification-icon">
+                ✓
+              </div>
+
               <div>
-                <span>CUSTOMER PORTAL</span>
-                <h2>{getPanelTitle()}</h2>
-              </div>
-
-              <button
-                className="modal-close"
-                onClick={closePanels}
-              >
-                ×
-              </button>
-            </div>
-
-            {/* PROFILE */}
-
-            {activePanel === "profile" && (
-              <div className="modal-content">
-
-                <div className="profile-header">
-                  <div className="profile-avatar-new">
-                    {(profile?.full_name || "C")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-
-                  <div>
-                    <h3>
-                      {profile?.full_name || "Customer"}
-                    </h3>
-
-                    <p>Customer Account</p>
-                  </div>
-                </div>
-
-                <div className="info-grid">
-
-                  <div className="info-card">
-                    <span>FULL NAME</span>
-                    <strong>
-                      {profile?.full_name ||
-                        "Not available"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>EMAIL ADDRESS</span>
-                    <strong>
-                      {user?.email ||
-                        "Not available"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT NUMBER</span>
-                    <strong>
-                      {account.account_number ||
-                        "Not assigned"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT TYPE</span>
-                    <strong>
-                      {account.account_type ||
-                        "Checking"}
-                    </strong>
-                  </div>
-
-                </div>
-
-                <button
-                  className="modal-primary-button"
-                  onClick={() =>
-                    openPanel("settings")
-                  }
-                >
-                  Account Settings
-                </button>
-
-              </div>
-            )}
-
-            {/* ACCOUNT */}
-
-            {activePanel === "account" && (
-              <div className="modal-content">
-
-                <div className="info-grid">
-
-                  <div className="info-card">
-                    <span>ACCOUNT HOLDER</span>
-                    <strong>
-                      {profile?.full_name ||
-                        "Customer"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT NUMBER</span>
-                    <strong>
-                      {account.account_number ||
-                        "Not assigned"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT TYPE</span>
-                    <strong>
-                      {account.account_type ||
-                        "Checking"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT STATUS</span>
-                    <strong className="active-text">
-                      {account.status ||
-                        "Active"}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>AVAILABLE BALANCE</span>
-                    <strong>
-                      ${formatBalance(account.balance)}
-                    </strong>
-                  </div>
-
-                  <div className="info-card">
-                    <span>ACCOUNT CREATED</span>
-                    <strong>
-                      {formatDate(account.created_at)}
-                    </strong>
-                  </div>
-
-                </div>
-
-              </div>
-            )}
-
-            {/* TRANSACTIONS */}
-
-            {activePanel === "transactions" && (
-              <div className="modal-content">
-
-                {transactions.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      📋
-                    </div>
-
-                    <strong>
-                      No Transactions
-                    </strong>
-
-                    <p>
-                      There are no transactions available
-                      for this account.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="modal-transactions">
-
-                    {transactions.map(
-                      (transaction) => (
-                        <div
-                          className="modal-transaction"
-                          key={transaction.id}
-                        >
-                          <div>
-                            <strong>
-                              {transaction.description ||
-                                "Account Transaction"}
-                            </strong>
-
-                            <p>
-                              {formatDate(
-                                transaction.transaction_date
-                              )}
-                            </p>
-
-                            <small>
-                              Type:{" "}
-                              {transaction.transaction_type ||
-                                "Transaction"}
-                            </small>
-                          </div>
-
-                          <strong
-                            className={
-                              transaction.transaction_type ===
-                              "debit"
-                                ? "amount-debit"
-                                : "amount-credit"
-                            }
-                          >
-                            {formatAmount(
-                              transaction.amount,
-                              transaction.transaction_type
-                            )}
-                          </strong>
-                        </div>
-                      )
-                    )}
-
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {/* SUPPORT */}
-
-            {activePanel === "support" && (
-              <div className="modal-content">
-
-                <div className="support-intro">
-                  <h3>
-                    How can we help you today?
-                  </h3>
-
-                  <p>
-                    Choose a support option below.
-                  </p>
-                </div>
-
-                <div className="support-options">
-
-                  <button className="support-option">
-                    <span>💬</span>
-
-                    <div>
-                      <strong>Live Chat</strong>
-                      <small>
-                        Chat with customer support.
-                      </small>
-                    </div>
-                  </button>
-
-                  <button className="support-option">
-                    <span>🎫</span>
-
-                    <div>
-                      <strong>Message / Support Ticket</strong>
-                      <small>
-                        Submit a question or complaint.
-                      </small>
-                    </div>
-                  </button>
-
-                  <button className="support-option">
-                    <span>❓</span>
-
-                    <div>
-                      <strong>Frequently Asked Questions</strong>
-                      <small>
-                        Find answers to common questions.
-                      </small>
-                    </div>
-                  </button>
-
-                  <button className="support-option">
-                    <span>⚠️</span>
-
-                    <div>
-                      <strong>Report a Problem</strong>
-                      <small>
-                        Report an account or security issue.
-                      </small>
-                    </div>
-                  </button>
-
-                  <button className="support-option">
-                    <span>🔐</span>
-
-                    <div>
-                      <strong>Security Center</strong>
-                      <small>
-                        Learn how to protect your account.
-                      </small>
-                    </div>
-                  </button>
-
-                  <button className="support-option">
-                    <span>📢</span>
-
-                    <div>
-                      <strong>Announcements</strong>
-                      <small>
-                        View important service updates.
-                      </small>
-                    </div>
-                  </button>
-
-                </div>
-
-              </div>
-            )}
-
-            {/* NOTIFICATIONS */}
-
-            {activePanel === "notifications" && (
-              <div className="modal-content">
-
-                <div className="notification-large">
-                  <div>✓</div>
-
-                  <section>
-                    <strong>Account Active</strong>
-                    <p>
-                      Your customer account is currently
-                      active in this demonstration portal.
-                    </p>
-                  </section>
-                </div>
-
-                <div className="notification-large">
-                  <div>🔐</div>
-
-                  <section>
-                    <strong>Security Reminder</strong>
-                    <p>
-                      Never share your password, PIN, or
-                      verification codes.
-                    </p>
-                  </section>
-                </div>
-
-              </div>
-            )}
-
-            {/* SECURITY */}
-
-            {activePanel === "security" && (
-              <div className="modal-content">
-
-                <div className="security-panel-card">
-                  <div className="security-panel-icon">
-                    🔐
-                  </div>
-
-                  <h3>Protect Your Account</h3>
-
-                  <p>
-                    Use a strong, unique password and never
-                    share your password or verification codes.
-                  </p>
-                </div>
-
-                <div className="security-list">
-
-                  <div>
-                    <strong>Password Security</strong>
-                    <span>
-                      Use a strong password that you do not
-                      reuse on other websites.
-                    </span>
-                  </div>
-
-                  <div>
-                    <strong>Verification Codes</strong>
-                    <span>
-                      Never share one-time verification codes
-                      with another person.
-                    </span>
-                  </div>
-
-                  <div>
-                    <strong>Suspicious Activity</strong>
-                    <span>
-                      Contact support if you notice unusual
-                      account activity.
-                    </span>
-                  </div>
-
-                </div>
-
-                <button
-                  className="modal-primary-button"
-                  onClick={() =>
-                    openPanel("settings")
-                  }
-                >
-                  Open Account Settings
-                </button>
-
-              </div>
-            )}
-
-            {/* SETTINGS */}
-
-            {activePanel === "settings" && (
-              <div className="modal-content">
-
-                <div className="settings-card">
-                  <div>
-                    <strong>Password</strong>
-
-                    <p>
-                      Change your account password through
-                      the secure account recovery process.
-                    </p>
-                  </div>
-
-                  <button
-                    className="settings-button"
-                    onClick={() => {
-                      window.location.href =
-                        "/forgot-password";
-                    }}
-                  >
-                    Change Password
-                  </button>
-                </div>
-
-                <div className="settings-card">
-                  <div>
-                    <strong>Email Address</strong>
-
-                    <p>
-                      Current login email:
-                      <br />
-                      <b>{user?.email}</b>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <div>
-                    <strong>Sign Out</strong>
-
-                    <p>
-                      Sign out of your customer account.
-                    </p>
-                  </div>
-
-                  <button
-                    className="settings-button"
-                    onClick={logout}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TRANSFER / WITHDRAWAL MODAL */}
-
-      {transferType && (
-        <div
-          className="dashboard-overlay"
-          onClick={closePanels}
-        >
-          <div
-            className="dashboard-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-            <div className="modal-header">
-              <div>
-                <span>ACCOUNT SERVICE</span>
-                <h2>{getTransferTitle()}</h2>
-              </div>
-
-              <button
-                className="modal-close"
-                onClick={closePanels}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modal-content">
-
-              <div className="demo-transfer-notice">
-                <strong>Demonstration Interface</strong>
-
+                <strong>Account Active</strong>
                 <p>
-                  This form is for demonstration purposes only.
-                  It does not initiate or move real funds.
+                  Your customer account is currently active.
+                </p>
+              </div>
+            </div>
+
+            <div className="notification-item">
+              <div className="notification-icon warning">
+                !
+              </div>
+
+              <div>
+                <strong>Security Reminder</strong>
+                <p>
+                  Never share your password, PIN, or
+                  verification codes.
+                </p>
+              </div>
+            </div>
+          </PortalPage>
+        )}
+
+        {activePage === "support" && (
+          <PortalPage
+            title="Customer Support"
+            label="SUPPORT"
+          >
+            <div className="support-intro">
+              <h2>How can we help you today?</h2>
+
+              <p>
+                Choose a support option or use the live chat
+                button in the bottom-right corner.
+              </p>
+            </div>
+
+            <div className="support-grid-professional">
+
+              <button
+                onClick={() => setChatOpen(true)}
+                className="support-option"
+              >
+                <span>💬</span>
+                <strong>Live Chat</strong>
+                <small>
+                  Chat with customer support
+                </small>
+              </button>
+
+              <button className="support-option">
+                <span>🎫</span>
+                <strong>Support Ticket</strong>
+                <small>
+                  Submit a question or complaint
+                </small>
+              </button>
+
+              <button className="support-option">
+                <span>?</span>
+                <strong>Frequently Asked Questions</strong>
+                <small>
+                  Find answers to common questions
+                </small>
+              </button>
+
+              <button className="support-option">
+                <span>!</span>
+                <strong>Report a Problem</strong>
+                <small>
+                  Report an account or security issue
+                </small>
+              </button>
+
+            </div>
+          </PortalPage>
+        )}
+
+        {activePage === "security" && (
+          <PortalPage
+            title="Security Center"
+            label="SECURITY"
+          >
+            <div className="security-box">
+              <h2>Protect Your Account</h2>
+
+              <p>
+                Never share your password, PIN, or
+                verification codes with another person.
+              </p>
+            </div>
+
+            <div className="security-box">
+              <h3>Account Security</h3>
+
+              <p>
+                Use a strong password and sign out when
+                using a shared device.
+              </p>
+            </div>
+          </PortalPage>
+        )}
+
+        {activePage === "settings" && (
+          <PortalPage
+            title="Account Settings"
+            label="SECURITY"
+          >
+            <div className="settings-row">
+              <div>
+                <strong>Password</strong>
+                <p>
+                  Change your account password.
                 </p>
               </div>
 
-              <form
-                className="transfer-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-
+              <button
+                className="secondary-action"
+                onClick={() =>
                   alert(
-                    "Demonstration request submitted. No funds were moved."
-                  );
-
-                  closePanels();
-                }}
+                    "Password-change workflow can be connected to Supabase Auth."
+                  )
+                }
               >
-
-                {transferType !== "withdraw" && (
-                  <>
-                    <label>
-                      Recipient Name
-
-                      <input
-                        type="text"
-                        placeholder="Enter recipient name"
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Recipient Account Number
-
-                      <input
-                        type="text"
-                        placeholder="Enter account number"
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Bank Name
-
-                      <input
-                        type="text"
-                        placeholder="Enter bank name"
-                        required
-                      />
-                    </label>
-                  </>
-                )}
-
-                <label>
-                  Amount
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    required
-                  />
-                </label>
-
-                <label>
-                  Description
-
-                  <textarea
-                    rows="4"
-                    placeholder="Enter a description"
-                  ></textarea>
-                </label>
-
-                <button
-                  type="submit"
-                  className="modal-primary-button"
-                >
-                  Submit Demonstration Request
-                </button>
-
-              </form>
-
+                Change
+              </button>
             </div>
+
+            <div className="settings-row">
+              <div>
+                <strong>Email Address</strong>
+                <p>{user?.email}</p>
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <div>
+                <strong>Sign Out</strong>
+                <p>
+                  End your current customer session.
+                </p>
+              </div>
+
+              <button
+                className="secondary-action"
+                onClick={logout}
+              >
+                Sign Out
+              </button>
+            </div>
+          </PortalPage>
+        )}
+
+      </div>
+
+      {/* FLOATING LIVE CHAT */}
+
+      <button
+        className="live-chat-button"
+        onClick={() => setChatOpen(!chatOpen)}
+        aria-label="Open live chat"
+      >
+        <span className="chat-online-dot"></span>
+        <span className="chat-symbol">💬</span>
+      </button>
+
+      {/* CHAT WINDOW */}
+
+      {chatOpen && (
+        <div className="live-chat-window">
+
+          <div className="chat-header">
+            <div>
+              <strong>Customer Support</strong>
+
+              <span>
+                <span className="chat-header-dot"></span>
+                Online
+              </span>
+            </div>
+
+            <button
+              onClick={() => setChatOpen(false)}
+              className="chat-close"
+            >
+              ×
+            </button>
           </div>
+
+          <div className="chat-body">
+
+            {chatMessages.map((message, index) => (
+              <div
+                key={index}
+                className={
+                  message.sender === "customer"
+                    ? "chat-message customer"
+                    : "chat-message support"
+                }
+              >
+                {message.text}
+              </div>
+            ))}
+
+          </div>
+
+          <form
+            className="chat-input-area"
+            onSubmit={sendChatMessage}
+          >
+            <input
+              value={chatMessage}
+              onChange={(event) =>
+                setChatMessage(event.target.value)
+              }
+              placeholder="Type your message..."
+            />
+
+            <button type="submit">
+              Send
+            </button>
+          </form>
+
         </div>
       )}
 
     </main>
+  );
+}
+
+function PortalPage({ title, label, children }) {
+  return (
+    <section className="portal-page-section">
+
+      <div className="page-heading">
+        <div>
+          <span className="section-label">
+            {label}
+          </span>
+
+          <h1>{title}</h1>
+        </div>
+      </div>
+
+      <div className="page-body">
+        {children}
+      </div>
+
+    </section>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="detail-row large">
+      <span>{label}</span>
+      <strong>{value || "Not available"}</strong>
+    </div>
   );
 }
