@@ -13,20 +13,34 @@ export async function POST(request) {
 
     if (!email) {
       return NextResponse.json(
-        { error: "Customer email is required." },
-        { status: 400 }
+        {
+          error: "Customer email is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     if (!accountNumber) {
       return NextResponse.json(
-        { error: "Customer account number is required." },
-        { status: 400 }
+        {
+          error: "Customer account number is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     const signInUrl =
-      `${process.env.NEXT_PUBLIC_SITE_URL || "https://mid-atlantic-federal-bank-7m2m.vercel.app"}/login`;
+      `${
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "https://mid-atlantic-federal-bank-7m2m.vercel.app"
+      }/login`;
+
+    const customerName =
+      fullName || "Customer";
 
     const msg = {
       to: email,
@@ -38,155 +52,255 @@ export async function POST(request) {
 
       replyTo: "midfb@outlook.com",
 
-      subject: "Your Registration Has Been Approved",
+      subject: "Registration approved",
+
+      text: `
+Hello ${customerName},
+
+Your registration has been approved.
+
+Your customer account number is:
+
+${accountNumber}
+
+You can sign in to your account here:
+
+${signInUrl}
+
+If you did not create this account, please contact customer support.
+
+MidAtlantic Federal Bank
+Customer Account Services
+      `.trim(),
 
       html: `
-        <div style="
-          margin:0;
-          padding:40px 20px;
-          background:#f4f7fb;
-          font-family:Arial,Helvetica,sans-serif;
-        ">
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registration approved</title>
+</head>
 
-          <div style="
-            max-width:600px;
-            margin:0 auto;
-            background:#ffffff;
-            border-radius:12px;
-            overflow:hidden;
-            border:1px solid #e5e7eb;
-          ">
+<body
+  style="
+    margin:0;
+    padding:0;
+    background:#f4f7fb;
+    font-family:Arial,Helvetica,sans-serif;
+  "
+>
 
-            <div style="
-              background:#0f2a44;
-              padding:28px 30px;
-              text-align:center;
-            ">
-              <h1 style="
-                margin:0;
-                color:#ffffff;
-                font-size:24px;
-              ">
-                MidAtlantic Federal Bank
-              </h1>
+  <div
+    style="
+      width:100%;
+      padding:30px 0;
+      background:#f4f7fb;
+    "
+  >
 
-              <p style="
-                margin:8px 0 0;
-                color:#dbe7f3;
-                font-size:14px;
-              ">
-                Customer Account Services
-              </p>
-            </div>
+    <div
+      style="
+        max-width:600px;
+        margin:0 auto;
+        background:#ffffff;
+        border:1px solid #e5e7eb;
+      "
+    >
 
-            <div style="padding:32px 30px;">
+      <!-- Header -->
 
-              <h2 style="
-                margin:0 0 18px;
-                color:#172033;
-                font-size:22px;
-              ">
-                Registration Approved
-              </h2>
+      <div
+        style="
+          background:#0f2a44;
+          padding:25px 20px;
+          text-align:center;
+        "
+      >
 
-              <p style="
-                color:#374151;
-                font-size:16px;
-                line-height:1.6;
-              ">
-                Hello ${fullName || "Customer"},
-              </p>
+        <h1
+          style="
+            margin:0;
+            color:#ffffff;
+            font-size:24px;
+            font-weight:bold;
+          "
+        >
+          MidAtlantic Federal Bank
+        </h1>
 
-              <p style="
-                color:#374151;
-                font-size:16px;
-                line-height:1.6;
-              ">
-                Your registration has been approved. Your customer
-                account is now ready for you to access.
-              </p>
+        <p
+          style="
+            margin:8px 0 0;
+            color:#dbe7f3;
+            font-size:14px;
+          "
+        >
+          Customer Account Services
+        </p>
 
-              <div style="
-                margin:25px 0;
-                padding:20px;
-                background:#f8fafc;
-                border:1px solid #dbe3ec;
-                border-radius:8px;
-              ">
+      </div>
 
-                <p style="
-                  margin:0 0 8px;
-                  color:#6b7280;
-                  font-size:13px;
-                ">
-                  ACCOUNT NUMBER
-                </p>
+      <!-- Content -->
 
-                <p style="
-  margin:0;
-  color:#172033;
-  font-size:22px;
-  font-weight:bold;
-  letter-spacing:1px;
-">
-  <span style="color:#172033;">
-    ${accountNumber}
-  </span>
-</p>
+      <div
+        style="
+          padding:30px;
+        "
+      >
 
-              </div>
+        <h2
+          style="
+            margin:0 0 20px;
+            color:#172033;
+            font-size:22px;
+          "
+        >
+          Registration approved
+        </h2>
 
-              <div style="text-align:center; margin:30px 0;">
+        <p
+          style="
+            margin:0 0 15px;
+            color:#374151;
+            font-size:16px;
+            line-height:1.6;
+          "
+        >
+          Hello ${customerName},
+        </p>
 
-                <a
-                  href="${signInUrl}"
-                  style="
-                    display:inline-block;
-                    padding:14px 28px;
-                    background:#0f2a44;
-                    color:#ffffff;
-                    text-decoration:none;
-                    border-radius:7px;
-                    font-size:16px;
-                    font-weight:bold;
-                  "
-                >
-                  Sign In to Your Account
-                </a>
+        <p
+          style="
+            margin:0 0 20px;
+            color:#374151;
+            font-size:16px;
+            line-height:1.6;
+          "
+        >
+          Your registration has been approved.
+          Your customer account is now ready to access.
+        </p>
 
-              </div>
+        <!-- Account number -->
 
-              <p style="
-                color:#6b7280;
-                font-size:13px;
-                line-height:1.5;
-              ">
-                If you did not create this account, please contact
-                customer support.
-              </p>
+        <div
+          style="
+            margin:25px 0;
+            padding:20px;
+            background:#f8fafc;
+            border:1px solid #dbe3ec;
+          "
+        >
 
-            </div>
+          <p
+            style="
+              margin:0 0 8px;
+              color:#6b7280;
+              font-size:13px;
+              font-weight:bold;
+            "
+          >
+            ACCOUNT NUMBER
+          </p>
 
-            <div style="
-              padding:20px 30px;
-              background:#f8fafc;
-              border-top:1px solid #e5e7eb;
-              text-align:center;
-            ">
-
-              <p style="
-                margin:0;
-                color:#6b7280;
-                font-size:12px;
-              ">
-                MidAtlantic Federal Bank
-              </p>
-
-            </div>
-
-          </div>
+          <p
+            style="
+              margin:0;
+              color:#172033;
+              font-size:22px;
+              font-weight:bold;
+              letter-spacing:1px;
+            "
+          >
+            ${accountNumber}
+          </p>
 
         </div>
+
+        <!-- Sign in -->
+
+        <p
+          style="
+            margin:25px 0 10px;
+            color:#374151;
+            font-size:16px;
+            line-height:1.6;
+          "
+        >
+          You can sign in to your account here:
+        </p>
+
+        <p
+          style="
+            margin:0 0 25px;
+          "
+        >
+          <a
+            href="${signInUrl}"
+            style="
+              color:#0f2a44;
+              font-size:16px;
+              font-weight:bold;
+            "
+          >
+            Sign in to your account
+          </a>
+        </p>
+
+        <p
+          style="
+            margin:0;
+            color:#6b7280;
+            font-size:13px;
+            line-height:1.5;
+          "
+        >
+          If you did not create this account,
+          please contact customer support.
+        </p>
+
+      </div>
+
+      <!-- Footer -->
+
+      <div
+        style="
+          padding:20px 30px;
+          background:#f8fafc;
+          border-top:1px solid #e5e7eb;
+          text-align:center;
+        "
+      >
+
+        <p
+          style="
+            margin:0;
+            color:#6b7280;
+            font-size:12px;
+          "
+        >
+          MidAtlantic Federal Bank
+        </p>
+
+        <p
+          style="
+            margin:6px 0 0;
+            color:#9ca3af;
+            font-size:11px;
+          "
+        >
+          Customer Account Services
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>
       `,
     };
 
@@ -197,14 +311,21 @@ export async function POST(request) {
       response[0]?.statusCode
     );
 
-    return NextResponse.json({
-      success: true,
-      message: "Registration email sent.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Registration email sent.",
+      },
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
     console.error(
       "SENDGRID ERROR:",
-      error?.response?.body || error?.message
+      error?.response?.body ||
+        error?.message ||
+        error
     );
 
     return NextResponse.json(
@@ -214,7 +335,9 @@ export async function POST(request) {
           error?.message ||
           "Unable to send registration email.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
