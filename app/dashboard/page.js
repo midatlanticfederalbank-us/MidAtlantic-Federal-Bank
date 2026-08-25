@@ -142,18 +142,6 @@ export default function Dashboard() {
     });
   }
 
-  function maskedAccountNumber(accountNumber) {
-    if (!accountNumber) return "Not available";
-
-    const value = String(accountNumber);
-
-    if (value.length <= 4) {
-      return value;
-    }
-
-    return `•••• ${value.slice(-4)}`;
-  }
-
   function sendChatMessage(event) {
     event.preventDefault();
 
@@ -187,9 +175,7 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <div className="loading-logo">M</div>
-
           <h2>MIDATLANTIC FEDERAL BANK</h2>
-
           <p>Loading your customer portal...</p>
         </div>
       </main>
@@ -201,7 +187,6 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <h2>Unable to Load Account</h2>
-
           <p>{error}</p>
 
           <button className="portal-button" onClick={logout}>
@@ -288,7 +273,6 @@ export default function Dashboard() {
 
   return (
     <main className="portal-page">
-
       {/* HEADER */}
 
       <header className="portal-header">
@@ -324,7 +308,6 @@ export default function Dashboard() {
 
         {menuOpen && (
           <div className="customer-menu">
-
             <div className="menu-title">
               CUSTOMER PORTAL
             </div>
@@ -414,7 +397,6 @@ export default function Dashboard() {
               <span className="menu-icon">↪</span>
               <span>Sign Out</span>
             </button>
-
           </div>
         )}
       </header>
@@ -422,7 +404,6 @@ export default function Dashboard() {
       {/* MAIN CONTENT */}
 
       <div className="portal-content">
-
         {/* DASHBOARD */}
 
         {activePage === "dashboard" && (
@@ -476,15 +457,12 @@ export default function Dashboard() {
               </div>
 
               <div className="quick-action-grid">
-
                 <button
                   onClick={() => openPage("withdraw")}
                   className="quick-action"
                 >
                   <span className="action-icon">↓</span>
-
                   <strong>Withdraw</strong>
-
                   <small>
                     Submit a withdrawal request
                   </small>
@@ -495,9 +473,7 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">↗</span>
-
                   <strong>Transfer</strong>
-
                   <small>
                     Submit a transfer request
                   </small>
@@ -508,9 +484,7 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">⇄</span>
-
                   <strong>Wire Transfer</strong>
-
                   <small>
                     Enter recipient information
                   </small>
@@ -521,19 +495,15 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">→</span>
-
                   <strong>Local Transfer</strong>
-
                   <small>
                     Submit a local transfer request
                   </small>
                 </button>
-
               </div>
             </section>
 
             <div className="two-column">
-
               <section className="portal-section">
                 <span className="section-label">
                   ACCOUNT
@@ -543,7 +513,6 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Holder</span>
-
                   <strong>
                     {profile?.full_name}
                   </strong>
@@ -551,17 +520,13 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Number</span>
-
                   <strong>
-                    {maskedAccountNumber(
-                      account.account_number
-                    )}
+                    {account.account_number || "Not available"}
                   </strong>
                 </div>
 
                 <div className="detail-row">
                   <span>Account Type</span>
-
                   <strong>
                     {account.account_type || "Checking"}
                   </strong>
@@ -569,7 +534,6 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Status</span>
-
                   <strong className="active-text">
                     {account.status || "Active"}
                   </strong>
@@ -613,11 +577,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               </section>
-
             </div>
 
             <section className="portal-section">
-
               <div className="section-heading">
                 <div>
                   <span className="section-label">
@@ -669,16 +631,12 @@ export default function Dashboard() {
                         </div>
 
                         <strong>
-                          $
-                          {formatMoney(
-                            transaction.amount
-                          )}
+                          ${formatMoney(transaction.amount)}
                         </strong>
                       </div>
                     ))}
                 </div>
               )}
-
             </section>
           </>
         )}
@@ -699,7 +657,6 @@ export default function Dashboard() {
 
               <div>
                 <h2>{profile?.full_name}</h2>
-
                 <p>Customer Account</p>
               </div>
             </div>
@@ -716,14 +673,17 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={maskedAccountNumber(
-                account.account_number
-              )}
+              value={
+                account.account_number ||
+                "Not available"
+              }
             />
 
             <InfoRow
               label="Account Type"
-              value={account.account_type || "Checking"}
+              value={
+                account.account_type || "Checking"
+              }
             />
           </PortalPage>
         )}
@@ -742,19 +702,24 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={maskedAccountNumber(
-                account.account_number
-              )}
+              value={
+                account.account_number ||
+                "Not available"
+              }
             />
 
             <InfoRow
               label="Account Type"
-              value={account.account_type || "Checking"}
+              value={
+                account.account_type || "Checking"
+              }
             />
 
             <InfoRow
               label="Account Status"
-              value={account.status || "Active"}
+              value={
+                account.status || "Active"
+              }
             />
 
             <InfoRow
@@ -965,15 +930,12 @@ export default function Dashboard() {
             </div>
 
             <div className="support-grid-professional">
-
               <button
                 onClick={() => setChatOpen(true)}
                 className="support-option"
               >
                 <span>💬</span>
-
                 <strong>Live Chat</strong>
-
                 <small>
                   Chat with customer support
                 </small>
@@ -981,9 +943,7 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>🎫</span>
-
                 <strong>Support Ticket</strong>
-
                 <small>
                   Submit a question or complaint
                 </small>
@@ -991,11 +951,9 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>?</span>
-
                 <strong>
                   Frequently Asked Questions
                 </strong>
-
                 <small>
                   Find answers to common questions
                 </small>
@@ -1003,14 +961,11 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>!</span>
-
                 <strong>Report a Problem</strong>
-
                 <small>
                   Report an account or security issue
                 </small>
               </button>
-
             </div>
           </PortalPage>
         )}
@@ -1096,7 +1051,6 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
-
       </div>
 
       {/* FLOATING LIVE CHAT */}
@@ -1117,7 +1071,6 @@ export default function Dashboard() {
 
       {chatOpen && (
         <div className="live-chat-window">
-
           <div className="chat-header">
             <div>
               <strong>Customer Support</strong>
@@ -1168,10 +1121,8 @@ export default function Dashboard() {
               Send
             </button>
           </form>
-
         </div>
       )}
-
     </main>
   );
 }
@@ -1179,7 +1130,6 @@ export default function Dashboard() {
 function PortalPage({ title, label, children }) {
   return (
     <section className="portal-page-section">
-
       <div className="page-heading">
         <div>
           <span className="section-label">
@@ -1193,7 +1143,6 @@ function PortalPage({ title, label, children }) {
       <div className="page-body">
         {children}
       </div>
-
     </section>
   );
 }
