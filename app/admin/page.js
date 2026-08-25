@@ -129,12 +129,6 @@ export default function AdminDashboard() {
   }
 
   async function loadMessages() {
-    /*
-      IMPORTANT:
-      Do NOT request "subject" here because your
-      support_messages table does not contain that column.
-    */
-
     const { data: messageData, error: messageError } =
       await supabase
         .from("support_messages")
@@ -468,16 +462,16 @@ export default function AdminDashboard() {
   }
 
   /*
-    Replies are implemented as new support messages.
+    IMPORTANT:
+    Admin replies MUST NOT directly INSERT into
+    support_messages.
 
-    This matches your existing support_messages table:
-    user_id
-    sender
-    message
-    created_at
+    The database function
+    admin_send_support_reply(uuid, text)
+    performs the admin-authorized insert.
 
-    No "subject", "reply", "status", or "replied_at"
-    columns are required.
+    This avoids the RLS error:
+    "new row violates row-level security policy"
   */
   async function sendReply(item) {
     const input = document.getElementById(
@@ -491,27 +485,29 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: currentUser } =
-      await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    const adminUser = currentUser?.user;
-
-    if (!adminUser) {
+    if (userError || !user) {
       setNotice("Your session has expired.");
       return;
     }
 
-    const { error } = await supabase
-      .from("support_messages")
-      .insert({
-        user_id: item.user_id,
-        sender: "support",
-        message: reply,
-      });
+    setNotice("Sending support reply...");
+
+    const { error } = await supabase.rpc(
+      "admin_send_support_reply",
+      {
+        p_user_id: item.user_id,
+        p_message: reply,
+      }
+    );
 
     if (error) {
       console.error(
-        "REPLY ERROR:",
+        "ADMIN SUPPORT REPLY ERROR:",
         error
       );
 
@@ -541,10 +537,6 @@ export default function AdminDashboard() {
       account.status === "frozen"
   );
 
-  /*
-    Customer messages are sender === customer.
-    Support replies are sender === support.
-  */
   const customerMessages =
     messages.filter(
       (message) =>
@@ -1023,11 +1015,6 @@ export default function AdminDashboard() {
             <div className="transaction-list">
               {customerMessages.map(
                 (item) => {
-                  /*
-                    Find the latest support
-                    reply after this customer
-                    message.
-                  */
                   const replies =
                     messages.filter(
                       (message) =>
