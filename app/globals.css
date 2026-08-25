@@ -3487,3 +3487,139 @@ section {
     font-size: 27px;
   }
 }
+/* =========================================================
+   HOMEPAGE SERVICES — SPACED PROFESSIONAL LAYOUT
+========================================================= */
+
+.public-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  gap: 28px;
+
+  width: 100%;
+
+  margin-top: 35px;
+}
+
+
+/* Individual service cards */
+
+.public-feature-card {
+  min-width: 0;
+
+  min-height: 285px;
+
+  padding: 30px 26px;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #ffffff;
+
+  border: 1px solid #dfe6ec;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 5px 18px rgba(16, 42, 67, 0.06);
+
+  overflow: hidden;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+
+/* More breathing room inside each card */
+
+.public-feature-card .feature-icon {
+  width: 54px;
+  height: 54px;
+
+  margin-bottom: 24px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 13px;
+
+  font-size: 21px;
+}
+
+
+.public-feature-card h3 {
+  margin-bottom: 12px;
+
+  font-size: 19px;
+
+  line-height: 1.35;
+}
+
+
+.public-feature-card p {
+  margin-bottom: 0;
+
+  font-size: 14px;
+
+  line-height: 1.75;
+}
+
+
+/* Keep the link at the bottom */
+
+.public-feature-card a {
+  margin-top: auto;
+
+  padding-top: 25px;
+
+  font-size: 13px;
+}
+
+
+/* Gentle hover */
+
+.public-feature-card:hover {
+  transform: translateY(-5px);
+
+  border-color: #c7d3dd;
+
+  box-shadow:
+    0 14px 30px rgba(16, 42, 67, 0.11);
+}
+
+
+/* =========================================================
+   RESPONSIVE SPACING
+========================================================= */
+
+@media (max-width: 1050px) {
+
+  .public-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 24px;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+
+  .public-feature-grid {
+    grid-template-columns: 1fr;
+
+    gap: 20px;
+
+    margin-top: 28px;
+  }
+
+  .public-feature-card {
+    min-height: 250px;
+
+    padding: 26px 23px;
+  }
+
+}
