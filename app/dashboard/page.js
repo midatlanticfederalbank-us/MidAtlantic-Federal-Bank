@@ -110,8 +110,6 @@ export default function Dashboard() {
       }
     }
 
-    await loadChatMessages();
-
     setLoading(false);
   }
 
@@ -178,6 +176,11 @@ export default function Dashboard() {
     setActivePage(page);
     setMenuOpen(false);
     setRequestStatus("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   function formatMoney(amount) {
@@ -209,13 +212,6 @@ export default function Dashboard() {
     return `•••• ${value.slice(-4)}`;
   }
 
-  /*
-   * LIVE CHAT
-   *
-   * The message is added to the interface immediately.
-   * We also attempt the Supabase insert, but a database/RLS
-   * failure will not break the prototype interface.
-   */
   async function sendChatMessage(event) {
     event.preventDefault();
 
@@ -264,13 +260,6 @@ export default function Dashboard() {
     }));
   }
 
-  /*
-   * TRANSFER / WITHDRAW / WIRE / LOCAL REQUEST
-   *
-   * This presentation version confirms that the request
-   * was submitted to the portal interface. It does NOT
-   * claim that money was transferred to another person.
-   */
   async function submitRequest(event) {
     event.preventDefault();
 
@@ -298,11 +287,6 @@ export default function Dashboard() {
     }
 
     setRequestLoading(true);
-
-    /*
-     * For the presentation prototype we don't let a failed
-     * Supabase INSERT prevent the user interface from working.
-     */
 
     try {
       const { error } = await supabase
@@ -383,38 +367,32 @@ export default function Dashboard() {
   if (profile && profile.approval_status !== "approved") {
     return (
       <main className="portal-page">
-        <div className="portal-header">
-          <div>
-            <div className="bank-name">
-              MIDATLANTIC FEDERAL BANK
-            </div>
+        <PortalHeader
+          menuOpen={false}
+          setMenuOpen={setMenuOpen}
+          logout={logout}
+          openPage={openPage}
+          showMenu={false}
+        />
 
-            <div className="portal-label">
-              CUSTOMER BANKING PORTAL
-            </div>
-          </div>
+        <div className="portal-content">
+          <section className="pending-card">
+            <span className="status-badge pending">
+              PENDING APPROVAL
+            </span>
 
-          <button className="portal-button" onClick={logout}>
-            Sign Out
-          </button>
+            <h1>
+              {greeting()}, {profile.full_name || "Customer"}
+            </h1>
+
+            <h2>Account Awaiting Approval</h2>
+
+            <p>
+              Your registration has been received and is
+              awaiting account approval.
+            </p>
+          </section>
         </div>
-
-        <section className="pending-card">
-          <span className="status-badge pending">
-            PENDING APPROVAL
-          </span>
-
-          <h1>
-            {greeting()}, {profile.full_name || "Customer"}
-          </h1>
-
-          <h2>Account Awaiting Approval</h2>
-
-          <p>
-            Your registration has been received and is
-            awaiting account approval.
-          </p>
-        </section>
       </main>
     );
   }
@@ -422,169 +400,43 @@ export default function Dashboard() {
   if (!account) {
     return (
       <main className="portal-page">
-        <div className="portal-header">
-          <div>
-            <div className="bank-name">
-              MIDATLANTIC FEDERAL BANK
-            </div>
+        <PortalHeader
+          menuOpen={false}
+          setMenuOpen={setMenuOpen}
+          logout={logout}
+          openPage={openPage}
+          showMenu={false}
+        />
 
-            <div className="portal-label">
-              CUSTOMER BANKING PORTAL
-            </div>
-          </div>
+        <div className="portal-content">
+          <section className="pending-card">
+            <h1>
+              {greeting()}, {profile?.full_name || "Customer"}
+            </h1>
 
-          <button className="portal-button" onClick={logout}>
-            Sign Out
-          </button>
+            <h2>Account Information Unavailable</h2>
+
+            <p>
+              Your customer profile has been approved, but an
+              account record has not yet been assigned.
+            </p>
+          </section>
         </div>
-
-        <section className="pending-card">
-          <h1>
-            {greeting()}, {profile?.full_name || "Customer"}
-          </h1>
-
-          <h2>Account Information Unavailable</h2>
-
-          <p>
-            Your customer profile has been approved, but an
-            account record has not yet been assigned.
-          </p>
-        </section>
       </main>
     );
   }
 
   return (
     <main className="portal-page">
-
-      <header className="portal-header">
-        <div>
-          <div className="bank-name">
-            MIDATLANTIC FEDERAL BANK
-          </div>
-
-          <div className="portal-label">
-            CUSTOMER BANKING PORTAL
-          </div>
-        </div>
-
-        <div className="header-actions">
-          <span className="online-status">
-            <span className="online-dot"></span>
-            Online
-          </span>
-
-          <button
-            className="menu-trigger"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Open customer menu"
-            aria-expanded={menuOpen}
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="customer-menu">
-
-            <div className="menu-title">
-              CUSTOMER PORTAL
-            </div>
-
-            <button onClick={() => openPage("dashboard")}>
-              <span className="menu-icon">⌂</span>
-              <span>Dashboard</span>
-            </button>
-
-            <button onClick={() => openPage("profile")}>
-              <span className="menu-icon">○</span>
-              <span>My Profile</span>
-            </button>
-
-            <button onClick={() => openPage("account")}>
-              <span className="menu-icon">▣</span>
-              <span>Account Information</span>
-            </button>
-
-            <div className="menu-section">
-              TRANSFERS & PAYMENTS
-            </div>
-
-            <button onClick={() => openPage("withdraw")}>
-              <span className="menu-icon">↓</span>
-              <span>Withdraw</span>
-            </button>
-
-            <button onClick={() => openPage("transfer")}>
-              <span className="menu-icon">↗</span>
-              <span>Transfer</span>
-            </button>
-
-            <button onClick={() => openPage("wire")}>
-              <span className="menu-icon">⇄</span>
-              <span>Wire Transfer</span>
-            </button>
-
-            <button onClick={() => openPage("local")}>
-              <span className="menu-icon">→</span>
-              <span>Local Transfer</span>
-            </button>
-
-            <div className="menu-section">
-              ACTIVITY
-            </div>
-
-            <button onClick={() => openPage("transactions")}>
-              <span className="menu-icon">▤</span>
-              <span>Transaction History</span>
-            </button>
-
-            <button onClick={() => openPage("notifications")}>
-              <span className="menu-icon">○</span>
-              <span>Notifications</span>
-            </button>
-
-            <div className="menu-section">
-              SUPPORT
-            </div>
-
-            <button onClick={() => openPage("support")}>
-              <span className="menu-icon">?</span>
-              <span>Customer Support</span>
-            </button>
-
-            <div className="menu-section">
-              SECURITY
-            </div>
-
-            <button onClick={() => openPage("security")}>
-              <span className="menu-icon">◇</span>
-              <span>Security Center</span>
-            </button>
-
-            <button onClick={() => openPage("settings")}>
-              <span className="menu-icon">⚙</span>
-              <span>Account Settings</span>
-            </button>
-
-            <div className="menu-divider"></div>
-
-            <button
-              className="signout-menu"
-              onClick={logout}
-            >
-              <span className="menu-icon">↪</span>
-              <span>Sign Out</span>
-            </button>
-
-          </div>
-        )}
-      </header>
+      <PortalHeader
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        logout={logout}
+        openPage={openPage}
+        showMenu={true}
+      />
 
       <div className="portal-content">
-
         {activePage === "dashboard" && (
           <>
             <section className="welcome-section">
@@ -605,7 +457,7 @@ export default function Dashboard() {
             </section>
 
             <section className="balance-card-professional">
-              <div>
+              <div className="balance-main">
                 <p>AVAILABLE BALANCE</p>
 
                 <h2>
@@ -636,7 +488,6 @@ export default function Dashboard() {
               </div>
 
               <div className="quick-action-grid">
-
                 <button
                   onClick={() => openPage("withdraw")}
                   className="quick-action"
@@ -688,12 +539,10 @@ export default function Dashboard() {
                     Submit a local transfer request
                   </small>
                 </button>
-
               </div>
             </section>
 
             <div className="two-column">
-
               <section className="portal-section">
                 <span className="section-label">
                   ACCOUNT
@@ -773,11 +622,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               </section>
-
             </div>
 
             <section className="portal-section">
-
               <div className="section-heading">
                 <div>
                   <span className="section-label">
@@ -789,7 +636,9 @@ export default function Dashboard() {
 
                 <button
                   className="text-button"
-                  onClick={() => openPage("transactions")}
+                  onClick={() =>
+                    openPage("transactions")
+                  }
                 >
                   View All
                 </button>
@@ -838,7 +687,6 @@ export default function Dashboard() {
                     ))}
                 </div>
               )}
-
             </section>
           </>
         )}
@@ -938,7 +786,6 @@ export default function Dashboard() {
             label="TRANSFERS & PAYMENTS"
           >
             <form onSubmit={submitRequest}>
-
               <div className="request-notice">
                 <strong>Request Information</strong>
 
@@ -1057,7 +904,6 @@ export default function Dashboard() {
                   ? "Submitting..."
                   : "Submit Request"}
               </button>
-
             </form>
           </PortalPage>
         )}
@@ -1159,7 +1005,6 @@ export default function Dashboard() {
             </div>
 
             <div className="support-grid-professional">
-
               <button
                 onClick={() => setChatOpen(true)}
                 className="support-option"
@@ -1204,7 +1049,6 @@ export default function Dashboard() {
                   Report an account or security issue
                 </small>
               </button>
-
             </div>
           </PortalPage>
         )}
@@ -1286,7 +1130,6 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
-
       </div>
 
       <button
@@ -1304,22 +1147,29 @@ export default function Dashboard() {
       >
         <span className="chat-online-dot"></span>
 
-        <span className="chat-symbol">
-          💬
+        <span className="chat-symbol">💬</span>
+
+        <span className="chat-button-text">
+          Support
         </span>
       </button>
 
       {chatOpen && (
         <div className="live-chat-window">
-
           <div className="chat-header">
-            <div>
-              <strong>Customer Support</strong>
+            <div className="chat-header-info">
+              <div className="chat-header-logo">
+                M
+              </div>
 
-              <span>
-                <span className="chat-header-dot"></span>
-                Online
-              </span>
+              <div>
+                <strong>Customer Support</strong>
+
+                <span>
+                  <span className="chat-header-dot"></span>
+                  Online
+                </span>
+              </div>
             </div>
 
             <button
@@ -1366,18 +1216,203 @@ export default function Dashboard() {
               {chatLoading ? "..." : "Send"}
             </button>
           </form>
-
         </div>
       )}
-
     </main>
   );
 }
 
+/* =====================================================
+   CUSTOMER PORTAL HEADER
+===================================================== */
+
+function PortalHeader({
+  menuOpen,
+  setMenuOpen,
+  logout,
+  openPage,
+  showMenu = true,
+}) {
+  return (
+    <header className="portal-header">
+      <div className="portal-brand">
+        <div className="portal-logo">
+          M
+        </div>
+
+        <div className="portal-brand-text">
+          <strong>MIDATLANTIC</strong>
+
+          <span>FEDERAL BANK</span>
+
+          <small>CUSTOMER BANKING PORTAL</small>
+        </div>
+      </div>
+
+      <div className="portal-header-right">
+        <div className="portal-online">
+          <span className="online-dot"></span>
+
+          <span>Online</span>
+        </div>
+
+        {showMenu ? (
+          <button
+            className={`menu-trigger ${
+              menuOpen ? "menu-trigger-open" : ""
+            }`}
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Open customer menu"
+            aria-expanded={menuOpen}
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        ) : (
+          <button
+            className="portal-button header-signout"
+            onClick={logout}
+          >
+            Sign Out
+          </button>
+        )}
+      </div>
+
+      {showMenu && menuOpen && (
+        <div className="customer-menu">
+          <div className="menu-header">
+            <div>
+              <strong>Customer Portal</strong>
+
+              <span>Account Menu</span>
+            </div>
+
+            <button
+              className="menu-close"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="menu-group">
+            <div className="menu-section">
+              MAIN
+            </div>
+
+            <button onClick={() => openPage("dashboard")}>
+              <span className="menu-icon">⌂</span>
+              <span>Dashboard</span>
+            </button>
+
+            <button onClick={() => openPage("profile")}>
+              <span className="menu-icon">○</span>
+              <span>My Profile</span>
+            </button>
+
+            <button onClick={() => openPage("account")}>
+              <span className="menu-icon">▣</span>
+              <span>Account Information</span>
+            </button>
+          </div>
+
+          <div className="menu-group">
+            <div className="menu-section">
+              TRANSFERS & PAYMENTS
+            </div>
+
+            <button onClick={() => openPage("withdraw")}>
+              <span className="menu-icon">↓</span>
+              <span>Withdraw</span>
+            </button>
+
+            <button onClick={() => openPage("transfer")}>
+              <span className="menu-icon">↗</span>
+              <span>Transfer</span>
+            </button>
+
+            <button onClick={() => openPage("wire")}>
+              <span className="menu-icon">⇄</span>
+              <span>Wire Transfer</span>
+            </button>
+
+            <button onClick={() => openPage("local")}>
+              <span className="menu-icon">→</span>
+              <span>Local Transfer</span>
+            </button>
+          </div>
+
+          <div className="menu-group">
+            <div className="menu-section">
+              ACTIVITY
+            </div>
+
+            <button
+              onClick={() => openPage("transactions")}
+            >
+              <span className="menu-icon">▤</span>
+              <span>Transaction History</span>
+            </button>
+
+            <button
+              onClick={() => openPage("notifications")}
+            >
+              <span className="menu-icon">○</span>
+              <span>Notifications</span>
+            </button>
+          </div>
+
+          <div className="menu-group">
+            <div className="menu-section">
+              SUPPORT
+            </div>
+
+            <button onClick={() => openPage("support")}>
+              <span className="menu-icon">?</span>
+              <span>Customer Support</span>
+            </button>
+          </div>
+
+          <div className="menu-group">
+            <div className="menu-section">
+              SECURITY
+            </div>
+
+            <button onClick={() => openPage("security")}>
+              <span className="menu-icon">◇</span>
+              <span>Security Center</span>
+            </button>
+
+            <button onClick={() => openPage("settings")}>
+              <span className="menu-icon">⚙</span>
+              <span>Account Settings</span>
+            </button>
+          </div>
+
+          <div className="menu-divider"></div>
+
+          <button
+            className="signout-menu"
+            onClick={logout}
+          >
+            <span className="menu-icon">↪</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      )}
+    </header>
+  );
+}
+
+/* =====================================================
+   GENERIC PAGE
+===================================================== */
+
 function PortalPage({ title, label, children }) {
   return (
     <section className="portal-page-section">
-
       <div className="page-heading">
         <div>
           <span className="section-label">
@@ -1391,10 +1426,13 @@ function PortalPage({ title, label, children }) {
       <div className="page-body">
         {children}
       </div>
-
     </section>
   );
 }
+
+/* =====================================================
+   INFO ROW
+===================================================== */
 
 function InfoRow({ label, value }) {
   return (
