@@ -2789,3 +2789,701 @@ section {
     bottom: 14px;
   }
 }
+/* =========================================================
+   MIDATLANTIC FEDERAL BANK
+   PREMIUM PUBLIC WEBSITE CARDS
+========================================================= */
+
+:root {
+  --bank-navy: #102a43;
+  --bank-navy-deep: #0b1f33;
+  --bank-blue: #1d4f78;
+  --bank-teal: #087f7b;
+  --bank-teal-soft: #e8f5f3;
+  --bank-gold: #a77b2f;
+  --bank-gold-soft: #f8f1e4;
+  --bank-slate: #526579;
+  --bank-text: #172033;
+  --bank-muted: #6b7b8d;
+  --bank-border: #dfe6ec;
+  --bank-surface: #ffffff;
+  --bank-background: #f4f7f9;
+}
+
+
+/* =========================================================
+   PUBLIC FEATURE AREA
+========================================================= */
+
+.public-feature-grid {
+  display: grid;
+
+  grid-template-columns: repeat(4, 1fr);
+
+  gap: 18px;
+
+  margin-top: 28px;
+}
+
+
+/* =========================================================
+   PREMIUM FEATURE CARD
+========================================================= */
+
+.public-feature-card {
+  position: relative;
+
+  min-height: 270px;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 26px;
+
+  background: var(--bank-surface);
+
+  border: 1px solid var(--bank-border);
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 4px 16px rgba(16, 42, 67, 0.045);
+
+  overflow: hidden;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+
+/* subtle top accent */
+
+.public-feature-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 4px;
+
+  background: var(--bank-blue);
+}
+
+
+/* hover */
+
+.public-feature-card:hover {
+  transform: translateY(-5px);
+
+  border-color: #cbd7e1;
+
+  box-shadow:
+    0 14px 32px rgba(16, 42, 67, 0.11);
+}
+
+
+/* =========================================================
+   FEATURE ICON
+========================================================= */
+
+.public-feature-card .feature-icon {
+  width: 52px;
+  height: 52px;
+
+  display: grid;
+  place-items: center;
+
+  margin-bottom: 22px;
+
+  border-radius: 12px;
+
+  background: #edf3f7;
+
+  color: var(--bank-navy);
+
+  font-size: 21px;
+  font-weight: 800;
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease;
+}
+
+.public-feature-card:hover .feature-icon {
+  transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   CARD TITLES
+========================================================= */
+
+.public-feature-card h3 {
+  margin: 0 0 10px;
+
+  color: var(--bank-text);
+
+  font-size: 19px;
+  line-height: 1.3;
+
+  letter-spacing: -0.2px;
+}
+
+
+/* =========================================================
+   CARD DESCRIPTION
+========================================================= */
+
+.public-feature-card p {
+  margin: 0;
+
+  color: var(--bank-muted);
+
+  font-size: 14px;
+
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   CARD LINK
+========================================================= */
+
+.public-feature-card a {
+  display: inline-flex;
+  align-items: center;
+
+  margin-top: auto;
+  padding-top: 22px;
+
+  color: var(--bank-navy);
+
+  font-size: 13px;
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+.public-feature-card a:hover {
+  color: var(--bank-teal);
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   INDIVIDUAL CARD COLORS
+========================================================= */
+
+/* CHECKING */
+
+.public-feature-card:nth-child(1)::before {
+  background: var(--bank-blue);
+}
+
+.public-feature-card:nth-child(1) .feature-icon {
+  background: #eaf2f8;
+  color: #1d4f78;
+}
+
+
+/* TRANSFERS */
+
+.public-feature-card:nth-child(2)::before {
+  background: var(--bank-teal);
+}
+
+.public-feature-card:nth-child(2) .feature-icon {
+  background: var(--bank-teal-soft);
+  color: var(--bank-teal);
+}
+
+
+/* LENDING */
+
+.public-feature-card:nth-child(3)::before {
+  background: var(--bank-gold);
+}
+
+.public-feature-card:nth-child(3) .feature-icon {
+  background: var(--bank-gold-soft);
+  color: var(--bank-gold);
+}
+
+
+/* SUPPORT */
+
+.public-feature-card:nth-child(4)::before {
+  background: #526579;
+}
+
+.public-feature-card:nth-child(4) .feature-icon {
+  background: #edf0f3;
+  color: #526579;
+}
+
+
+/* =========================================================
+   GENERAL FEATURE CARDS
+========================================================= */
+
+.feature-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 20px;
+}
+
+.feature-card {
+  position: relative;
+
+  padding: 25px;
+
+  background: #ffffff;
+
+  border: 1px solid var(--bank-border);
+
+  border-radius: 13px;
+
+  box-shadow:
+    0 4px 15px rgba(16, 42, 67, 0.045);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 12px 28px rgba(16, 42, 67, 0.09);
+}
+
+.feature-card h3 {
+  color: var(--bank-navy);
+
+  font-size: 18px;
+
+  line-height: 1.4;
+}
+
+.feature-card p {
+  color: var(--bank-muted);
+
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   SECTION HEADINGS
+========================================================= */
+
+.public-section {
+  background: transparent;
+
+  border-radius: 0;
+
+  padding: 65px 0;
+
+  margin: 0;
+
+  box-shadow: none;
+}
+
+.section-label {
+  color: var(--bank-teal);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.public-section h2 {
+  color: var(--bank-navy);
+
+  font-size: 30px;
+
+  line-height: 1.25;
+
+  letter-spacing: -0.5px;
+}
+
+
+/* =========================================================
+   BANKING SERVICES SECTION
+========================================================= */
+
+.public-section:has(.public-feature-grid) {
+  padding-top: 60px;
+  padding-bottom: 70px;
+}
+
+
+/* =========================================================
+   ABOUT VALUE CARDS
+========================================================= */
+
+.about-value-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 20px;
+
+  margin-top: 30px;
+}
+
+.about-value-card {
+  padding: 27px;
+
+  background: #ffffff;
+
+  border: 1px solid var(--bank-border);
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 4px 15px rgba(16, 42, 67, 0.045);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.about-value-card:hover {
+  transform: translateY(-4px);
+
+  box-shadow:
+    0 12px 28px rgba(16, 42, 67, 0.09);
+}
+
+.about-value-card .feature-icon {
+  width: 48px;
+  height: 48px;
+
+  display: grid;
+  place-items: center;
+
+  margin-bottom: 20px;
+
+  border-radius: 11px;
+
+  background: var(--bank-teal-soft);
+
+  color: var(--bank-teal);
+
+  font-weight: 800;
+}
+
+.about-value-card h3 {
+  color: var(--bank-navy);
+
+  font-size: 18px;
+}
+
+.about-value-card p {
+  color: var(--bank-muted);
+
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   HERO POLISH
+========================================================= */
+
+.hero {
+  position: relative;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 85% 20%,
+      rgba(8, 127, 123, 0.25),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #0b1f33 0%,
+      #102a43 55%,
+      #174b68 100%
+    );
+
+  box-shadow:
+    0 18px 40px rgba(16, 42, 67, 0.14);
+}
+
+.hero::after {
+  content: "";
+
+  position: absolute;
+
+  width: 260px;
+  height: 260px;
+
+  right: -90px;
+  bottom: -120px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.hero h1 {
+  position: relative;
+  z-index: 2;
+
+  letter-spacing: -1.2px;
+}
+
+.hero p {
+  position: relative;
+  z-index: 2;
+
+  color: rgba(255,255,255,0.82);
+}
+
+
+/* =========================================================
+   PREMIUM BUTTONS
+========================================================= */
+
+.primary-button {
+  background: #ffffff;
+
+  color: var(--bank-navy);
+
+  box-shadow:
+    0 5px 15px rgba(0,0,0,0.12);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 9px 20px rgba(0,0,0,0.16);
+
+  text-decoration: none;
+}
+
+.secondary-button {
+  background: rgba(255,255,255,0.08);
+
+  border: 1px solid rgba(255,255,255,0.35);
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: rgba(255,255,255,0.14);
+
+  border-color: rgba(255,255,255,0.60);
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   SECURITY SECTION
+========================================================= */
+
+.security-public {
+  display: grid;
+
+  grid-template-columns: auto 1fr auto;
+
+  align-items: center;
+
+  gap: 24px;
+
+  padding: 28px;
+
+  margin: 30px 0;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f1f8f7,
+      #f8fafc
+    );
+
+  border: 1px solid #d8e9e7;
+
+  border-radius: 14px;
+}
+
+.security-icon {
+  width: 52px;
+  height: 52px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: var(--bank-teal-soft);
+
+  color: var(--bank-teal);
+
+  font-weight: 900;
+}
+
+.security-public h2 {
+  margin: 5px 0 8px;
+
+  color: var(--bank-navy);
+
+  font-size: 21px;
+}
+
+.security-public p {
+  margin: 0;
+
+  color: var(--bank-muted);
+
+  line-height: 1.6;
+}
+
+.security-public > a {
+  margin: 0;
+
+  color: var(--bank-navy);
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   FINAL CTA
+========================================================= */
+
+.final-cta {
+  position: relative;
+
+  overflow: hidden;
+
+  margin-top: 30px;
+
+  padding: 60px 45px;
+
+  border-radius: 16px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0b1f33,
+      #102a43 60%,
+      #174b68
+    );
+
+  color: #ffffff;
+
+  text-align: center;
+
+  box-shadow:
+    0 15px 35px rgba(16, 42, 67, 0.14);
+}
+
+.final-cta .section-label {
+  color: #79c8c2;
+}
+
+.final-cta h2 {
+  margin: 12px 0;
+
+  color: #ffffff;
+
+  font-size: 32px;
+
+  letter-spacing: -0.5px;
+}
+
+.final-cta p {
+  max-width: 600px;
+
+  margin: 0 auto;
+
+  color: rgba(255,255,255,0.76);
+
+  line-height: 1.7;
+}
+
+.final-cta .hero-actions {
+  justify-content: center;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .public-feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .about-value-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 650px) {
+
+  .public-section {
+    padding: 45px 0;
+  }
+
+  .public-section h2 {
+    font-size: 25px;
+  }
+
+  .public-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-feature-card {
+    min-height: 240px;
+
+    padding: 23px;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .security-public {
+    grid-template-columns: 1fr;
+
+    gap: 15px;
+
+    padding: 24px;
+  }
+
+  .security-public > a {
+    margin-top: 5px;
+  }
+
+  .final-cta {
+    padding: 45px 25px;
+  }
+
+  .final-cta h2 {
+    font-size: 27px;
+  }
+}
