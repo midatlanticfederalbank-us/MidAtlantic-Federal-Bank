@@ -74,15 +74,17 @@ export default function AdminDashboard() {
   }
 
   async function loadAccounts() {
-    const { data: accountData, error: accountError } =
-      await supabase
-        .from("customer_accounts")
-        .select(
-          "id, user_id, account_number, account_type, status, balance, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        });
+    const {
+      data: accountData,
+      error: accountError,
+    } = await supabase
+      .from("customer_accounts")
+      .select(
+        "id, user_id, account_number, account_type, status, balance, created_at"
+      )
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (accountError) {
       setNotice(accountError.message);
@@ -98,11 +100,13 @@ export default function AdminDashboard() {
       (account) => account.user_id
     );
 
-    const { data: profileData, error: profileError } =
-      await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
+    const {
+      data: profileData,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", userIds);
 
     if (profileError) {
       setNotice(profileError.message);
@@ -129,15 +133,17 @@ export default function AdminDashboard() {
   }
 
   async function loadMessages() {
-    const { data: messageData, error: messageError } =
-      await supabase
-        .from("support_messages")
-        .select(
-          "id, user_id, sender, message, created_at"
-        )
-        .order("created_at", {
-          ascending: true,
-        });
+    const {
+      data: messageData,
+      error: messageError,
+    } = await supabase
+      .from("support_messages")
+      .select(
+        "id, user_id, sender, message, created_at"
+      )
+      .order("created_at", {
+        ascending: true,
+      });
 
     if (messageError) {
       console.error(
@@ -165,11 +171,13 @@ export default function AdminDashboard() {
     let profileMap = {};
 
     if (userIds.length > 0) {
-      const { data: profileData, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", userIds);
+      const {
+        data: profileData,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
 
       if (profileError) {
         setNotice(profileError.message);
@@ -323,13 +331,14 @@ export default function AdminDashboard() {
         );
       }
 
-      const { error: approvalError } =
-        await supabase
-          .from("profiles")
-          .update({
-            approval_status: "approved",
-          })
-          .eq("id", customer.id);
+      const {
+        error: approvalError,
+      } = await supabase
+        .from("profiles")
+        .update({
+          approval_status: "approved",
+        })
+        .eq("id", customer.id);
 
       if (approvalError) {
         throw new Error(approvalError.message);
@@ -461,18 +470,6 @@ export default function AdminDashboard() {
     await loadAccounts();
   }
 
-  /*
-    IMPORTANT:
-    Admin replies MUST NOT directly INSERT into
-    support_messages.
-
-    The database function
-    admin_send_support_reply(uuid, text)
-    performs the admin-authorized insert.
-
-    This avoids the RLS error:
-    "new row violates row-level security policy"
-  */
   async function sendReply(item) {
     const input = document.getElementById(
       `reply-${item.id}`
@@ -497,11 +494,24 @@ export default function AdminDashboard() {
 
     setNotice("Sending support reply...");
 
+    /*
+      IMPORTANT:
+      The database function must have this exact signature:
+
+      admin_send_support_reply(
+        p_message text,
+        p_user_id uuid
+      )
+
+      We do NOT directly insert into
+      support_messages from the browser.
+    */
+
     const { error } = await supabase.rpc(
       "admin_send_support_reply",
       {
-        p_user_id: item.user_id,
         p_message: reply,
+        p_user_id: item.user_id,
       }
     );
 
@@ -515,7 +525,9 @@ export default function AdminDashboard() {
       return;
     }
 
-    input.value = "";
+    if (input) {
+      input.value = "";
+    }
 
     setNotice("Reply sent successfully.");
 
