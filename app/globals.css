@@ -6,11 +6,32 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f7fb;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f5f7fa;
   color: #172033;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
 }
 
 main {
@@ -50,7 +71,6 @@ button {
   padding: 12px 22px;
   border: 0;
   border-radius: 6px;
-  cursor: pointer;
   background: #173b70;
   color: #ffffff;
   font-weight: bold;
@@ -756,6 +776,7 @@ a:hover {
 
 /* =========================================================
    CUSTOMER MENU
+   Clean menu — no numbered items
 ========================================================= */
 
 .menu-trigger {
@@ -775,6 +796,17 @@ a:hover {
   justify-content: center;
 
   gap: 4px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.menu-trigger:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .menu-trigger span {
@@ -794,7 +826,7 @@ a:hover {
   top: 70px;
   right: 6%;
 
-  width: 290px;
+  width: 300px;
 
   padding: 10px;
 
@@ -804,26 +836,35 @@ a:hover {
   border-radius: 12px;
 
   box-shadow:
-    0 15px 40px rgba(20, 35, 55, 0.16);
+    0 18px 45px rgba(20, 35, 55, 0.16);
+
+  overflow: hidden;
 }
 
-.menu-title,
+.menu-title {
+  padding: 12px 14px 10px;
+
+  color: #697586;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.4px;
+}
+
 .menu-section {
-  padding: 10px 12px 7px;
+  margin-top: 8px;
+
+  padding: 15px 14px 8px;
+
+  border-top: 1px solid #edf0f4;
 
   color: #8993a3;
 
   font-size: 10px;
   font-weight: 800;
+
   letter-spacing: 1.2px;
-}
-
-.menu-section {
-  margin-top: 6px;
-
-  border-top: 1px solid #edf0f4;
-
-  padding-top: 14px;
 }
 
 .customer-menu button {
@@ -832,44 +873,52 @@ a:hover {
   display: flex;
   align-items: center;
 
-  gap: 12px;
-
-  padding: 11px 12px;
+  padding: 12px 14px;
 
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
 
   background: transparent;
+
   color: #253044;
 
   text-align: left;
 
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .customer-menu button:hover {
   background: #f1f5f9;
+  color: #173b70;
 }
 
-.menu-number {
-  width: 24px;
-
-  color: #8a94a3;
-
-  font-size: 10px;
-  font-weight: 800;
+.customer-menu button:active {
+  background: #e8eef7;
 }
 
 .menu-divider {
   height: 1px;
 
-  margin: 8px 0;
+  margin: 9px 0;
 
   background: #e8ebef;
 }
 
 .customer-menu .signout-menu {
   color: #9b3030;
+}
+
+.customer-menu .signout-menu:hover {
+  background: #fdf1f1;
+  color: #8b2525;
 }
 
 
@@ -1350,6 +1399,16 @@ a:hover {
   font: inherit;
 }
 
+.portal-input:focus,
+.portal-textarea:focus {
+  outline: none;
+
+  border-color: #173b70;
+
+  box-shadow:
+    0 0 0 3px rgba(23, 59, 112, 0.08);
+}
+
 .portal-textarea {
   resize: vertical;
 }
@@ -1371,9 +1430,17 @@ a:hover {
   cursor: pointer;
 }
 
+.portal-button:hover {
+  background: #0f2a44;
+}
+
 .secondary-action {
   background: #edf2f8;
   color: #173b70;
+}
+
+.secondary-action:hover {
+  background: #e1e8f2;
 }
 
 
@@ -1413,6 +1480,8 @@ a:hover {
   background: #ffffff;
 
   text-align: left;
+
+  color: #172033;
 }
 
 .support-option:hover {
@@ -1990,8 +2059,6 @@ a:hover {
   .pending-card {
     padding: 20px;
   }
-
-  /* Smaller mobile chat */
 
   .live-chat-window {
     right: 14px;
