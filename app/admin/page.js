@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [transactions, setTransactions] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [activeSection, setActiveSection] = useState("overview");
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
 
   async function loadAdmin() {
     setLoading(true);
+    setNotice("");
 
     const {
       data: { user },
@@ -59,7 +61,9 @@ export default function AdminDashboard() {
       )
       .eq("role", "customer")
       .eq("approval_status", "pending")
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       setNotice(error.message);
@@ -76,7 +80,9 @@ export default function AdminDashboard() {
         .select(
           "id, user_id, account_number, account_type, status, balance, created_at"
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
     if (accountError) {
       setNotice(accountError.message);
@@ -123,61 +129,75 @@ export default function AdminDashboard() {
   }
 
   async function loadMessages() {
+    /*
+      IMPORTANT:
+      Do NOT request "subject" here because your
+      support_messages table does not contain that column.
+    */
+
     const { data: messageData, error: messageError } =
       await supabase
         .from("support_messages")
         .select(
-          "id, user_id, subject, message, reply, status, created_at, replied_at"
+          "id, user_id, sender, message, created_at"
         )
         .order("created_at", {
-          ascending: false,
+          ascending: true,
         });
 
     if (messageError) {
+      console.error(
+        "SUPPORT MESSAGE ERROR:",
+        messageError
+      );
+
       setNotice(messageError.message);
       return;
     }
 
-    if (!messageData || messageData.length === 0) {
+    if (!messageData?.length) {
       setMessages([]);
       return;
     }
 
     const userIds = [
       ...new Set(
-        messageData.map(
-          (message) => message.user_id
-        )
+        messageData
+          .map((message) => message.user_id)
+          .filter(Boolean)
       ),
     ];
 
-    const { data: profileData, error: profileError } =
-      await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
+    let profileMap = {};
 
-    if (profileError) {
-      setNotice(profileError.message);
-      return;
+    if (userIds.length > 0) {
+      const { data: profileData, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds);
+
+      if (profileError) {
+        setNotice(profileError.message);
+        return;
+      }
+
+      (profileData || []).forEach((profile) => {
+        profileMap[profile.id] = profile;
+      });
     }
 
-    const profileMap = {};
-
-    (profileData || []).forEach((profile) => {
-      profileMap[profile.id] = profile;
-    });
-
-    const combinedMessages =
-      messageData.map((message) => ({
+    const combinedMessages = messageData.map(
+      (message) => ({
         ...message,
         customerName:
-          profileMap[message.user_id]
-            ?.full_name || "Customer",
+          profileMap[message.user_id]?.full_name ||
+          "Customer",
         customerEmail:
-          profileMap[message.user_id]
-            ?.email || "",
-      }));
+          profileMap[message.user_id]?.email ||
+          "",
+      })
+    );
 
     setMessages(combinedMessages);
   }
@@ -234,14 +254,16 @@ export default function AdminDashboard() {
     setNotice("Approving customer...");
 
     try {
-      const { data: existing, error: existingError } =
-        await supabase
-          .from("customer_accounts")
-          .select(
-            "id, account_number, account_type, status"
-          )
-          .eq("user_id", customer.id)
-          .maybeSingle();
+      const {
+        data: existing,
+        error: existingError,
+      } = await supabase
+        .from("customer_accounts")
+        .select(
+          "id, account_number, account_type, status"
+        )
+        .eq("user_id", customer.id)
+        .maybeSingle();
 
       if (existingError) {
         throw new Error(existingError.message);
@@ -286,14 +308,16 @@ export default function AdminDashboard() {
         }
       }
 
-      const { data: verified, error: verifyError } =
-        await supabase
-          .from("customer_accounts")
-          .select(
-            "id, account_number, account_type, status"
-          )
-          .eq("user_id", customer.id)
-          .maybeSingle();
+      const {
+        data: verified,
+        error: verifyError,
+      } = await supabase
+        .from("customer_accounts")
+        .select(
+          "id, account_number, account_type, status"
+        )
+        .eq("user_id", customer.id)
+        .maybeSingle();
 
       if (verifyError) {
         throw new Error(verifyError.message);
@@ -317,39 +341,6 @@ export default function AdminDashboard() {
         throw new Error(approvalError.message);
       }
 
-      if (!customer.email) {
-        throw new Error(
-          "This customer does not have an email address."
-        );
-      }
-
-      const emailResponse = await fetch(
-        "/api/send-approval-email",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: customer.email,
-            fullName:
-              customer.full_name || "Customer",
-            accountNumber:
-              verified.account_number,
-          }),
-        }
-      );
-
-      const emailResult =
-        await emailResponse.json();
-
-      if (!emailResponse.ok) {
-        throw new Error(
-          emailResult.error ||
-            "The approval email could not be sent."
-        );
-      }
-
       setNotice(
         "Customer approved successfully."
       );
@@ -357,7 +348,10 @@ export default function AdminDashboard() {
       await loadPending();
       await loadAccounts();
     } catch (error) {
-      console.error("APPROVAL ERROR:", error);
+      console.error(
+        "APPROVAL ERROR:",
+        error
+      );
 
       setNotice(
         error?.message ||
@@ -433,7 +427,11 @@ export default function AdminDashboard() {
     }
 
     setNotice(
-      `${transactionType === "credit" ? "Credit" : "Debit"} transaction added successfully.`
+      `${
+        transactionType === "credit"
+          ? "Credit"
+          : "Debit"
+      } transaction added successfully.`
     );
 
     await loadAccounts();
@@ -450,7 +448,8 @@ export default function AdminDashboard() {
       .from("customer_accounts")
       .update({
         status: newStatus,
-        updated_at: new Date().toISOString(),
+        updated_at:
+          new Date().toISOString(),
       })
       .eq("id", account.id);
 
@@ -468,34 +467,61 @@ export default function AdminDashboard() {
     await loadAccounts();
   }
 
+  /*
+    Replies are implemented as new support messages.
+
+    This matches your existing support_messages table:
+    user_id
+    sender
+    message
+    created_at
+
+    No "subject", "reply", "status", or "replied_at"
+    columns are required.
+  */
   async function sendReply(item) {
     const input = document.getElementById(
       `reply-${item.id}`
     );
 
-    if (!input?.value.trim()) {
+    const reply = input?.value?.trim();
+
+    if (!reply) {
       setNotice("Please enter a reply.");
+      return;
+    }
+
+    const { data: currentUser } =
+      await supabase.auth.getUser();
+
+    const adminUser = currentUser?.user;
+
+    if (!adminUser) {
+      setNotice("Your session has expired.");
       return;
     }
 
     const { error } = await supabase
       .from("support_messages")
-      .update({
-        reply: input.value.trim(),
-        status: "replied",
-        replied_at:
-          new Date().toISOString(),
-      })
-      .eq("id", item.id);
+      .insert({
+        user_id: item.user_id,
+        sender: "support",
+        message: reply,
+      });
 
     if (error) {
+      console.error(
+        "REPLY ERROR:",
+        error
+      );
+
       setNotice(error.message);
       return;
     }
 
     input.value = "";
 
-    setNotice("Reply sent.");
+    setNotice("Reply sent successfully.");
 
     await loadMessages();
   }
@@ -506,20 +532,24 @@ export default function AdminDashboard() {
   }
 
   const activeAccounts = accounts.filter(
-    (account) => account.status === "active"
+    (account) =>
+      account.status === "active"
   );
 
   const frozenAccounts = accounts.filter(
-    (account) => account.status === "frozen"
+    (account) =>
+      account.status === "frozen"
   );
 
-  const repliedMessages = messages.filter(
-    (message) => message.status === "replied"
-  );
-
-  const openMessages = messages.filter(
-    (message) => message.status !== "replied"
-  );
+  /*
+    Customer messages are sender === customer.
+    Support replies are sender === support.
+  */
+  const customerMessages =
+    messages.filter(
+      (message) =>
+        message.sender === "customer"
+    );
 
   function formatMoney(value) {
     return Number(value || 0).toLocaleString(
@@ -550,9 +580,13 @@ export default function AdminDashboard() {
           ADMIN
         </span>
 
-        <h1>Administrator Dashboard</h1>
+        <h1>
+          Administrator Dashboard
+        </h1>
 
-        <p>Loading administration panel...</p>
+        <p>
+          Loading administration panel...
+        </p>
       </main>
     );
   }
@@ -565,7 +599,9 @@ export default function AdminDashboard() {
             ADMIN
           </span>
 
-          <h1>Administrator Dashboard</h1>
+          <h1>
+            Administrator Dashboard
+          </h1>
 
           <p>
             Customer, account and support
@@ -628,7 +664,7 @@ export default function AdminDashboard() {
             setActiveSection("support")
           }
         >
-          Support ({openMessages.length})
+          Support ({customerMessages.length})
         </button>
       </nav>
 
@@ -639,76 +675,98 @@ export default function AdminDashboard() {
 
             <div className="dashboard-grid">
               <div className="notification">
-                <h3>Pending Customers</h3>
-                <h2>{pending.length}</h2>
+                <h3>
+                  Pending Customers
+                </h3>
+
+                <h2>
+                  {pending.length}
+                </h2>
               </div>
 
               <div className="notification">
-                <h3>Active Accounts</h3>
+                <h3>
+                  Active Accounts
+                </h3>
+
                 <h2>
                   {activeAccounts.length}
                 </h2>
               </div>
 
               <div className="notification">
-                <h3>Frozen Accounts</h3>
+                <h3>
+                  Frozen Accounts
+                </h3>
+
                 <h2>
                   {frozenAccounts.length}
                 </h2>
               </div>
 
               <div className="notification">
-                <h3>Open Support</h3>
+                <h3>
+                  Customer Messages
+                </h3>
+
                 <h2>
-                  {openMessages.length}
+                  {customerMessages.length}
                 </h2>
               </div>
             </div>
           </section>
 
           <section>
-            <h2>Recent Activity</h2>
+            <h2>
+              Recent Activity
+            </h2>
 
             <div className="transaction-list">
-              {transactions.length === 0 ? (
+              {transactions.length ===
+              0 ? (
                 <div className="notification">
                   <p>
-                    No transactions recorded.
+                    No transactions
+                    recorded.
                   </p>
                 </div>
               ) : (
                 transactions
                   .slice(0, 5)
-                  .map((transaction) => (
-                    <div
-                      className="transaction"
-                      key={transaction.id}
-                    >
-                      <div>
-                        <strong>
-                          {transaction.description ||
-                            "Transaction"}
-                        </strong>
+                  .map(
+                    (transaction) => (
+                      <div
+                        className="transaction"
+                        key={
+                          transaction.id
+                        }
+                      >
+                        <div>
+                          <strong>
+                            {transaction.description ||
+                              "Transaction"}
+                          </strong>
 
-                        <p>
-                          {transaction.transaction_type ===
-                          "credit"
-                            ? "+"
-                            : "-"}
-                          $
-                          {formatMoney(
-                            transaction.amount
-                          )}
-                        </p>
+                          <p>
+                            {transaction.transaction_type ===
+                            "credit"
+                              ? "+"
+                              : "-"}
+                            $
+                            {formatMoney(
+                              transaction.amount
+                            )}
+                          </p>
 
-                        <p>
-                          {formatDate(
-                            transaction.transaction_date
-                          )}
-                        </p>
+                          <p>
+                            {formatDate(
+                              transaction.transaction_date
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  )
               )}
             </div>
           </section>
@@ -717,54 +775,65 @@ export default function AdminDashboard() {
 
       {activeSection === "pending" && (
         <section>
-          <h2>Pending Customer Approvals</h2>
+          <h2>
+            Pending Customer
+            Approvals
+          </h2>
 
           {pending.length === 0 ? (
             <div className="notification">
-              <p>No pending customers.</p>
+              <p>
+                No pending customers.
+              </p>
             </div>
           ) : (
             <div className="transaction-list">
-              {pending.map((customer) => (
-                <div
-                  className="transaction"
-                  key={customer.id}
-                >
-                  <div>
-                    <strong>
-                      {customer.full_name ||
-                        "Customer"}
-                    </strong>
-
-                    <p>
-                      Email:{" "}
-                      {customer.email ||
-                        "Not available"}
-                    </p>
-
-                    <p>
-                      Status:{" "}
-                      {customer.approval_status}
-                    </p>
-
-                    <p>
-                      Registered:{" "}
-                      {formatDate(
-                        customer.created_at
-                      )}
-                    </p>
-                  </div>
-
-                  <button
-                    className="primary-button"
-                    onClick={() =>
-                      approveCustomer(customer)
-                    }
+              {pending.map(
+                (customer) => (
+                  <div
+                    className="transaction"
+                    key={customer.id}
                   >
-                    Approve Customer
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <strong>
+                        {customer.full_name ||
+                          "Customer"}
+                      </strong>
+
+                      <p>
+                        Email:{" "}
+                        {customer.email ||
+                          "Not available"}
+                      </p>
+
+                      <p>
+                        Status:{" "}
+                        {
+                          customer.approval_status
+                        }
+                      </p>
+
+                      <p>
+                        Registered:{" "}
+                        {formatDate(
+                          customer.created_at
+                        )}
+                      </p>
+                    </div>
+
+                    <button
+                      className="primary-button"
+                      onClick={() =>
+                        approveCustomer(
+                          customer
+                        )
+                      }
+                    >
+                      Approve Customer
+                    </button>
+                  </div>
+                )
+              )}
             </div>
           )}
         </section>
@@ -773,104 +842,117 @@ export default function AdminDashboard() {
       {activeSection === "accounts" && (
         <>
           <section>
-            <h2>Customer Accounts</h2>
+            <h2>
+              Customer Accounts
+            </h2>
 
             {accounts.length === 0 ? (
               <div className="notification">
                 <p>
-                  No customer accounts found.
+                  No customer accounts
+                  found.
                 </p>
               </div>
             ) : (
               <div className="transaction-list">
-                {accounts.map((account) => (
-                  <div
-                    className="transaction"
-                    key={account.id}
-                  >
-                    <div>
-                      <strong>
-                        {account.customerName}
-                      </strong>
-
-                      <p>
-                        Email:{" "}
-                        {account.customerEmail ||
-                          "Not available"}
-                      </p>
-
-                      <p>
-                        Account No:{" "}
-                        {account.account_number ||
-                          "Not assigned"}
-                      </p>
-
-                      <p>
-                        Account type:{" "}
-                        {account.account_type ||
-                          "Checking"}
-                      </p>
-
-                      <p>
-                        Status:{" "}
-                        {account.status ||
-                          "active"}
-                      </p>
-
-                      <p>
-                        Balance: $
-                        {formatMoney(
-                          account.balance
-                        )}
-                      </p>
-                    </div>
-
+                {accounts.map(
+                  (account) => (
                     <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
+                      className="transaction"
+                      key={account.id}
                     >
-                      <button
-                        className="primary-button"
-                        onClick={() =>
-                          addTransaction(
-                            account
-                          )
-                        }
-                      >
-                        Add Transaction
-                      </button>
+                      <div>
+                        <strong>
+                          {
+                            account.customerName
+                          }
+                        </strong>
 
-                      <button
-                        className="primary-button"
-                        onClick={() =>
-                          toggleAccount(
-                            account
-                          )
-                        }
+                        <p>
+                          Email:{" "}
+                          {account.customerEmail ||
+                            "Not available"}
+                        </p>
+
+                        <p>
+                          Account No:{" "}
+                          {account.account_number ||
+                            "Not assigned"}
+                        </p>
+
+                        <p>
+                          Account type:{" "}
+                          {account.account_type ||
+                            "Checking"}
+                        </p>
+
+                        <p>
+                          Status:{" "}
+                          {account.status ||
+                            "active"}
+                        </p>
+
+                        <p>
+                          Balance: $
+                          {formatMoney(
+                            account.balance
+                          )}
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          flexDirection:
+                            "column",
+                          gap: "8px",
+                        }}
                       >
-                        {account.status ===
-                        "active"
-                          ? "Freeze Account"
-                          : "Unfreeze Account"}
-                      </button>
+                        <button
+                          className="primary-button"
+                          onClick={() =>
+                            addTransaction(
+                              account
+                            )
+                          }
+                        >
+                          Add Transaction
+                        </button>
+
+                        <button
+                          className="primary-button"
+                          onClick={() =>
+                            toggleAccount(
+                              account
+                            )
+                          }
+                        >
+                          {account.status ===
+                          "active"
+                            ? "Freeze Account"
+                            : "Unfreeze Account"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </section>
 
           <section>
-            <h2>Recent Transactions</h2>
+            <h2>
+              Recent Transactions
+            </h2>
 
             <div className="transaction-list">
-              {transactions.length === 0 ? (
+              {transactions.length ===
+              0 ? (
                 <div className="notification">
                   <p>
-                    No transactions recorded.
+                    No transactions
+                    recorded.
                   </p>
                 </div>
               ) : (
@@ -878,7 +960,9 @@ export default function AdminDashboard() {
                   (transaction) => (
                     <div
                       className="transaction"
-                      key={transaction.id}
+                      key={
+                        transaction.id
+                      }
                     >
                       <div>
                         <strong>
@@ -923,116 +1007,158 @@ export default function AdminDashboard() {
 
       {activeSection === "support" && (
         <section>
-          <h2>Customer Support Inbox</h2>
+          <h2>
+            Customer Support Inbox
+          </h2>
 
-          {messages.length === 0 ? (
+          {customerMessages.length ===
+          0 ? (
             <div className="notification">
-              <p>No support messages.</p>
+              <p>
+                No customer support
+                messages.
+              </p>
             </div>
           ) : (
             <div className="transaction-list">
-              {messages.map((item) => (
-                <div
-                  className="notification"
-                  key={item.id}
-                >
-               <h3>
-  {item.customerName || "Customer"}
-</h3>
+              {customerMessages.map(
+                (item) => {
+                  /*
+                    Find the latest support
+                    reply after this customer
+                    message.
+                  */
+                  const replies =
+                    messages.filter(
+                      (message) =>
+                        message.user_id ===
+                          item.user_id &&
+                        message.sender ===
+                          "support" &&
+                        new Date(
+                          message.created_at
+                        ) >
+                          new Date(
+                            item.created_at
+                          )
+                    );
 
-<p>
-  <strong>Subject:</strong>{" "}
-  {item.subject || "Customer Support"}
-</p>
+                  const latestReply =
+                    replies.length
+                      ? replies[
+                          replies.length - 1
+                        ]
+                      : null;
 
-                  <p>
-                    <strong>Status:</strong>{" "}
-                    {item.status === "replied"
-                      ? "Replied"
-                      : "Awaiting Reply"}
-                  </p>
+                  return (
+                    <div
+                      className="notification"
+                      key={item.id}
+                    >
+                      <h3>
+                        {item.customerName ||
+                          "Customer"}
+                      </h3>
 
-                  <p>
-                    <strong>
-                      Received:
-                    </strong>{" "}
-                    {formatDate(
-                      item.created_at
-                    )}
-                  </p>
+                      <p>
+                        <strong>
+                          Email:
+                        </strong>{" "}
+                        {item.customerEmail ||
+                          "Not available"}
+                      </p>
 
-                  <hr />
+                      <p>
+                        <strong>
+                          Received:
+                        </strong>{" "}
+                        {formatDate(
+                          item.created_at
+                        )}
+                      </p>
 
-                  <p>
-                    <strong>
-                      Customer Message
-                    </strong>
-                  </p>
-
-                  <p>{item.message}</p>
-
-                  {item.reply && (
-                    <>
                       <hr />
 
                       <p>
                         <strong>
-                          Your Support Reply
+                          Customer Message
                         </strong>
                       </p>
 
-                      <p>{item.reply}</p>
-
                       <p>
-                        <strong>
-                          Replied:
-                        </strong>{" "}
-                        {formatDate(
-                          item.replied_at
-                        )}
+                        {item.message}
                       </p>
-                    </>
-                  )}
 
-                  <textarea
-                    id={`reply-${item.id}`}
-                    rows="4"
-                    placeholder={
-                      item.reply
-                        ? "Send another reply..."
-                        : "Write your reply..."
-                    }
-                    style={{
-                      width: "100%",
-                      marginTop: "12px",
-                    }}
-                  />
+                      {latestReply && (
+                        <>
+                          <hr />
 
-                  <button
-                    className="primary-button"
-                    onClick={() =>
-                      sendReply(item)
-                    }
-                  >
-                    {item.reply
-                      ? "Send Another Reply"
-                      : "Reply to Customer"}
-                  </button>
-                </div>
-              ))}
+                          <p>
+                            <strong>
+                              Support Reply
+                            </strong>
+                          </p>
+
+                          <p>
+                            {
+                              latestReply.message
+                            }
+                          </p>
+
+                          <p>
+                            <strong>
+                              Replied:
+                            </strong>{" "}
+                            {formatDate(
+                              latestReply.created_at
+                            )}
+                          </p>
+                        </>
+                      )}
+
+                      <textarea
+                        id={`reply-${item.id}`}
+                        rows="4"
+                        placeholder="Write your support reply..."
+                        style={{
+                          width:
+                            "100%",
+                          marginTop:
+                            "12px",
+                        }}
+                      />
+
+                      <button
+                        className="primary-button"
+                        onClick={() =>
+                          sendReply(
+                            item
+                          )
+                        }
+                      >
+                        Send Support Reply
+                      </button>
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
         </section>
       )}
 
       <section className="real-notice">
-        <h2>⛔ Security Warning</h2>
+        <h2>
+          ⛔ Security Warning
+        </h2>
 
         <p>
-          Never share your password, PIN, verification
-          codes, or other sensitive account information
-          with anyone. Our support team will never ask
-          you to disclose your password or security codes.
+          Never share your password, PIN,
+          verification codes, or other
+          sensitive account information
+          with anyone. Our support team
+          will never ask you to disclose
+          your password or security codes.
         </p>
       </section>
     </main>
