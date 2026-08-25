@@ -1,57 +1,25 @@
 export default function ContactPage() {
   return (
-    <main className="contact-page">
-
-      {/* =========================
-          HEADER
-      ========================== */}
-
-      <header className="public-header">
-        <a href="/" className="public-logo">
-          <div className="bank-logo">M</div>
-
-          <div>
-            <strong>MIDATLANTIC</strong>
-            <span>FEDERAL BANK</span>
-          </div>
-        </a>
-
-        <nav className="public-nav">
-          <a href="/">Home</a>
-          <a href="/about">About Us</a>
-          <a href="/services">Banking</a>
-          <a href="/loans">Loans</a>
-          <a href="/news">News</a>
-          <a href="/contact">Contact</a>
-        </nav>
-
-        <div className="header-actions">
-          <a className="header-signin" href="/login">
-            Sign In
-          </a>
-
-          <a className="header-open" href="/signup">
-            Open an Account
-          </a>
-        </div>
-      </header>
-
+    <main className="public-page">
       {/* =========================
           PAGE HERO
       ========================== */}
 
-      <section className="contact-hero">
-        <div>
-          <span className="section-label">
-            CUSTOMER SERVICE
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <span className="hero-eyebrow">
+            CONTACT MIDATLANTIC FEDERAL BANK
           </span>
 
-          <h1>We're here to help.</h1>
+          <h1>
+            We're here to
+            <span> help.</span>
+          </h1>
 
           <p>
-            Have a question about your account, banking services,
-            or something else? Contact MidAtlantic Federal Bank
-            using one of the options below.
+            Have a question about banking services,
+            account access, or customer support?
+            Contact us using the information below.
           </p>
         </div>
       </section>
@@ -60,339 +28,298 @@ export default function ContactPage() {
           CONTACT INFORMATION
       ========================== */}
 
-      <section className="contact-section">
-
-        <div className="contact-information">
-
+      <section className="public-section">
+        <div className="section-introduction">
           <span className="section-label">
             CONTACT INFORMATION
           </span>
 
-          <h2>Get in touch with us.</h2>
+          <h2>
+            Get in touch with us.
+          </h2>
 
           <p>
-            Our customer support team is available to assist
-            with general questions and account-related
-            support.
+            Use the contact information below for
+            general questions and customer support
+            inquiries.
           </p>
+        </div>
 
-          {/* Address */}
-
-          <div className="contact-detail">
-            <div className="contact-icon">⌖</div>
-
-            <div>
-              <strong>Bank Address</strong>
-
-              <p>
-                12822 Wisteria Dr
-                <br />
-                Germantown, MD 20874
-                <br />
-                United States
-              </p>
-            </div>
-          </div>
-
+        <div className="public-feature-grid">
           {/* Email */}
 
-          <div className="contact-detail">
-            <div className="contact-icon">@</div>
-
-            <div>
-              <strong>Email Address</strong>
-
-              <p>
-                <a href="mailto:midfb@outlook.com">
-                  midfb@outlook.com
-                </a>
-              </p>
+          <div className="public-feature-card">
+            <div className="feature-icon">
+              @
             </div>
+
+            <h3>
+              Email
+            </h3>
+
+            <p>
+              Send us an email with your question or
+              inquiry.
+            </p>
+
+            <a href="mailto:midfb@outlook.com">
+              midfb@outlook.com
+            </a>
           </div>
 
           {/* Phone */}
 
-          <div className="contact-detail">
-            <div className="contact-icon">☎</div>
-
-            <div>
-              <strong>Phone</strong>
-
-              <p>
-                <a href="tel:+16266063125">
-                  +1 626-606-3125
-                </a>
-              </p>
+          <div className="public-feature-card">
+            <div className="feature-icon">
+              ☎
             </div>
+
+            <h3>
+              Phone
+            </h3>
+
+            <p>
+              Contact us by phone for general
+              assistance.
+            </p>
+
+            <a href="tel:+16266063125">
+              +1 (626) 606-3125
+            </a>
           </div>
 
-          {/* Customer Support */}
+          {/* Address */}
 
-          <div className="contact-detail">
-            <div className="contact-icon">?</div>
-
-            <div>
-              <strong>Customer Support</strong>
-
-              <p>
-                Need help with an account or online banking?
-                Visit our customer support center.
-              </p>
-
-              <a href="/support">
-                Visit Customer Support →
-              </a>
+          <div className="public-feature-card">
+            <div className="feature-icon">
+              ⌂
             </div>
+
+            <h3>
+              Address
+            </h3>
+
+            <p>
+              Our listed mailing address is:
+            </p>
+
+            <address>
+              12822 Wisteria Dr
+              <br />
+              Germantown, MD 20874
+              <br />
+              United States
+            </address>
           </div>
 
+          {/* Support */}
+
+          <div className="public-feature-card">
+            <div className="feature-icon">
+              ?
+            </div>
+
+            <h3>
+              Customer Support
+            </h3>
+
+            <p>
+              Existing customers can sign in to
+              access available support resources.
+            </p>
+
+            <a href="/support">
+              Visit Support →
+            </a>
+          </div>
         </div>
-
-        {/* =========================
-            MESSAGE FORM
-        ========================== */}
-
-        <div className="contact-form-card">
-
-          <span className="section-label">
-            SEND US A MESSAGE
-          </span>
-
-          <h2>How can we help?</h2>
-
-          <p>
-            Send us a message and our customer service team
-            can review your request.
-          </p>
-
-          <form>
-
-            <label>
-              Full Name
-
-              <input
-                type="text"
-                name="name"
-                placeholder="Enter your full name"
-                required
-              />
-            </label>
-
-            <label>
-              Email Address
-
-              <input
-                type="email"
-                name="email"
-                placeholder="Enter your email address"
-                required
-              />
-            </label>
-
-            <label>
-              Subject
-
-              <input
-                type="text"
-                name="subject"
-                placeholder="What can we help you with?"
-                required
-              />
-            </label>
-
-            <label>
-              Message
-
-              <textarea
-                name="message"
-                rows="6"
-                placeholder="Enter your message..."
-                required
-              ></textarea>
-            </label>
-
-            <button
-              type="submit"
-              className="primary-button"
-            >
-              Send Message
-            </button>
-
-          </form>
-
-        </div>
-
       </section>
 
       {/* =========================
-          SUPPORT CTA
+          CUSTOMER SUPPORT
       ========================== */}
 
-      <section className="contact-support-banner">
+      <section className="support-banner">
+        <div>
+          <span className="section-label">
+            CUSTOMER SUPPORT
+          </span>
+
+          <h2>
+            Need help with your account?
+          </h2>
+
+          <p>
+            Existing customers can sign in and
+            submit a support message through the
+            customer support area.
+          </p>
+        </div>
+
+        <div className="support-banner-actions">
+          <a
+            className="primary-button"
+            href="/login"
+          >
+            Sign In
+          </a>
+
+          <a
+            className="secondary-button"
+            href="/support"
+          >
+            Customer Support
+          </a>
+        </div>
+      </section>
+
+      {/* =========================
+          GENERAL INQUIRIES
+      ========================== */}
+
+      <section className="public-section">
+        <div className="section-introduction">
+          <span className="section-label">
+            GENERAL INQUIRIES
+          </span>
+
+          <h2>
+            How can we assist you?
+          </h2>
+
+          <p>
+            For questions about banking services,
+            online account access, lending information,
+            or other general matters, please use the
+            appropriate contact channel.
+          </p>
+        </div>
+
+        <div className="about-value-grid">
+          <div className="about-value-card">
+            <div className="feature-icon">
+              $
+            </div>
+
+            <h3>
+              Banking Services
+            </h3>
+
+            <p>
+              Learn about available banking services
+              and online account resources.
+            </p>
+
+            <a href="/services">
+              View Banking Services →
+            </a>
+          </div>
+
+          <div className="about-value-card">
+            <div className="feature-icon">
+              %
+            </div>
+
+            <h3>
+              Lending
+            </h3>
+
+            <p>
+              Explore available lending information
+              and financing resources.
+            </p>
+
+            <a href="/loans">
+              Explore Lending →
+            </a>
+          </div>
+
+          <div className="about-value-card">
+            <div className="feature-icon">
+              !
+            </div>
+
+            <h3>
+              Online Banking
+            </h3>
+
+            <p>
+              Access your customer account and
+              available online banking services.
+            </p>
+
+            <a href="/login">
+              Sign In →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================
+          SECURITY NOTICE
+      ========================== */}
+
+      <section className="security-public">
+        <div className="security-icon">
+          ✓
+        </div>
 
         <div>
           <span className="section-label">
-            NEED MORE HELP?
+            SECURITY
           </span>
 
-          <h2>Visit our Customer Support Center.</h2>
+          <h2>
+            Keep your information private.
+          </h2>
 
           <p>
-            Find support resources, frequently asked questions,
-            and additional ways to get assistance.
+            Never send your password, PIN,
+            verification codes, or other sensitive
+            security information by email or through
+            an unsecured message.
           </p>
         </div>
 
-        <a
-          href="/support"
-          className="primary-button"
-        >
-          Customer Support →
+        <a href="/security">
+          Security Center →
         </a>
-
       </section>
 
       {/* =========================
-          FOOTER
+          FINAL CTA
       ========================== */}
 
-      <footer className="public-footer">
+      <section className="final-cta">
+        <span className="section-label">
+          MIDATLANTIC FEDERAL BANK
+        </span>
 
-        <div className="footer-main">
+        <h2>
+          We're ready to assist.
+        </h2>
 
-          <div className="footer-brand">
+        <p>
+          Contact us or access customer support for
+          assistance with available banking services.
+        </p>
 
-            <a href="/" className="public-logo">
+        <div className="hero-actions">
+          <a
+            className="primary-button"
+            href="mailto:midfb@outlook.com"
+          >
+            Email Us
+          </a>
 
-              <div className="bank-logo">
-                M
-              </div>
-
-              <div>
-                <strong>MIDATLANTIC</strong>
-                <span>FEDERAL BANK</span>
-              </div>
-
-            </a>
-
-            <p>
-              Online banking and customer support resources.
-            </p>
-
-          </div>
-
-          <div className="footer-column">
-
-            <h3>Banking</h3>
-
-            <a href="/services">
-              Banking Services
-            </a>
-
-            <a href="/loans">
-              Loans
-            </a>
-
-            <a href="/login">
-              Online Banking
-            </a>
-
-          </div>
-
-          <div className="footer-column">
-
-            <h3>Company</h3>
-
-            <a href="/about">
-              About Us
-            </a>
-
-            <a href="/news">
-              News
-            </a>
-
-            <a href="/contact">
-              Contact Us
-            </a>
-
-          </div>
-
-          <div className="footer-column">
-
-            <h3>Support</h3>
-
-            <a href="/support">
-              Customer Support
-            </a>
-
-            <a href="/security">
-              Security Center
-            </a>
-
-            <a href="/faq">
-              FAQs
-            </a>
-
-          </div>
-
+          <a
+            className="secondary-button"
+            href="tel:+16266063125"
+          >
+            Call Us
+          </a>
         </div>
-
-        <div className="footer-contact">
-
-          <strong>
-            Bank Contact Information
-          </strong>
-
-          <p>
-            12822 Wisteria Dr
-            <br />
-            Germantown, MD 20874
-            <br />
-            United States
-          </p>
-
-          <p>
-            Email:{" "}
-            <a href="mailto:midfb@outlook.com">
-              midfb@outlook.com
-            </a>
-          </p>
-
-          <p>
-            Phone:{" "}
-            <a href="tel:+16266063125">
-              +1 626-606-3125
-            </a>
-          </p>
-
-        </div>
-
-        <div className="footer-bottom">
-
-          <span>
-            © 2026 MidAtlantic Federal Bank.
-            All rights reserved.
-          </span>
-
-          <div>
-
-            <a href="/privacy">
-              Privacy
-            </a>
-
-            <a href="/terms">
-              Terms
-            </a>
-
-            <a href="/security">
-              Security
-            </a>
-
-          </div>
-
-        </div>
-
-      </footer>
-
+      </section>
     </main>
   );
 }
