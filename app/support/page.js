@@ -11,11 +11,14 @@ const supabase = createClient(
 export default function SupportPage() {
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
+
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState("");
+  const [noticeType, setNoticeType] = useState("");
 
   useEffect(() => {
     loadSupport();
@@ -49,6 +52,7 @@ export default function SupportPage() {
 
     if (error) {
       setNotice(error.message);
+      setNoticeType("error");
       setLoading(false);
       return;
     }
@@ -60,18 +64,28 @@ export default function SupportPage() {
   async function sendMessage(event) {
     event.preventDefault();
 
-    if (!subject.trim() || !message.trim()) {
-      setNotice("Please enter a subject and message.");
+    setNotice("");
+    setNoticeType("");
+
+    if (!subject.trim()) {
+      setNotice("Please enter a subject.");
+      setNoticeType("error");
+      return;
+    }
+
+    if (!message.trim()) {
+      setNotice("Please enter your message.");
+      setNoticeType("error");
       return;
     }
 
     if (!user) {
-      setNotice("Please sign in again.");
+      setNotice("Your session has expired. Please sign in again.");
+      setNoticeType("error");
       return;
     }
 
     setSending(true);
-    setNotice("");
 
     const { error } = await supabase
       .from("support_messages")
@@ -83,177 +97,516 @@ export default function SupportPage() {
       });
 
     if (error) {
-      setNotice(error.message);
+      setNotice(
+        "We could not send your message. Please try again."
+      );
+      setNoticeType("error");
       setSending(false);
       return;
     }
 
     setSubject("");
     setMessage("");
-    setNotice("Your message has been sent.");
+
+    setNotice(
+      "Your message has been sent to customer support."
+    );
+    setNoticeType("success");
 
     await loadSupport();
 
     setSending(false);
   }
 
+  function formatDate(date) {
+    if (!date) return "—";
+
+    return new Date(date).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function getStatusLabel(status) {
+    if (!status) return "Open";
+
+    const value = String(status).toLowerCase();
+
+    if (value === "closed") return "Closed";
+    if (value === "resolved") return "Resolved";
+    if (value === "pending") return "Pending";
+
+    return "Open";
+  }
+
   if (loading) {
     return (
-      <main>
-        <span className="real-badge">
-          CUSTOMER SUPPORT
-        </span>
+      <main className="public-page">
+        <section className="page-hero">
+          <div className="page-hero-content">
+            <span className="hero-eyebrow">
+              CUSTOMER SUPPORT
+            </span>
 
-        <h1>Customer Support</h1>
+            <h1>
+              Customer Support
+            </h1>
 
-        <p>Loading your support messages...</p>
+            <p>
+              Loading your support center...
+            </p>
+          </div>
+        </section>
       </main>
     );
   }
 
   return (
-    <main>
-      <div className="dashboard-header">
-        <div>
-          <span className="real-badge">
+    <main className="public-page">
+
+      {/* =========================
+          PAGE HERO
+      ========================== */}
+
+      <section className="page-hero">
+
+        <div className="page-hero-content">
+
+          <span className="hero-eyebrow">
             CUSTOMER SUPPORT
           </span>
 
-          <h1>Customer Support</h1>
+          <h1>
+            We're here to
+            <span> help.</span>
+          </h1>
 
           <p>
-            Send a message to our support team.
+            Send a message to our customer support
+            team, review previous conversations, or
+            find information about getting assistance
+            with your account.
           </p>
-        </div>
-      </div>
 
-      {notice && (
-        <div className="notification">
-          <p>{notice}</p>
-        </div>
-      )}
+          <div className="hero-actions">
 
-      <section>
-        <h2>Contact Support</h2>
+            <a
+              className="primary-button"
+              href="/"
+            >
+              Back to Home
+            </a>
 
-        <form onSubmit={sendMessage}>
-          <div>
-            <label htmlFor="subject">
-              Subject
-            </label>
+            <a
+              className="secondary-button"
+              href="/contact"
+            >
+              Contact Us
+            </a>
 
-            <input
-              id="subject"
-              type="text"
-              value={subject}
-              onChange={(event) =>
-                setSubject(event.target.value)
-              }
-              placeholder="Enter your subject"
-            />
           </div>
 
-          <div>
-            <label htmlFor="message">
-              Message
-            </label>
+        </div>
 
-            <textarea
-              id="message"
-              rows="6"
-              value={message}
-              onChange={(event) =>
-                setMessage(event.target.value)
-              }
-              placeholder="How can we help you?"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={sending}
-          >
-            {sending
-              ? "Sending..."
-              : "Send Message"}
-          </button>
-        </form>
       </section>
 
-      <section>
-        <h2>My Support Messages</h2>
+
+      {/* =========================
+          SUPPORT OPTIONS
+      ========================== */}
+
+      <section className="public-section">
+
+        <div className="section-introduction">
+
+          <span className="section-label">
+            HOW CAN WE HELP?
+          </span>
+
+          <h2>
+            Choose a support option.
+          </h2>
+
+          <p>
+            Use the support center to contact the team
+            about account questions, banking services,
+            or other issues.
+          </p>
+
+        </div>
+
+
+        <div className="public-feature-grid">
+
+          <div className="public-feature-card">
+
+            <div className="feature-icon">
+              ✉
+            </div>
+
+            <h3>
+              Send a Message
+            </h3>
+
+            <p>
+              Send a detailed message to customer
+              support and review the response from
+              your account.
+            </p>
+
+          </div>
+
+
+          <div className="public-feature-card">
+
+            <div className="feature-icon">
+              ?
+            </div>
+
+            <h3>
+              Account Questions
+            </h3>
+
+            <p>
+              Contact support if you have questions
+              about your account or available banking
+              services.
+            </p>
+
+          </div>
+
+
+          <div className="public-feature-card">
+
+            <div className="feature-icon">
+              !
+            </div>
+
+            <h3>
+              Security Concerns
+            </h3>
+
+            <p>
+              Contact support if you notice suspicious
+              activity or have an account security
+              concern.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =========================
+          MESSAGE FORM
+      ========================== */}
+
+      <section className="public-section">
+
+        <div className="section-introduction">
+
+          <span className="section-label">
+            CONTACT SUPPORT
+          </span>
+
+          <h2>
+            Send us a message.
+          </h2>
+
+          <p>
+            Complete the form below and your message
+            will be added to your support history.
+          </p>
+
+        </div>
+
+
+        <div className="support-form-card">
+
+          {notice && (
+            <div
+              className={
+                noticeType === "success"
+                  ? "notification success-notice"
+                  : "notification error-notice"
+              }
+            >
+              <p>{notice}</p>
+            </div>
+          )}
+
+
+          <form onSubmit={sendMessage}>
+
+            <div className="form-group">
+
+              <label htmlFor="subject">
+                Subject
+              </label>
+
+              <input
+                id="subject"
+                type="text"
+                value={subject}
+                onChange={(event) =>
+                  setSubject(event.target.value)
+                }
+                placeholder="What can we help you with?"
+                disabled={sending}
+              />
+
+            </div>
+
+
+            <div className="form-group">
+
+              <label htmlFor="message">
+                Message
+              </label>
+
+              <textarea
+                id="message"
+                rows="8"
+                value={message}
+                onChange={(event) =>
+                  setMessage(event.target.value)
+                }
+                placeholder="Please describe your question or issue..."
+                disabled={sending}
+              />
+
+            </div>
+
+
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={sending}
+            >
+              {sending
+                ? "Sending..."
+                : "Send Message"}
+            </button>
+
+          </form>
+
+        </div>
+
+      </section>
+
+
+      {/* =========================
+          SUPPORT HISTORY
+      ========================== */}
+
+      <section className="public-section">
+
+        <div className="section-introduction">
+
+          <span className="section-label">
+            SUPPORT HISTORY
+          </span>
+
+          <h2>
+            My Support Messages
+          </h2>
+
+          <p>
+            Review messages you have previously sent
+            and any responses from customer support.
+          </p>
+
+        </div>
+
 
         {messages.length === 0 ? (
-          <div className="notification">
+
+          <div className="empty-state">
+
+            <div className="empty-icon">
+              ✉
+            </div>
+
+            <strong>
+              No Support Messages
+            </strong>
+
             <p>
-              You haven't sent any support messages yet.
+              You have not sent any support messages yet.
             </p>
+
           </div>
+
         ) : (
-          <div className="transaction-list">
+
+          <div className="support-message-list">
+
             {messages.map((item) => (
-              <div
-                className="notification"
+
+              <article
+                className="support-message-card"
                 key={item.id}
               >
-                <h3>
-                  {item.subject ||
-                    "Support Message"}
-                </h3>
 
-                <p>
-                  <strong>Your message:</strong>
+                <div className="support-message-header">
+
+                  <div>
+
+                    <span className="section-label">
+                      SUPPORT REQUEST
+                    </span>
+
+                    <h3>
+                      {item.subject ||
+                        "Support Message"}
+                    </h3>
+
+                  </div>
+
+                  <span className="support-status">
+                    {getStatusLabel(item.status)}
+                  </span>
+
+                </div>
+
+
+                <p className="support-message-date">
+                  Sent {formatDate(item.created_at)}
                 </p>
 
-                <p>{item.message}</p>
 
-                <p>
-                  <strong>Status:</strong>{" "}
-                  {item.status}
-                </p>
+                <div className="support-message-body">
+
+                  <strong>
+                    Your Message
+                  </strong>
+
+                  <p>
+                    {item.message}
+                  </p>
+
+                </div>
+
 
                 {item.reply && (
-                  <>
+
+                  <div className="support-reply">
+
+                    <strong>
+                      Customer Support Reply
+                    </strong>
+
                     <p>
-                      <strong>
-                        Support reply:
-                      </strong>
+                      {item.reply}
                     </p>
 
-                    <p>{item.reply}</p>
-
                     {item.replied_at && (
-                      <p>
-                        Replied:{" "}
-                        {new Date(
-                          item.replied_at
-                        ).toLocaleString()}
-                      </p>
+                      <small>
+                        Replied{" "}
+                        {formatDate(item.replied_at)}
+                      </small>
                     )}
-                  </>
+
+                  </div>
+
                 )}
-              </div>
+
+              </article>
+
             ))}
+
           </div>
+
         )}
+
       </section>
 
-      <section className="real-notice">
-        <h2>⛔ Security Warning</h2>
 
-        <p>
-          Never share your password, PIN, verification
-          codes, or other sensitive account information
-          with anyone. Our support team will never ask
-          you to disclose your password or security codes.
-        </p>
+      {/* =========================
+          SECURITY
+      ========================== */}
 
-        <p>
-          Account information is provided for
-          informational purposes on this website.
-        </p>
+      <section className="security-public">
+
+        <div className="security-icon">
+          ✓
+        </div>
+
+        <div>
+
+          <span className="section-label">
+            ONLINE SECURITY
+          </span>
+
+          <h2>
+            Keep your account information secure.
+          </h2>
+
+          <p>
+            Never send your password, PIN,
+            verification codes, or other sensitive
+            authentication information through a
+            support message.
+          </p>
+
+        </div>
+
+        <a href="/security">
+          Security Center →
+        </a>
+
       </section>
+
+
+      {/* =========================
+          CONTACT
+      ========================== */}
+
+      <section className="support-banner">
+
+        <div>
+
+          <span className="section-label">
+            MORE WAYS TO GET HELP
+          </span>
+
+          <h2>
+            Need another way to reach us?
+          </h2>
+
+          <p>
+            Visit the contact page for the available
+            bank contact channels and additional
+            information.
+          </p>
+
+        </div>
+
+        <div className="support-banner-actions">
+
+          <a
+            className="primary-button"
+            href="/contact"
+          >
+            Contact Us
+          </a>
+
+          <a
+            className="secondary-button"
+            href="/"
+          >
+            Back to Home
+          </a>
+
+        </div>
+
+      </section>
+
     </main>
   );
 }
