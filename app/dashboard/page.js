@@ -22,13 +22,20 @@ export default function Dashboard() {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
 
-  const [chatMessages, setChatMessages] = useState([
-    {
-      sender: "support",
-      text: "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  const [requestForm, setRequestForm] = useState({
+    recipientName: "",
+    recipientAccountNumber: "",
+    bankName: "",
+    amount: "",
+    description: "",
+  });
+
+  const [requestStatus, setRequestStatus] = useState("");
+  const [requestLoading, setRequestLoading] = useState(false);
 
   useEffect(() => {
     loadDashboard();
@@ -101,7 +108,44 @@ export default function Dashboard() {
       setTransactions(transactionData || []);
     }
 
+    await loadChatMessages();
+
     setLoading(false);
+  }
+
+  async function loadChatMessages() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("support_messages")
+      .select("id, sender, message, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.error("Chat loading error:", error);
+      return;
+    }
+
+    setChatMessages(
+      data && data.length > 0
+        ? data
+        : [
+            {
+              id: "welcome",
+              sender: "support",
+              message:
+                "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+              created_at: new Date().toISOString(),
+            },
+          ]
+    );
   }
 
   async function logout() {
@@ -121,6 +165,7 @@ export default function Dashboard() {
   function openPage(page) {
     setActivePage(page);
     setMenuOpen(false);
+    setRequestStatus("");
   }
 
   function formatMoney(amount) {
@@ -142,32 +187,121 @@ export default function Dashboard() {
     });
   }
 
-  function sendChatMessage(event) {
+  function maskedAccountNumber(accountNumber) {
+    if (!accountNumber) return "Not available";
+
+    const value = String(accountNumber);
+
+    if (value.length <= 4) {
+      return value;
+    }
+
+    return `•••• ${value.slice(-4)}`;
+  }
+
+  async function sendChatMessage(event) {
     event.preventDefault();
 
     const message = chatMessage.trim();
 
-    if (!message) return;
+    if (!message || chatLoading || !user) return;
 
-    setChatMessages((messages) => [
-      ...messages,
-      {
+    setChatLoading(true);
+
+    const { data, error } = await supabase
+      .from("support_messages")
+      .insert({
+        user_id: user.id,
         sender: "customer",
-        text: message,
-      },
-    ]);
+        message,
+      })
+      .select("id, sender, message, created_at")
+      .single();
 
+    if (error) {
+      console.error(error);
+      setChatLoading(false);
+      return;
+    }
+
+    setChatMessages((messages) => [...messages, data]);
     setChatMessage("");
+    setChatLoading(false);
+  }
 
-    setTimeout(() => {
-      setChatMessages((messages) => [
-        ...messages,
-        {
-          sender: "support",
-          text: "Thank you for your message. A customer-service representative can review your request.",
-        },
-      ]);
-    }, 700);
+  function updateRequestField(field, value) {
+    setRequestForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function submitRequest(event) {
+    event.preventDefault();
+
+    if (requestLoading || !user) return;
+
+    setRequestStatus("");
+
+    const amount = Number(requestForm.amount);
+
+    if (!amount || amount <= 0) {
+      setRequestStatus("Please enter a valid amount.");
+      return;
+    }
+
+    if (
+      activePage !== "withdraw" &&
+      (!requestForm.recipientName.trim() ||
+        !requestForm.recipientAccountNumber.trim() ||
+        !requestForm.bankName.trim())
+    ) {
+      setRequestStatus(
+        "Please complete the recipient information."
+      );
+      return;
+    }
+
+    setRequestLoading(true);
+
+    const { error } = await supabase
+      .from("transfer_requests")
+      .insert({
+        user_id: user.id,
+        request_type: activePage,
+        recipient_name:
+          requestForm.recipientName.trim() || null,
+        recipient_account_number:
+          requestForm.recipientAccountNumber.trim() || null,
+        bank_name: requestForm.bankName.trim() || null,
+        amount,
+        description:
+          requestForm.description.trim() || null,
+        status: "pending",
+      });
+
+    if (error) {
+      console.error(error);
+      setRequestStatus(
+        "We could not submit your request. Please try again."
+      );
+      setRequestLoading(false);
+      return;
+    }
+
+    setRequestForm({
+      recipientName: "",
+      recipientAccountNumber: "",
+      bankName: "",
+      amount: "",
+      description: "",
+    });
+
+    setRequestStatus(
+      "Your request has been submitted successfully and is pending review."
+    );
+
+    setRequestLoading(false);
   }
 
   if (loading) {
@@ -175,7 +309,9 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <div className="loading-logo">M</div>
+
           <h2>MIDATLANTIC FEDERAL BANK</h2>
+
           <p>Loading your customer portal...</p>
         </div>
       </main>
@@ -187,6 +323,7 @@ export default function Dashboard() {
       <main className="portal-loading">
         <div className="loading-card">
           <h2>Unable to Load Account</h2>
+
           <p>{error}</p>
 
           <button className="portal-button" onClick={logout}>
@@ -273,7 +410,6 @@ export default function Dashboard() {
 
   return (
     <main className="portal-page">
-      {/* HEADER */}
 
       <header className="portal-header">
         <div>
@@ -304,10 +440,9 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* CUSTOMER MENU */}
-
         {menuOpen && (
           <div className="customer-menu">
+
             <div className="menu-title">
               CUSTOMER PORTAL
             </div>
@@ -397,14 +532,12 @@ export default function Dashboard() {
               <span className="menu-icon">↪</span>
               <span>Sign Out</span>
             </button>
+
           </div>
         )}
       </header>
 
-      {/* MAIN CONTENT */}
-
       <div className="portal-content">
-        {/* DASHBOARD */}
 
         {activePage === "dashboard" && (
           <>
@@ -457,12 +590,15 @@ export default function Dashboard() {
               </div>
 
               <div className="quick-action-grid">
+
                 <button
                   onClick={() => openPage("withdraw")}
                   className="quick-action"
                 >
                   <span className="action-icon">↓</span>
+
                   <strong>Withdraw</strong>
+
                   <small>
                     Submit a withdrawal request
                   </small>
@@ -473,7 +609,9 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">↗</span>
+
                   <strong>Transfer</strong>
+
                   <small>
                     Submit a transfer request
                   </small>
@@ -484,7 +622,9 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">⇄</span>
+
                   <strong>Wire Transfer</strong>
+
                   <small>
                     Enter recipient information
                   </small>
@@ -495,15 +635,19 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">→</span>
+
                   <strong>Local Transfer</strong>
+
                   <small>
                     Submit a local transfer request
                   </small>
                 </button>
+
               </div>
             </section>
 
             <div className="two-column">
+
               <section className="portal-section">
                 <span className="section-label">
                   ACCOUNT
@@ -513,6 +657,7 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Holder</span>
+
                   <strong>
                     {profile?.full_name}
                   </strong>
@@ -520,13 +665,17 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Number</span>
+
                   <strong>
-                    {account.account_number || "Not available"}
+                    {maskedAccountNumber(
+                      account.account_number
+                    )}
                   </strong>
                 </div>
 
                 <div className="detail-row">
                   <span>Account Type</span>
+
                   <strong>
                     {account.account_type || "Checking"}
                   </strong>
@@ -534,6 +683,7 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Status</span>
+
                   <strong className="active-text">
                     {account.status || "Active"}
                   </strong>
@@ -577,9 +727,11 @@ export default function Dashboard() {
                   </div>
                 </div>
               </section>
+
             </div>
 
             <section className="portal-section">
+
               <div className="section-heading">
                 <div>
                   <span className="section-label">
@@ -631,17 +783,19 @@ export default function Dashboard() {
                         </div>
 
                         <strong>
-                          ${formatMoney(transaction.amount)}
+                          $
+                          {formatMoney(
+                            transaction.amount
+                          )}
                         </strong>
                       </div>
                     ))}
                 </div>
               )}
+
             </section>
           </>
         )}
-
-        {/* PROFILE */}
 
         {activePage === "profile" && (
           <PortalPage
@@ -673,22 +827,17 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={
-                account.account_number ||
-                "Not available"
-              }
+              value={maskedAccountNumber(
+                account.account_number
+              )}
             />
 
             <InfoRow
               label="Account Type"
-              value={
-                account.account_type || "Checking"
-              }
+              value={account.account_type || "Checking"}
             />
           </PortalPage>
         )}
-
-        {/* ACCOUNT INFORMATION */}
 
         {activePage === "account" && (
           <PortalPage
@@ -702,24 +851,19 @@ export default function Dashboard() {
 
             <InfoRow
               label="Account Number"
-              value={
-                account.account_number ||
-                "Not available"
-              }
+              value={maskedAccountNumber(
+                account.account_number
+              )}
             />
 
             <InfoRow
               label="Account Type"
-              value={
-                account.account_type || "Checking"
-              }
+              value={account.account_type || "Checking"}
             />
 
             <InfoRow
               label="Account Status"
-              value={
-                account.status || "Active"
-              }
+              value={account.status || "Active"}
             />
 
             <InfoRow
@@ -728,8 +872,6 @@ export default function Dashboard() {
             />
           </PortalPage>
         )}
-
-        {/* TRANSFERS & PAYMENTS */}
 
         {[
           "withdraw",
@@ -749,85 +891,130 @@ export default function Dashboard() {
             }
             label="TRANSFERS & PAYMENTS"
           >
-            <div className="request-notice">
-              <strong>Request Information</strong>
+            <form onSubmit={submitRequest}>
 
-              <p>
-                Complete the form below to submit a request.
-                This interface does not directly move funds.
-              </p>
-            </div>
+              <div className="request-notice">
+                <strong>Request Information</strong>
 
-            {activePage !== "withdraw" && (
-              <>
-                <label className="form-label">
-                  Recipient Name
+                <p>
+                  Submit your request below. Requests are
+                  reviewed before any action is taken.
+                </p>
+              </div>
 
-                  <input
-                    className="portal-input"
-                    type="text"
-                    placeholder="Enter recipient name"
-                  />
-                </label>
+              {activePage !== "withdraw" && (
+                <>
+                  <label className="form-label">
+                    Recipient Name
 
-                <label className="form-label">
-                  Recipient Account Number
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={requestForm.recipientName}
+                      onChange={(event) =>
+                        updateRequestField(
+                          "recipientName",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter recipient name"
+                    />
+                  </label>
 
-                  <input
-                    className="portal-input"
-                    type="text"
-                    placeholder="Enter account number"
-                  />
-                </label>
+                  <label className="form-label">
+                    Recipient Account Number
 
-                <label className="form-label">
-                  Bank Name
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={
+                        requestForm.recipientAccountNumber
+                      }
+                      onChange={(event) =>
+                        updateRequestField(
+                          "recipientAccountNumber",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter account number"
+                    />
+                  </label>
 
-                  <input
-                    className="portal-input"
-                    type="text"
-                    placeholder="Enter bank name"
-                  />
-                </label>
-              </>
-            )}
+                  <label className="form-label">
+                    Bank Name
 
-            <label className="form-label">
-              Amount
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={requestForm.bankName}
+                      onChange={(event) =>
+                        updateRequestField(
+                          "bankName",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter bank name"
+                    />
+                  </label>
+                </>
+              )}
 
-              <input
-                className="portal-input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </label>
+              <label className="form-label">
+                Amount
 
-            <label className="form-label">
-              Description
+                <input
+                  className="portal-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={requestForm.amount}
+                  onChange={(event) =>
+                    updateRequestField(
+                      "amount",
+                      event.target.value
+                    )
+                  }
+                  placeholder="0.00"
+                  required
+                />
+              </label>
 
-              <textarea
-                className="portal-textarea"
-                rows="4"
-                placeholder="Add a description or additional information"
-              />
-            </label>
+              <label className="form-label">
+                Description
 
-            <button
-              className="portal-button"
-              onClick={() =>
-                alert(
-                  "Your request has been prepared for submission."
-                )
-              }
-            >
-              Submit Request
-            </button>
+                <textarea
+                  className="portal-textarea"
+                  rows="4"
+                  value={requestForm.description}
+                  onChange={(event) =>
+                    updateRequestField(
+                      "description",
+                      event.target.value
+                    )
+                  }
+                  placeholder="Add a description or additional information"
+                />
+              </label>
+
+              {requestStatus && (
+                <div className="request-notice">
+                  <p>{requestStatus}</p>
+                </div>
+              )}
+
+              <button
+                className="portal-button"
+                type="submit"
+                disabled={requestLoading}
+              >
+                {requestLoading
+                  ? "Submitting..."
+                  : "Submit Request"}
+              </button>
+
+            </form>
           </PortalPage>
         )}
-
-        {/* TRANSACTION HISTORY */}
 
         {activePage === "transactions" && (
           <PortalPage
@@ -875,8 +1062,6 @@ export default function Dashboard() {
           </PortalPage>
         )}
 
-        {/* NOTIFICATIONS */}
-
         {activePage === "notifications" && (
           <PortalPage
             title="Notifications"
@@ -913,8 +1098,6 @@ export default function Dashboard() {
           </PortalPage>
         )}
 
-        {/* CUSTOMER SUPPORT */}
-
         {activePage === "support" && (
           <PortalPage
             title="Customer Support"
@@ -930,12 +1113,15 @@ export default function Dashboard() {
             </div>
 
             <div className="support-grid-professional">
+
               <button
                 onClick={() => setChatOpen(true)}
                 className="support-option"
               >
                 <span>💬</span>
+
                 <strong>Live Chat</strong>
+
                 <small>
                   Chat with customer support
                 </small>
@@ -943,7 +1129,9 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>🎫</span>
+
                 <strong>Support Ticket</strong>
+
                 <small>
                   Submit a question or complaint
                 </small>
@@ -951,9 +1139,11 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>?</span>
+
                 <strong>
                   Frequently Asked Questions
                 </strong>
+
                 <small>
                   Find answers to common questions
                 </small>
@@ -961,16 +1151,17 @@ export default function Dashboard() {
 
               <button className="support-option">
                 <span>!</span>
+
                 <strong>Report a Problem</strong>
+
                 <small>
                   Report an account or security issue
                 </small>
               </button>
+
             </div>
           </PortalPage>
         )}
-
-        {/* SECURITY */}
 
         {activePage === "security" && (
           <PortalPage
@@ -996,8 +1187,6 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
-
-        {/* SETTINGS */}
 
         {activePage === "settings" && (
           <PortalPage
@@ -1051,13 +1240,19 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
-      </div>
 
-      {/* FLOATING LIVE CHAT */}
+      </div>
 
       <button
         className="live-chat-button"
-        onClick={() => setChatOpen(!chatOpen)}
+        onClick={async () => {
+          const next = !chatOpen;
+          setChatOpen(next);
+
+          if (next) {
+            await loadChatMessages();
+          }
+        }}
         aria-label="Open live chat"
       >
         <span className="chat-online-dot"></span>
@@ -1067,10 +1262,9 @@ export default function Dashboard() {
         </span>
       </button>
 
-      {/* CHAT WINDOW */}
-
       {chatOpen && (
         <div className="live-chat-window">
+
           <div className="chat-header">
             <div>
               <strong>Customer Support</strong>
@@ -1091,16 +1285,16 @@ export default function Dashboard() {
           </div>
 
           <div className="chat-body">
-            {chatMessages.map((message, index) => (
+            {chatMessages.map((message) => (
               <div
-                key={index}
+                key={message.id}
                 className={
                   message.sender === "customer"
                     ? "chat-message customer"
                     : "chat-message support"
                 }
               >
-                {message.text}
+                {message.message}
               </div>
             ))}
           </div>
@@ -1115,14 +1309,20 @@ export default function Dashboard() {
                 setChatMessage(event.target.value)
               }
               placeholder="Type your message..."
+              disabled={chatLoading}
             />
 
-            <button type="submit">
-              Send
+            <button
+              type="submit"
+              disabled={chatLoading}
+            >
+              {chatLoading ? "..." : "Send"}
             </button>
           </form>
+
         </div>
       )}
+
     </main>
   );
 }
@@ -1130,6 +1330,7 @@ export default function Dashboard() {
 function PortalPage({ title, label, children }) {
   return (
     <section className="portal-page-section">
+
       <div className="page-heading">
         <div>
           <span className="section-label">
@@ -1143,6 +1344,7 @@ function PortalPage({ title, label, children }) {
       <div className="page-body">
         {children}
       </div>
+
     </section>
   );
 }
