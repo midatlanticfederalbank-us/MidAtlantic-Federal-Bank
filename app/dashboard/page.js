@@ -23,7 +23,6 @@ export default function Dashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
-
   const [chatMessages, setChatMessages] = useState([]);
 
   const [requestForm, setRequestForm] = useState({
@@ -95,15 +94,20 @@ export default function Dashboard() {
     setAccount(accountData);
 
     if (accountData) {
-      const { data: transactionData } = await supabase
-        .from("transactions")
-        .select(
-          "id, transaction_type, amount, description, transaction_date, created_at"
-        )
-        .eq("account_id", accountData.id)
-        .order("transaction_date", {
-          ascending: false,
-        });
+      const { data: transactionData, error: transactionError } =
+        await supabase
+          .from("transactions")
+          .select(
+            "id, transaction_type, amount, description, transaction_date, created_at"
+          )
+          .eq("account_id", accountData.id)
+          .order("transaction_date", {
+            ascending: false,
+          });
+
+      if (transactionError) {
+        console.error("Transaction loading error:", transactionError);
+      }
 
       setTransactions(transactionData || []);
     }
@@ -219,7 +223,8 @@ export default function Dashboard() {
       .single();
 
     if (error) {
-      console.error(error);
+      console.error("Chat send error:", error);
+
       setChatLoading(false);
       return;
     }
@@ -281,10 +286,12 @@ export default function Dashboard() {
       });
 
     if (error) {
-      console.error(error);
+      console.error("Transfer request error:", error);
+
       setRequestStatus(
         "We could not submit your request. Please try again."
       );
+
       setRequestLoading(false);
       return;
     }
@@ -298,7 +305,7 @@ export default function Dashboard() {
     });
 
     setRequestStatus(
-      "Your request has been submitted successfully and is pending review."
+      "Transfer request submitted successfully"
     );
 
     setRequestLoading(false);
@@ -410,7 +417,6 @@ export default function Dashboard() {
 
   return (
     <main className="portal-page">
-
       <header className="portal-header">
         <div>
           <div className="bank-name">
@@ -442,7 +448,6 @@ export default function Dashboard() {
 
         {menuOpen && (
           <div className="customer-menu">
-
             <div className="menu-title">
               CUSTOMER PORTAL
             </div>
@@ -532,13 +537,11 @@ export default function Dashboard() {
               <span className="menu-icon">↪</span>
               <span>Sign Out</span>
             </button>
-
           </div>
         )}
       </header>
 
       <div className="portal-content">
-
         {activePage === "dashboard" && (
           <>
             <section className="welcome-section">
@@ -590,15 +593,12 @@ export default function Dashboard() {
               </div>
 
               <div className="quick-action-grid">
-
                 <button
                   onClick={() => openPage("withdraw")}
                   className="quick-action"
                 >
                   <span className="action-icon">↓</span>
-
                   <strong>Withdraw</strong>
-
                   <small>
                     Submit a withdrawal request
                   </small>
@@ -609,9 +609,7 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">↗</span>
-
                   <strong>Transfer</strong>
-
                   <small>
                     Submit a transfer request
                   </small>
@@ -622,9 +620,7 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">⇄</span>
-
                   <strong>Wire Transfer</strong>
-
                   <small>
                     Enter recipient information
                   </small>
@@ -635,19 +631,15 @@ export default function Dashboard() {
                   className="quick-action"
                 >
                   <span className="action-icon">→</span>
-
                   <strong>Local Transfer</strong>
-
                   <small>
                     Submit a local transfer request
                   </small>
                 </button>
-
               </div>
             </section>
 
             <div className="two-column">
-
               <section className="portal-section">
                 <span className="section-label">
                   ACCOUNT
@@ -657,15 +649,11 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Holder</span>
-
-                  <strong>
-                    {profile?.full_name}
-                  </strong>
+                  <strong>{profile?.full_name}</strong>
                 </div>
 
                 <div className="detail-row">
                   <span>Account Number</span>
-
                   <strong>
                     {maskedAccountNumber(
                       account.account_number
@@ -675,7 +663,6 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Type</span>
-
                   <strong>
                     {account.account_type || "Checking"}
                   </strong>
@@ -683,7 +670,6 @@ export default function Dashboard() {
 
                 <div className="detail-row">
                   <span>Account Status</span>
-
                   <strong className="active-text">
                     {account.status || "Active"}
                   </strong>
@@ -727,11 +713,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               </section>
-
             </div>
 
             <section className="portal-section">
-
               <div className="section-heading">
                 <div>
                   <span className="section-label">
@@ -762,9 +746,8 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="transaction-list-professional">
-                  {transactions
-                    .slice(0, 5)
-                    .map((transaction) => (
+                  {transactions.slice(0, 5).map(
+                    (transaction) => (
                       <div
                         className="transaction-row"
                         key={transaction.id}
@@ -789,19 +772,16 @@ export default function Dashboard() {
                           )}
                         </strong>
                       </div>
-                    ))}
+                    )
+                  )}
                 </div>
               )}
-
             </section>
           </>
         )}
 
         {activePage === "profile" && (
-          <PortalPage
-            title="My Profile"
-            label="CUSTOMER"
-          >
+          <PortalPage title="My Profile" label="CUSTOMER">
             <div className="profile-header">
               <div className="profile-avatar">
                 {(profile?.full_name || "C")
@@ -892,13 +872,11 @@ export default function Dashboard() {
             label="TRANSFERS & PAYMENTS"
           >
             <form onSubmit={submitRequest}>
-
               <div className="request-notice">
                 <strong>Request Information</strong>
 
                 <p>
-                  Submit your request below. Requests are
-                  reviewed before any action is taken.
+                  Submit your request below.
                 </p>
               </div>
 
@@ -997,7 +975,7 @@ export default function Dashboard() {
               </label>
 
               {requestStatus && (
-                <div className="request-notice">
+                <div className="request-notice success">
                   <p>{requestStatus}</p>
                 </div>
               )}
@@ -1011,7 +989,6 @@ export default function Dashboard() {
                   ? "Submitting..."
                   : "Submit Request"}
               </button>
-
             </form>
           </PortalPage>
         )}
@@ -1113,7 +1090,6 @@ export default function Dashboard() {
             </div>
 
             <div className="support-grid-professional">
-
               <button
                 onClick={() => setChatOpen(true)}
                 className="support-option"
@@ -1158,7 +1134,6 @@ export default function Dashboard() {
                   Report an account or security issue
                 </small>
               </button>
-
             </div>
           </PortalPage>
         )}
@@ -1240,7 +1215,6 @@ export default function Dashboard() {
             </div>
           </PortalPage>
         )}
-
       </div>
 
       <button
@@ -1264,7 +1238,6 @@ export default function Dashboard() {
 
       {chatOpen && (
         <div className="live-chat-window">
-
           <div className="chat-header">
             <div>
               <strong>Customer Support</strong>
@@ -1319,10 +1292,8 @@ export default function Dashboard() {
               {chatLoading ? "..." : "Send"}
             </button>
           </form>
-
         </div>
       )}
-
     </main>
   );
 }
@@ -1330,7 +1301,6 @@ export default function Dashboard() {
 function PortalPage({ title, label, children }) {
   return (
     <section className="portal-page-section">
-
       <div className="page-heading">
         <div>
           <span className="section-label">
@@ -1344,7 +1314,6 @@ function PortalPage({ title, label, children }) {
       <div className="page-body">
         {children}
       </div>
-
     </section>
   );
 }
