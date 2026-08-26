@@ -42,9 +42,8 @@ export default function SignupPage() {
       [field]: value,
     }));
 
-    // Remove old messages when the customer starts correcting the form.
-    if (error) setError("");
-    if (message) setMessage("");
+    setError("");
+    setMessage("");
   }
 
   async function handleSignup(event) {
@@ -68,9 +67,7 @@ export default function SignupPage() {
 
     const fullName = `${firstName} ${lastName}`.trim();
 
-    // -----------------------------
-    // VALIDATION
-    // -----------------------------
+    /* VALIDATION */
 
     if (!firstName || !lastName) {
       setError("Please enter your first and last name.");
@@ -102,14 +99,24 @@ export default function SignupPage() {
       return;
     }
 
-    if (!country || !state || !city || !address || !postalCode) {
-      setError("Please complete your residential address.");
+    if (
+      !country ||
+      !state ||
+      !city ||
+      !address ||
+      !postalCode
+    ) {
+      setError(
+        "Please complete your residential address."
+      );
       setLoading(false);
       return;
     }
 
     if (form.password.length < 6) {
-      setError("Password must contain at least 6 characters.");
+      setError(
+        "Password must contain at least 6 characters."
+      );
       setLoading(false);
       return;
     }
@@ -121,9 +128,7 @@ export default function SignupPage() {
     }
 
     try {
-      // -----------------------------
-      // CREATE SUPABASE AUTH ACCOUNT
-      // -----------------------------
+      /* CREATE AUTH ACCOUNT */
 
       const {
         data,
@@ -157,58 +162,46 @@ export default function SignupPage() {
       }
 
       if (!data?.user) {
-        setError("Unable to create the account. Please try again.");
+        setError(
+          "Unable to create the account. Please try again."
+        );
         setLoading(false);
         return;
       }
 
       const userId = data.user.id;
 
-      // -----------------------------
-      // SAVE CUSTOMER PROFILE
-      // -----------------------------
+      /* CUSTOMER PROFILE */
 
       const profileData = {
         id: userId,
-
         full_name: fullName,
-
         role: "customer",
-
         approval_status: "pending",
-
         first_name: firstName,
-
         last_name: lastName,
-
         date_of_birth: form.dateOfBirth,
-
         gender: form.gender,
-
         email,
-
         phone,
-
         country,
-
         state,
-
         city,
-
         address,
-
         postal_code: postalCode,
-
         account_type: form.accountType,
       };
+
+      /*
+       * IMPORTANT:
+       * Using INSERT instead of UPSERT.
+       */
 
       const {
         error: profileError,
       } = await supabase
         .from("profiles")
-        .upsert(profileData, {
-          onConflict: "id",
-        });
+        .insert(profileData);
 
       if (profileError) {
         console.error(
@@ -217,28 +210,29 @@ export default function SignupPage() {
         );
 
         /*
-         * IMPORTANT:
-         * We do NOT clear the form here because the profile
-         * was not successfully completed.
+         * Show the REAL Supabase error
+         * so we can identify the exact problem.
          */
 
         setError(
-          "Your account was created, but your customer information could not be saved. Please try again or contact support."
+          `Profile error: ${profileError.message}`
         );
 
         setLoading(false);
         return;
       }
 
-      // -----------------------------
-      // SUCCESS
-      // -----------------------------
+      /* SUCCESS */
 
       setMessage(
         "Your account has been created successfully and is awaiting approval."
       );
 
-      // Clear EVERYTHING only after successful creation.
+      /*
+       * Clear the form ONLY after everything
+       * has been saved successfully.
+       */
+
       setForm(emptyForm);
 
       setShowPassword(false);
@@ -250,10 +244,10 @@ export default function SignupPage() {
       console.error("SIGNUP ERROR:", err);
 
       setError(
-        "Something went wrong while creating your account. Please try again."
+        err?.message ||
+          "Something went wrong while creating your account. Please try again."
       );
 
-      // Do NOT clear the form when there is an error.
       setLoading(false);
     }
   }
@@ -262,12 +256,9 @@ export default function SignupPage() {
     <main className="auth-page">
       <div className="auth-card signup-card">
 
-        {/* =========================
-            BANK BRANDING
-        ========================== */}
+        {/* BANK BRANDING */}
 
         <div className="auth-brand">
-
           <div className="bank-mark">
             M
           </div>
@@ -281,16 +272,11 @@ export default function SignupPage() {
               CUSTOMER BANKING PORTAL
             </div>
           </div>
-
         </div>
 
-
-        {/* =========================
-            HEADING
-        ========================== */}
+        {/* HEADING */}
 
         <div className="auth-heading">
-
           <span className="account-label">
             CUSTOMER ACCOUNT
           </span>
@@ -300,16 +286,12 @@ export default function SignupPage() {
           </h1>
 
           <p>
-            Complete the information below to create your
-            customer account.
+            Complete the information below to create
+            your customer account.
           </p>
-
         </div>
 
-
-        {/* =========================
-            ERROR
-        ========================== */}
+        {/* ERROR */}
 
         {error && (
           <div className="auth-error">
@@ -317,10 +299,7 @@ export default function SignupPage() {
           </div>
         )}
 
-
-        {/* =========================
-            SUCCESS
-        ========================== */}
+        {/* SUCCESS */}
 
         {message && (
           <div className="auth-success">
@@ -328,24 +307,16 @@ export default function SignupPage() {
           </div>
         )}
 
-
-        {/* =========================
-            FORM
-        ========================== */}
+        {/* FORM */}
 
         <form onSubmit={handleSignup}>
 
-          {/* =========================
-              01 PERSONAL INFORMATION
-          ========================== */}
+          {/* PERSONAL INFORMATION */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-
-              <span>
-                01
-              </span>
+              <span>01</span>
 
               <div>
                 <h2>
@@ -356,13 +327,9 @@ export default function SignupPage() {
                   Tell us a little about yourself.
                 </p>
               </div>
-
             </div>
 
-
             <div className="form-grid">
-
-              {/* FIRST NAME */}
 
               <label>
                 First Name
@@ -382,9 +349,6 @@ export default function SignupPage() {
                 />
               </label>
 
-
-              {/* LAST NAME */}
-
               <label>
                 Last Name
 
@@ -403,9 +367,6 @@ export default function SignupPage() {
                 />
               </label>
 
-
-              {/* DATE OF BIRTH */}
-
               <label>
                 Date of Birth
 
@@ -423,9 +384,6 @@ export default function SignupPage() {
                 />
               </label>
 
-
-              {/* GENDER */}
-
               <div className="gender-field">
 
                 <span className="field-title">
@@ -435,7 +393,6 @@ export default function SignupPage() {
                 <div className="gender-options">
 
                   <label className="gender-option">
-
                     <input
                       type="radio"
                       name="gender"
@@ -454,12 +411,9 @@ export default function SignupPage() {
                     <span>
                       Male
                     </span>
-
                   </label>
 
-
                   <label className="gender-option">
-
                     <input
                       type="radio"
                       name="gender"
@@ -478,32 +432,22 @@ export default function SignupPage() {
                     <span>
                       Female
                     </span>
-
                   </label>
 
                 </div>
-
               </div>
 
             </div>
-
           </div>
 
-
-          {/* =========================
-              02 CONTACT INFORMATION
-          ========================== */}
+          {/* CONTACT INFORMATION */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-
-              <span>
-                02
-              </span>
+              <span>02</span>
 
               <div>
-
                 <h2>
                   Contact Information
                 </h2>
@@ -511,15 +455,10 @@ export default function SignupPage() {
                 <p>
                   Provide your contact details.
                 </p>
-
               </div>
-
             </div>
 
-
             <div className="form-grid">
-
-              {/* EMAIL */}
 
               <label>
                 Email Address
@@ -538,9 +477,6 @@ export default function SignupPage() {
                   required
                 />
               </label>
-
-
-              {/* PHONE */}
 
               <label>
                 Phone Number
@@ -561,40 +497,28 @@ export default function SignupPage() {
               </label>
 
             </div>
-
           </div>
 
-
-          {/* =========================
-              03 RESIDENTIAL ADDRESS
-          ========================== */}
+          {/* ADDRESS */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-
-              <span>
-                03
-              </span>
+              <span>03</span>
 
               <div>
-
                 <h2>
                   Residential Address
                 </h2>
 
                 <p>
-                  Enter your current residential information.
+                  Enter your current residential
+                  information.
                 </p>
-
               </div>
-
             </div>
 
-
             <div className="form-grid">
-
-              {/* COUNTRY */}
 
               <label>
                 Country
@@ -614,9 +538,6 @@ export default function SignupPage() {
                 />
               </label>
 
-
-              {/* STATE */}
-
               <label>
                 State / Province
 
@@ -634,9 +555,6 @@ export default function SignupPage() {
                   required
                 />
               </label>
-
-
-              {/* CITY */}
 
               <label>
                 City
@@ -656,9 +574,6 @@ export default function SignupPage() {
                 />
               </label>
 
-
-              {/* POSTAL CODE */}
-
               <label>
                 ZIP / Postal Code
 
@@ -676,9 +591,6 @@ export default function SignupPage() {
                   required
                 />
               </label>
-
-
-              {/* ADDRESS */}
 
               <label className="full-width-field">
                 Street Address
@@ -699,37 +611,26 @@ export default function SignupPage() {
               </label>
 
             </div>
-
           </div>
 
-
-          {/* =========================
-              04 ACCOUNT INFORMATION
-          ========================== */}
+          {/* ACCOUNT INFORMATION */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-
-              <span>
-                04
-              </span>
+              <span>04</span>
 
               <div>
-
                 <h2>
                   Account Information
                 </h2>
 
                 <p>
-                  Choose the account type you would like
-                  to request.
+                  Choose the account type you would
+                  like to request.
                 </p>
-
               </div>
-
             </div>
-
 
             <label>
               Account Type
@@ -743,7 +644,6 @@ export default function SignupPage() {
                   )
                 }
               >
-
                 <option value="Checking">
                   Checking Account
                 </option>
@@ -751,45 +651,31 @@ export default function SignupPage() {
                 <option value="Savings">
                   Savings Account
                 </option>
-
               </select>
-
             </label>
 
           </div>
 
-
-          {/* =========================
-              05 LOGIN CREDENTIALS
-          ========================== */}
+          {/* LOGIN */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-
-              <span>
-                05
-              </span>
+              <span>05</span>
 
               <div>
-
                 <h2>
                   Create Your Login
                 </h2>
 
                 <p>
-                  Create the password you will use to sign
-                  in to your customer portal.
+                  Create the password you will use
+                  to sign in.
                 </p>
-
               </div>
-
             </div>
 
-
             <div className="form-grid">
-
-              {/* PASSWORD */}
 
               <label>
                 Password
@@ -834,11 +720,7 @@ export default function SignupPage() {
                 <small className="field-help">
                   Use at least 6 characters.
                 </small>
-
               </label>
-
-
-              {/* CONFIRM PASSWORD */}
 
               <label>
                 Confirm Password
@@ -879,33 +761,23 @@ export default function SignupPage() {
                   </button>
 
                 </div>
-
               </label>
 
             </div>
-
           </div>
 
-
-          {/* =========================
-              AGREEMENT
-          ========================== */}
+          {/* AGREEMENT */}
 
           <div className="signup-agreement">
-
             <p>
-              By creating an account, you confirm that the
-              information provided is accurate and agree to
-              the applicable account terms and privacy
-              practices.
+              By creating an account, you confirm
+              that the information provided is accurate
+              and agree to the applicable account terms
+              and privacy practices.
             </p>
-
           </div>
 
-
-          {/* =========================
-              CREATE ACCOUNT
-          ========================== */}
+          {/* SUBMIT */}
 
           <button
             type="submit"
@@ -919,10 +791,7 @@ export default function SignupPage() {
 
         </form>
 
-
-        {/* =========================
-            ACCOUNT LINKS
-        ========================== */}
+        {/* LINKS */}
 
         <div className="auth-links">
 
@@ -933,7 +802,6 @@ export default function SignupPage() {
               Sign In
             </a>
           </p>
-
 
           <a
             className="back-home"
