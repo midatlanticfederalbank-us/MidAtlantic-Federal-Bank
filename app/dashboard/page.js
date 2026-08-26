@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState("dashboard");
 
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -212,6 +214,12 @@ export default function Dashboard() {
     return `•••• ${value.slice(-4)}`;
   }
 
+  function visibleAccountNumber(accountNumber) {
+    if (!accountNumber) return "Not available";
+
+    return String(accountNumber);
+  }
+
   async function sendChatMessage(event) {
     event.preventDefault();
 
@@ -311,25 +319,36 @@ export default function Dashboard() {
           "Transfer request database insert failed:",
           error.message
         );
+
+        setRequestStatus(
+          "Your request could not be submitted. Please try again."
+        );
+
+        setRequestLoading(false);
+        return;
       }
+
+      setRequestForm({
+        recipientName: "",
+        recipientAccountNumber: "",
+        bankName: "",
+        amount: "",
+        description: "",
+      });
+
+      setRequestStatus(
+        "Transfer request submitted successfully."
+      );
     } catch (err) {
       console.warn(
         "Transfer request connection error:",
         err
       );
+
+      setRequestStatus(
+        "Unable to submit the request. Please try again."
+      );
     }
-
-    setRequestForm({
-      recipientName: "",
-      recipientAccountNumber: "",
-      bankName: "",
-      amount: "",
-      description: "",
-    });
-
-    setRequestStatus(
-      "Transfer request submitted successfully."
-    );
 
     setRequestLoading(false);
   }
@@ -719,11 +738,14 @@ export default function Dashboard() {
               value={user?.email}
             />
 
-            <InfoRow
-              label="Account Number"
-              value={maskedAccountNumber(
-                account.account_number
-              )}
+            <AccountNumberRow
+              accountNumber={account.account_number}
+              visible={showAccountNumber}
+              onToggle={() =>
+                setShowAccountNumber(
+                  (current) => !current
+                )
+              }
             />
 
             <InfoRow
@@ -743,11 +765,14 @@ export default function Dashboard() {
               value={profile?.full_name}
             />
 
-            <InfoRow
-              label="Account Number"
-              value={maskedAccountNumber(
-                account.account_number
-              )}
+            <AccountNumberRow
+              accountNumber={account.account_number}
+              visible={showAccountNumber}
+              onToggle={() =>
+                setShowAccountNumber(
+                  (current) => !current
+                )
+              }
             />
 
             <InfoRow
@@ -1006,7 +1031,10 @@ export default function Dashboard() {
 
             <div className="support-grid-professional">
               <button
-                onClick={() => setChatOpen(true)}
+                onClick={async () => {
+                  setChatOpen(true);
+                  await loadChatMessages();
+                }}
                 className="support-option"
               >
                 <span>💬</span>
@@ -1407,6 +1435,51 @@ function PortalHeader({
 }
 
 /* =====================================================
+   ACCOUNT NUMBER ROW
+   Includes eye button to show/hide full number.
+===================================================== */
+
+function AccountNumberRow({
+  accountNumber,
+  visible,
+  onToggle,
+}) {
+  return (
+    <div className="detail-row large account-number-row">
+      <span>Account Number</span>
+
+      <div className="account-number-value">
+        <strong>
+          {visible
+            ? visibleAccountNumber(accountNumber)
+            : maskedAccountNumber(accountNumber)}
+        </strong>
+
+        {accountNumber && (
+          <button
+            type="button"
+            className="account-number-eye"
+            onClick={onToggle}
+            aria-label={
+              visible
+                ? "Hide account number"
+                : "Show account number"
+            }
+            title={
+              visible
+                ? "Hide account number"
+                : "Show account number"
+            }
+          >
+            {visible ? "◉" : "◌"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================
    GENERIC PAGE
 ===================================================== */
 
@@ -1444,4 +1517,24 @@ function InfoRow({ label, value }) {
       </strong>
     </div>
   );
+}
+
+/* =====================================================
+   ACCOUNT NUMBER HELPERS
+===================================================== */
+
+function maskedAccountNumber(accountNumber) {
+  if (!accountNumber) return "Not available";
+
+  const value = String(accountNumber);
+
+  if (value.length <= 4) return value;
+
+  return `•••• ${value.slice(-4)}`;
+}
+
+function visibleAccountNumber(accountNumber) {
+  if (!accountNumber) return "Not available";
+
+  return String(accountNumber);
 }
