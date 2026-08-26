@@ -178,41 +178,43 @@ export default function SignupPage() {
         full_name: fullName,
         role: "customer",
         approval_status: "pending",
+
         first_name: firstName,
         last_name: lastName,
         date_of_birth: form.dateOfBirth,
         gender: form.gender,
+
         email,
         phone,
+
         country,
         state,
         city,
         address,
         postal_code: postalCode,
+
         account_type: form.accountType,
       };
 
       /*
-       * IMPORTANT:
-       * Using INSERT instead of UPSERT.
+       * UPSERT:
+       * Creates the profile if it doesn't exist.
+       * Updates it if the same ID already exists.
        */
 
       const {
         error: profileError,
       } = await supabase
         .from("profiles")
-        .insert(profileData);
+        .upsert(profileData, {
+          onConflict: "id",
+        });
 
       if (profileError) {
         console.error(
           "PROFILE SAVE ERROR:",
           profileError
         );
-
-        /*
-         * Show the REAL Supabase error
-         * so we can identify the exact problem.
-         */
 
         setError(
           `Profile error: ${profileError.message}`
@@ -229,11 +231,13 @@ export default function SignupPage() {
       );
 
       /*
-       * Clear the form ONLY after everything
-       * has been saved successfully.
+       * Clear the form only after
+       * the account and profile are saved.
        */
 
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+      });
 
       setShowPassword(false);
       setShowConfirmPassword(false);
@@ -259,6 +263,7 @@ export default function SignupPage() {
         {/* BANK BRANDING */}
 
         <div className="auth-brand">
+
           <div className="bank-mark">
             M
           </div>
@@ -272,11 +277,14 @@ export default function SignupPage() {
               CUSTOMER BANKING PORTAL
             </div>
           </div>
+
         </div>
+
 
         {/* HEADING */}
 
         <div className="auth-heading">
+
           <span className="account-label">
             CUSTOMER ACCOUNT
           </span>
@@ -289,7 +297,9 @@ export default function SignupPage() {
             Complete the information below to create
             your customer account.
           </p>
+
         </div>
+
 
         {/* ERROR */}
 
@@ -299,6 +309,7 @@ export default function SignupPage() {
           </div>
         )}
 
+
         {/* SUCCESS */}
 
         {message && (
@@ -306,6 +317,7 @@ export default function SignupPage() {
             {message}
           </div>
         )}
+
 
         {/* FORM */}
 
@@ -316,7 +328,10 @@ export default function SignupPage() {
           <div className="signup-section">
 
             <div className="signup-section-heading">
-              <span>01</span>
+
+              <span>
+                01
+              </span>
 
               <div>
                 <h2>
@@ -327,7 +342,9 @@ export default function SignupPage() {
                   Tell us a little about yourself.
                 </p>
               </div>
+
             </div>
+
 
             <div className="form-grid">
 
@@ -347,7 +364,9 @@ export default function SignupPage() {
                   autoComplete="given-name"
                   required
                 />
+
               </label>
+
 
               <label>
                 Last Name
@@ -365,7 +384,9 @@ export default function SignupPage() {
                   autoComplete="family-name"
                   required
                 />
+
               </label>
+
 
               <label>
                 Date of Birth
@@ -382,7 +403,9 @@ export default function SignupPage() {
                   autoComplete="bday"
                   required
                 />
+
               </label>
+
 
               <div className="gender-field">
 
@@ -393,6 +416,7 @@ export default function SignupPage() {
                 <div className="gender-options">
 
                   <label className="gender-option">
+
                     <input
                       type="radio"
                       name="gender"
@@ -411,9 +435,12 @@ export default function SignupPage() {
                     <span>
                       Male
                     </span>
+
                   </label>
 
+
                   <label className="gender-option">
+
                     <input
                       type="radio"
                       name="gender"
@@ -432,22 +459,30 @@ export default function SignupPage() {
                     <span>
                       Female
                     </span>
+
                   </label>
 
                 </div>
+
               </div>
 
             </div>
+
           </div>
+
 
           {/* CONTACT INFORMATION */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-              <span>02</span>
+
+              <span>
+                02
+              </span>
 
               <div>
+
                 <h2>
                   Contact Information
                 </h2>
@@ -455,8 +490,11 @@ export default function SignupPage() {
                 <p>
                   Provide your contact details.
                 </p>
+
               </div>
+
             </div>
+
 
             <div className="form-grid">
 
@@ -476,7 +514,9 @@ export default function SignupPage() {
                   autoComplete="email"
                   required
                 />
+
               </label>
+
 
               <label>
                 Phone Number
@@ -494,19 +534,26 @@ export default function SignupPage() {
                   autoComplete="tel"
                   required
                 />
+
               </label>
 
             </div>
+
           </div>
 
-          {/* ADDRESS */}
+
+          {/* RESIDENTIAL ADDRESS */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-              <span>03</span>
+
+              <span>
+                03
+              </span>
 
               <div>
+
                 <h2>
                   Residential Address
                 </h2>
@@ -515,8 +562,11 @@ export default function SignupPage() {
                   Enter your current residential
                   information.
                 </p>
+
               </div>
+
             </div>
+
 
             <div className="form-grid">
 
@@ -536,7 +586,9 @@ export default function SignupPage() {
                   autoComplete="country-name"
                   required
                 />
+
               </label>
+
 
               <label>
                 State / Province
@@ -554,7 +606,9 @@ export default function SignupPage() {
                   autoComplete="address-level1"
                   required
                 />
+
               </label>
+
 
               <label>
                 City
@@ -572,7 +626,9 @@ export default function SignupPage() {
                   autoComplete="address-level2"
                   required
                 />
+
               </label>
+
 
               <label>
                 ZIP / Postal Code
@@ -590,7 +646,9 @@ export default function SignupPage() {
                   autoComplete="postal-code"
                   required
                 />
+
               </label>
+
 
               <label className="full-width-field">
                 Street Address
@@ -608,19 +666,26 @@ export default function SignupPage() {
                   autoComplete="street-address"
                   required
                 />
+
               </label>
 
             </div>
+
           </div>
+
 
           {/* ACCOUNT INFORMATION */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-              <span>04</span>
+
+              <span>
+                04
+              </span>
 
               <div>
+
                 <h2>
                   Account Information
                 </h2>
@@ -629,8 +694,11 @@ export default function SignupPage() {
                   Choose the account type you would
                   like to request.
                 </p>
+
               </div>
+
             </div>
+
 
             <label>
               Account Type
@@ -644,6 +712,7 @@ export default function SignupPage() {
                   )
                 }
               >
+
                 <option value="Checking">
                   Checking Account
                 </option>
@@ -651,19 +720,26 @@ export default function SignupPage() {
                 <option value="Savings">
                   Savings Account
                 </option>
+
               </select>
+
             </label>
 
           </div>
 
-          {/* LOGIN */}
+
+          {/* LOGIN CREDENTIALS */}
 
           <div className="signup-section">
 
             <div className="signup-section-heading">
-              <span>05</span>
+
+              <span>
+                05
+              </span>
 
               <div>
+
                 <h2>
                   Create Your Login
                 </h2>
@@ -672,8 +748,11 @@ export default function SignupPage() {
                   Create the password you will use
                   to sign in.
                 </p>
+
               </div>
+
             </div>
+
 
             <div className="form-grid">
 
@@ -720,7 +799,9 @@ export default function SignupPage() {
                 <small className="field-help">
                   Use at least 6 characters.
                 </small>
+
               </label>
+
 
               <label>
                 Confirm Password
@@ -761,21 +842,27 @@ export default function SignupPage() {
                   </button>
 
                 </div>
+
               </label>
 
             </div>
+
           </div>
+
 
           {/* AGREEMENT */}
 
           <div className="signup-agreement">
+
             <p>
               By creating an account, you confirm
               that the information provided is accurate
               and agree to the applicable account terms
               and privacy practices.
             </p>
+
           </div>
+
 
           {/* SUBMIT */}
 
@@ -784,14 +871,17 @@ export default function SignupPage() {
             className="auth-submit"
             disabled={loading}
           >
+
             {loading
               ? "Creating Account..."
               : "Create Account"}
+
           </button>
 
         </form>
 
-        {/* LINKS */}
+
+        {/* ACCOUNT LINKS */}
 
         <div className="auth-links">
 
@@ -801,7 +891,9 @@ export default function SignupPage() {
             <a href="/login">
               Sign In
             </a>
+
           </p>
+
 
           <a
             className="back-home"
