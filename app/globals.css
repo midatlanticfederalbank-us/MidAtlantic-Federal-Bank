@@ -9132,3 +9132,25 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   PASSWORD RECOVERY / FORGOT PASSWORD
+========================================================= */
+
+.forgot-password-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -10px;
+  margin-bottom: 18px;
+}
+
+.forgot-password-row a {
+  color: #173b70;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.forgot-password-row a:hover {
+  text-decoration: underline;
+}
