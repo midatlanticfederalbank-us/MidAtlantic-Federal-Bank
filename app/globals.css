@@ -7786,3 +7786,717 @@ textarea {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* =========================================================
+   FINAL VISUAL POLISH PASS
+   Keeps existing components/logic intact.
+========================================================= */
+
+:root {
+  --polish-max: 1180px;
+  --polish-gutter: clamp(16px, 3vw, 32px);
+  --polish-focus: 0 0 0 3px rgba(31, 111, 174, 0.16);
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Public header: calmer spacing and clearer hierarchy */
+.public-header {
+  position: relative;
+  min-height: 76px;
+  padding: 14px var(--polish-gutter);
+  border-radius: 0;
+  box-shadow: 0 1px 0 rgba(7, 26, 45, 0.02);
+}
+
+.public-logo {
+  min-width: 0;
+}
+
+.public-logo > div:last-child {
+  min-width: 0;
+}
+
+.public-logo strong,
+.public-logo span {
+  white-space: nowrap;
+}
+
+.public-nav {
+  gap: clamp(14px, 1.8vw, 25px);
+}
+
+.public-nav a {
+  position: relative;
+  padding: 8px 0;
+}
+
+.public-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.public-nav a:hover::after,
+.public-nav a:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.header-signin,
+.header-open,
+.primary-button,
+.secondary-button,
+.auth-submit {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.header-open {
+  box-shadow: 0 6px 16px rgba(7, 26, 45, 0.12);
+}
+
+.header-open:hover,
+.header-signin:hover {
+  transform: translateY(-1px);
+}
+
+/* Public hero: stronger visual balance */
+.public-hero {
+  min-height: 500px;
+  padding: clamp(42px, 6vw, 70px);
+  gap: clamp(28px, 5vw, 55px);
+}
+
+.hero-card {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+}
+
+.public-hero .primary-button,
+.public-hero .secondary-button {
+  min-width: 145px;
+}
+
+/* Consistent public section rhythm */
+.public-section,
+.about-values,
+.bank-information,
+.security-public,
+.final-cta {
+  padding-top: clamp(54px, 7vw, 76px);
+  padding-bottom: clamp(54px, 7vw, 76px);
+}
+
+.public-feature-card,
+.news-card,
+.about-value-card,
+.bank-information-card {
+  overflow: hidden;
+}
+
+.public-feature-card,
+.news-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.public-feature-card:hover,
+.news-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Home content blocks */
+.about-preview,
+.loan-section,
+.support-banner {
+  gap: clamp(28px, 5vw, 60px);
+}
+
+.about-preview-content,
+.loan-content,
+.support-banner > div {
+  min-width: 0;
+}
+
+.loan-options > div {
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.loan-options > div:hover {
+  transform: translateX(3px);
+  background: var(--surface-soft);
+}
+
+/* Footer readability */
+.public-footer {
+  padding-left: var(--polish-gutter);
+  padding-right: var(--polish-gutter);
+}
+
+.footer-main {
+  gap: clamp(28px, 5vw, 60px);
+}
+
+.footer-column a,
+.footer-contact a {
+  display: inline-block;
+}
+
+.footer-bottom {
+  gap: 16px;
+}
+
+/* Auth cards */
+.auth-card {
+  width: min(100%, 620px);
+  border: 1px solid rgba(223, 230, 238, 0.95);
+  box-shadow: 0 22px 55px rgba(7, 26, 45, 0.11);
+}
+
+.signup-card {
+  width: min(100%, 860px);
+}
+
+.auth-brand {
+  min-width: 0;
+}
+
+.auth-brand > div:last-child {
+  min-width: 0;
+}
+
+.auth-heading h1 {
+  text-wrap: balance;
+}
+
+.auth-card input,
+.auth-card select,
+.auth-card textarea {
+  min-height: 46px;
+  border-radius: 8px;
+  border-color: #d5dee8;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.auth-card input:focus,
+.auth-card select:focus,
+.auth-card textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--polish-focus);
+  background: #fff;
+}
+
+.auth-submit {
+  min-height: 48px;
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(7, 26, 45, 0.12);
+}
+
+.auth-submit:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 11px 22px rgba(7, 26, 45, 0.16);
+}
+
+.auth-error,
+.auth-success {
+  overflow-wrap: anywhere;
+}
+
+.signup-section {
+  scroll-margin-top: 20px;
+}
+
+.signup-section-heading {
+  align-items: flex-start;
+}
+
+.signup-section-heading > div {
+  min-width: 0;
+}
+
+.signup-section-heading h2,
+.signup-section-heading p {
+  text-wrap: balance;
+}
+
+.form-grid {
+  align-items: start;
+}
+
+.password-field {
+  min-width: 0;
+}
+
+.password-field input {
+  min-width: 0;
+}
+
+.password-toggle {
+  min-height: 42px;
+}
+
+/* Portal header and menu */
+.portal-header {
+  min-height: 76px;
+  padding-left: var(--polish-gutter);
+  padding-right: var(--polish-gutter);
+}
+
+.portal-header > * {
+  min-width: 0;
+}
+
+.portal-header .bank-name {
+  white-space: nowrap;
+}
+
+.customer-menu {
+  border-color: #d9e2eb;
+  box-shadow: 0 18px 45px rgba(7, 26, 45, 0.14);
+}
+
+.customer-menu button {
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.portal-content {
+  padding-top: clamp(30px, 5vw, 45px);
+}
+
+.welcome-section h1,
+.page-heading h1 {
+  text-wrap: balance;
+}
+
+.portal-section,
+.portal-page-section,
+.balance-card,
+.quick-action,
+.transaction-card,
+.info-card {
+  border-color: #dce4ec;
+}
+
+.quick-action {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.quick-action:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.transaction-row {
+  min-width: 0;
+}
+
+.transaction-row > * {
+  min-width: 0;
+}
+
+.transaction-row small,
+.transaction-row strong,
+.detail-row span,
+.detail-row strong {
+  overflow-wrap: anywhere;
+}
+
+/* Floating chat should feel attached to the viewport, not the page */
+.live-chat-button {
+  box-shadow: 0 10px 24px rgba(7, 26, 45, 0.18);
+}
+
+.live-chat-window {
+  border-color: #d8e1ea;
+  box-shadow: 0 24px 60px rgba(7, 26, 45, 0.18);
+}
+
+/* Keyboard focus */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   POLISH BREAKPOINTS
+========================================================= */
+
+@media (max-width: 1100px) {
+  .public-header {
+    gap: 18px;
+  }
+
+  .public-nav {
+    gap: 13px;
+  }
+
+  .public-nav a {
+    font-size: 12px;
+  }
+
+  .public-hero {
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .public-header {
+    flex-wrap: wrap;
+  }
+
+  .public-nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .public-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .public-nav a {
+    flex: 0 0 auto;
+  }
+
+  .public-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero-card {
+    max-width: 620px;
+  }
+
+  .about-preview,
+  .loan-section {
+    grid-template-columns: 1fr;
+  }
+
+  .about-preview-image {
+    min-height: 300px;
+  }
+
+  .news-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .public-header {
+    padding: 12px 16px;
+  }
+
+  .public-logo .bank-logo {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .public-logo strong {
+    font-size: 12px;
+    letter-spacing: 0.55px;
+  }
+
+  .public-logo span {
+    font-size: 8px;
+    letter-spacing: 0.95px;
+  }
+
+  .header-actions {
+    gap: 7px;
+  }
+
+  .header-signin,
+  .header-open {
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+
+  .public-hero {
+    width: calc(100% - 24px);
+    margin-top: 16px;
+    padding: 34px 22px;
+    border-radius: 14px;
+  }
+
+  .public-hero h1 {
+    margin-top: 16px;
+    font-size: clamp(32px, 9vw, 46px);
+    letter-spacing: -1px;
+  }
+
+  .public-hero p {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .hero-card {
+    padding: 22px;
+  }
+
+  .public-feature-grid,
+  .about-value-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .public-feature-card {
+    padding: 20px;
+  }
+
+  .about-preview,
+  .loan-section,
+  .support-banner,
+  .security-public {
+    width: calc(100% - 24px);
+  }
+
+  .security-public {
+    grid-template-columns: auto 1fr;
+    padding: 22px;
+  }
+
+  .security-public > a {
+    grid-column: 1 / -1;
+  }
+
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .auth-page {
+    align-items: flex-start;
+    padding-top: 24px;
+    padding-bottom: 28px;
+  }
+
+  .auth-card,
+  .signup-card {
+    border-radius: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width-field {
+    grid-column: auto;
+  }
+
+  .portal-header {
+    min-height: 70px;
+  }
+
+  .portal-content {
+    width: calc(100% - 24px);
+  }
+
+  .two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-header {
+    gap: 10px;
+  }
+
+  .public-logo {
+    flex: 1 1 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .header-signin,
+  .header-open {
+    flex: 1;
+    text-align: center;
+  }
+
+  .public-nav {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .public-feature-grid,
+  .about-value-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-preview-image {
+    min-height: 230px;
+  }
+
+  .loan-options {
+    gap: 8px;
+  }
+
+  .loan-options > div {
+    padding: 14px;
+  }
+
+  .support-banner {
+    padding: 24px 20px;
+  }
+
+  .support-banner-actions .primary-button,
+  .support-banner-actions .secondary-button {
+    width: 100%;
+  }
+
+  .public-footer {
+    padding-top: 44px;
+    padding-bottom: 24px;
+  }
+
+  .footer-main {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-contact {
+    padding-top: 24px;
+  }
+
+  .auth-card {
+    padding: 22px 16px;
+  }
+
+  .auth-brand {
+    align-items: flex-start;
+  }
+
+  .auth-heading h1 {
+    font-size: 28px;
+  }
+
+  .signup-section-heading {
+    gap: 10px;
+  }
+
+  .signup-section-heading > span {
+    flex: 0 0 auto;
+  }
+
+  .signup-agreement {
+    font-size: 12px;
+  }
+
+  .portal-header .bank-name {
+    font-size: 14px;
+  }
+
+  .portal-label {
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+
+  .portal-content {
+    width: calc(100% - 20px);
+  }
+
+  .welcome-section h1 {
+    font-size: 30px;
+  }
+
+  .balance-main h2 {
+    font-size: 30px;
+  }
+
+  .transaction-row {
+    align-items: flex-start;
+  }
+
+  .customer-menu {
+    right: 10px;
+    width: calc(100vw - 20px);
+    max-height: calc(100svh - 90px);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .public-header,
+  .auth-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .public-logo strong {
+    font-size: 11px;
+  }
+
+  .public-logo span {
+    font-size: 7px;
+  }
+
+  .public-hero {
+    width: calc(100% - 16px);
+    padding: 28px 18px;
+  }
+
+  .public-hero h1 {
+    font-size: 30px;
+  }
+
+  .public-section,
+  .about-preview,
+  .loan-section,
+  .support-banner,
+  .security-public,
+  .final-cta {
+    width: calc(100% - 20px);
+  }
+
+  .auth-card {
+    padding: 20px 13px;
+  }
+
+  .auth-heading h1 {
+    font-size: 26px;
+  }
+
+  .portal-content {
+    width: calc(100% - 16px);
+  }
+}
