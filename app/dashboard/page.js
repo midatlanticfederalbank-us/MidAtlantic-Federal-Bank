@@ -11,6 +11,9 @@ const supabase = createClient(
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarStatus, setAvatarStatus] = useState("");
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
 
@@ -112,6 +115,19 @@ export default function Dashboard() {
     }
 
     setProfile(profileData);
+
+    if (profileData.avatar_path) {
+      const { data: avatarData, error: avatarError } = await supabase
+        .storage
+        .from("profile-pictures")
+        .createSignedUrl(profileData.avatar_path, 3600);
+
+      if (!avatarError && avatarData?.signedUrl) {
+        setAvatarUrl(avatarData.signedUrl);
+      }
+    } else {
+      setAvatarUrl("");
+    }
 
     if (profileData.approval_status !== "approved") {
       setLoading(false);
@@ -339,6 +355,77 @@ export default function Dashboard() {
       setPasswordModalOpen(false);
       setPasswordStatus("");
     }, 1600);
+  }
+
+  async function uploadProfilePicture(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !user || avatarLoading) return;
+
+    setAvatarStatus("");
+
+    if (!file.type.startsWith("image/")) {
+      setAvatarStatus("Please choose an image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarStatus("Profile pictures must be 5 MB or smaller.");
+      return;
+    }
+
+    setAvatarLoading(true);
+
+    try {
+      const extension = (file.name.split(".").pop() || "jpg")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      const safeExtension = extension || "jpg";
+      const path = `${user.id}/avatar.${safeExtension}`;
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from("profile-pictures")
+        .upload(path, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: profileUpdateError } = await supabase
+        .rpc("set_profile_avatar_path", {
+          p_avatar_path: path,
+        });
+
+      if (profileUpdateError) throw profileUpdateError;
+
+      const { data: avatarData, error: signedUrlError } = await supabase
+        .storage
+        .from("profile-pictures")
+        .createSignedUrl(path, 3600);
+
+      if (signedUrlError || !avatarData?.signedUrl) {
+        throw signedUrlError || new Error(
+          "The profile picture was uploaded, but its preview could not be created."
+        );
+      }
+
+      setAvatarUrl(avatarData.signedUrl);
+      setProfile((current) =>
+        current ? { ...current, avatar_path: path } : current
+      );
+      setAvatarStatus("Profile picture updated successfully.");
+    } catch (uploadError) {
+      setAvatarStatus(
+        uploadError?.message ||
+          "Your profile picture could not be uploaded. Please try again."
+      );
+    } finally {
+      setAvatarLoading(false);
+    }
   }
 
   async function logout() {
@@ -1198,12 +1285,35 @@ export default function Dashboard() {
 
             <div className="profile-header">
 
-              <div className="profile-avatar">
+              <div className="profile-avatar-wrap">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${profile?.full_name || "Customer"} profile`}
+                    className="profile-avatar-image"
+                  />
+                ) : (
+                  <div className="profile-avatar">
+                    {(profile?.full_name || "C")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                )}
 
-                {(profile?.full_name || "C")
-                  .charAt(0)
-                  .toUpperCase()}
-
+                <label className="profile-picture-button">
+                  {avatarLoading
+                    ? "Uploading..."
+                    : avatarUrl
+                    ? "Change Photo"
+                    : "Upload Photo"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={uploadProfilePicture}
+                    disabled={avatarLoading}
+                    hidden
+                  />
+                </label>
               </div>
 
               <div>
@@ -1220,6 +1330,18 @@ export default function Dashboard() {
               </div>
 
             </div>
+
+            {avatarStatus && (
+              <div
+                className={`profile-picture-status ${
+                  avatarStatus.toLowerCase().includes("successfully")
+                    ? "success"
+                    : "error"
+                }`}
+              >
+                {avatarStatus}
+              </div>
+            )}
 
             <div className="profile-section-title">
               Personal Information
@@ -2096,6 +2218,56 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .profile-avatar-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+        .profile-avatar-image,
+        .profile-avatar {
+          width: 92px;
+          height: 92px;
+          border-radius: 50%;
+          object-fit: cover;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .profile-picture-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 36px;
+          padding: 8px 14px;
+          border-radius: 8px;
+          background: #173b70;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .profile-picture-button:hover { opacity: 0.92; }
+        .profile-picture-button input { display: none; }
+        .profile-picture-status {
+          margin: 14px 0 4px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+        }
+        .profile-picture-status.success {
+          background: #eaf7ee;
+          color: #176b35;
+        }
+        .profile-picture-status.error {
+          background: #fff0f0;
+          color: #a12626;
+        }
+      `}</style>
 
       {/* ===================================================
           FLOATING SUPPORT BUTTON
