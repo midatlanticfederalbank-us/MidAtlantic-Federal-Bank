@@ -39,6 +39,13 @@ export default function Dashboard() {
   const [requestStatus, setRequestStatus] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
 
+  // Password change
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   useEffect(() => {
     loadDashboard();
   }, []);
@@ -267,6 +274,52 @@ export default function Dashboard() {
     GENERAL FUNCTIONS
     =====================================================
   */
+
+  async function changePassword(event) {
+    event.preventDefault();
+
+    if (passwordLoading) return;
+
+    setPasswordStatus("");
+
+    const password = newPassword.trim();
+    const confirmation = confirmPassword.trim();
+
+    if (password.length < 8) {
+      setPasswordStatus("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (password !== confirmation) {
+      setPasswordStatus("The new passwords do not match.");
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password,
+    });
+
+    if (passwordError) {
+      setPasswordStatus(
+        passwordError.message ||
+          "Your password could not be changed. Please try again."
+      );
+      setPasswordLoading(false);
+      return;
+    }
+
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordStatus("Your password has been changed successfully.");
+    setPasswordLoading(false);
+
+    setTimeout(() => {
+      setPasswordModalOpen(false);
+      setPasswordStatus("");
+    }, 1600);
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -1791,11 +1844,13 @@ export default function Dashboard() {
 
               <button
                 className="secondary-action"
-                onClick={() =>
-                  alert(
-                    "Password-change workflow can be connected to Supabase Auth."
-                  )
-                }
+                type="button"
+                onClick={() => {
+                  setPasswordStatus("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordModalOpen(true);
+                }}
               >
                 Change
               </button>
@@ -1845,6 +1900,119 @@ export default function Dashboard() {
         )}
 
       </div>
+
+      {passwordModalOpen && (
+        <div
+          className="password-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setPasswordModalOpen(false);
+              setPasswordStatus("");
+            }
+          }}
+        >
+          <div
+            className="password-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="change-password-title"
+          >
+            <div className="password-modal-header">
+              <div>
+                <span className="section-label">SECURITY</span>
+                <h2 id="change-password-title">Change Password</h2>
+                <p>
+                  Choose a new password for your MIDATLANTIC FEDERAL BANK account.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="password-modal-close"
+                aria-label="Close change password"
+                onClick={() => {
+                  setPasswordModalOpen(false);
+                  setPasswordStatus("");
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={changePassword} className="password-change-form">
+              <label htmlFor="new-password">
+                New Password
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Enter a new password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                disabled={passwordLoading}
+              />
+
+              <small className="password-help">
+                Use at least 8 characters. A longer password is recommended.
+              </small>
+
+              <label htmlFor="confirm-new-password">
+                Confirm New Password
+              </label>
+              <input
+                id="confirm-new-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Re-enter your new password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                disabled={passwordLoading}
+              />
+
+              {passwordStatus && (
+                <div
+                  className={
+                    passwordStatus.toLowerCase().includes("success")
+                      ? "password-status success"
+                      : "password-status error"
+                  }
+                  role="status"
+                >
+                  {passwordStatus}
+                </div>
+              )}
+
+              <div className="password-modal-actions">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => {
+                    setPasswordModalOpen(false);
+                    setPasswordStatus("");
+                  }}
+                  disabled={passwordLoading}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="portal-button"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "Changing..." : "Change Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ===================================================
           FLOATING SUPPORT BUTTON
