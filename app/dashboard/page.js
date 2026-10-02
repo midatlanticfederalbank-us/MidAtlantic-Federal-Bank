@@ -121,7 +121,7 @@ export default function Dashboard() {
     } = await supabase
       .from("customer_accounts")
       .select(
-        "id, user_id, account_number, balance, status, account_type, created_at"
+        "id, user_id, account_number, balance, status, account_type, created_at, effective_created_at"
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -1165,6 +1165,7 @@ export default function Dashboard() {
             <InfoRow
               label="Account Created"
               value={formatDate(
+                account.effective_created_at ||
                 account.created_at
               )}
             />
@@ -1227,6 +1228,7 @@ export default function Dashboard() {
             <InfoRow
               label="Account Created"
               value={formatDate(
+                account.effective_created_at ||
                 account.created_at
               )}
             />
