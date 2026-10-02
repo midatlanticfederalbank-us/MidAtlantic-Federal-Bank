@@ -125,7 +125,8 @@ export default function Dashboard() {
         postal_code,
         country,
         role,
-        approval_status
+        approval_status,
+        avatar_path
       `)
       .eq("id", user.id)
       .single();
