@@ -42,6 +42,16 @@ export default function Dashboard() {
   const [requestStatus, setRequestStatus] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
 
+  // Customer transfer + email OTP
+  const [transferOtpOpen, setTransferOtpOpen] = useState(false);
+  const [transferOtp, setTransferOtp] = useState("");
+  const [transferId, setTransferId] = useState("");
+  const [transferOtpStatus, setTransferOtpStatus] = useState("");
+  const [transferOtpLoading, setTransferOtpLoading] = useState(false);
+  const [transferResendLoading, setTransferResendLoading] = useState(false);
+  const [transferReceiptOpen, setTransferReceiptOpen] = useState(false);
+  const [transferReceipt, setTransferReceipt] = useState(null);
+
   // Password change
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -546,11 +556,13 @@ export default function Dashboard() {
 
     const amount = Number(requestForm.amount);
 
-    if (!amount || amount <= 0) {
-      setRequestStatus(
-        "Please enter a valid amount."
-      );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setRequestStatus("Please enter a valid amount.");
+      return;
+    }
 
+    if (activePage === "transfer") {
+      await startCustomerTransfer();
       return;
     }
 
@@ -613,13 +625,7 @@ export default function Dashboard() {
         return;
       }
 
-      setRequestForm({
-        recipientName: "",
-        recipientAccountNumber: "",
-        bankName: "",
-        amount: "",
-        description: "",
-      });
+      resetRequestForm();
 
       setRequestStatus(
         "Transfer request submitted successfully."
@@ -637,6 +643,242 @@ export default function Dashboard() {
 
     setRequestLoading(false);
   }
+
+  function resetRequestForm() {
+    setRequestForm({
+      recipientName: "",
+      recipientAccountNumber: "",
+      bankName: "",
+      amount: "",
+      description: "",
+    });
+  }
+
+  async function invokeCustomerTransfer(body) {
+    const { data, error } = await supabase.functions.invoke(
+      "customer-transfer",
+      {
+        body,
+      }
+    );
+
+    if (error) {
+      let message = error.message || "Transfer service is unavailable.";
+
+      try {
+        const response = error.context;
+        if (response && typeof response.json === "function") {
+          const payload = await response.json();
+          if (payload?.message) {
+            message = payload.message;
+          }
+        }
+      } catch (_) {
+        // Keep the original error message.
+      }
+
+      throw new Error(message);
+    }
+
+    if (!data) {
+      throw new Error("The transfer service returned no response.");
+    }
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return data;
+  }
+
+  async function startCustomerTransfer() {
+    if (
+      requestLoading ||
+      transferOtpLoading ||
+      !user
+    ) {
+      return;
+    }
+
+    setRequestStatus("");
+    setTransferOtpStatus("");
+
+    const amount = Number(requestForm.amount);
+    const recipientName =
+      requestForm.recipientName.trim();
+    const recipientAccountNumber =
+      requestForm.recipientAccountNumber.trim();
+    const description =
+      requestForm.description.trim();
+
+    if (!recipientName) {
+      setRequestStatus("Please enter the recipient's name.");
+      return;
+    }
+
+    if (!recipientAccountNumber) {
+      setRequestStatus("Please enter the recipient account number.");
+      return;
+    }
+
+    if (!/^[0-9]{6,20}$/.test(recipientAccountNumber)) {
+      setRequestStatus(
+        "Please enter a valid recipient account number."
+      );
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setRequestStatus("Please enter a valid transfer amount.");
+      return;
+    }
+
+    if (account?.status !== "active") {
+      setRequestStatus(
+        "Your account is not active and cannot send a transfer."
+      );
+      return;
+    }
+
+    if (amount > Number(account.balance || 0)) {
+      setRequestStatus(
+        "The transfer amount is greater than your available balance."
+      );
+      return;
+    }
+
+    setRequestLoading(true);
+
+    try {
+      const data = await invokeCustomerTransfer({
+        action: "send_otp",
+        recipientAccountNumber,
+        recipientName,
+        amount,
+        description: description || "Customer Transfer",
+      });
+
+      setTransferId(data.transferId);
+      setTransferOtp("");
+      setTransferOtpStatus(
+        `A 6-digit verification code has been sent to ${data.emailMasked || "your email address"}.`
+      );
+      setTransferOtpOpen(true);
+    } catch (err) {
+      setRequestStatus(
+        err?.message ||
+          "We could not start the transfer. Please try again."
+      );
+    } finally {
+      setRequestLoading(false);
+    }
+  }
+
+  async function verifyCustomerTransfer(event) {
+    event.preventDefault();
+
+    if (
+      transferOtpLoading ||
+      !transferId ||
+      !transferOtp.trim()
+    ) {
+      return;
+    }
+
+    const code = transferOtp.trim();
+
+    if (!/^[0-9]{6}$/.test(code)) {
+      setTransferOtpStatus(
+        "Enter the 6-digit verification code sent to your email."
+      );
+      return;
+    }
+
+    setTransferOtpLoading(true);
+    setTransferOtpStatus("");
+
+    try {
+      const data = await invokeCustomerTransfer({
+        action: "verify_otp",
+        transferId,
+        otp: code,
+      });
+
+      setTransferOtpOpen(false);
+      setTransferOtp("");
+      setTransferId("");
+      resetRequestForm();
+      setRequestStatus("");
+      setTransferReceipt(data.receipt);
+      setTransferReceiptOpen(true);
+
+      await loadDashboard();
+    } catch (err) {
+      setTransferOtpStatus(
+        err?.message ||
+          "The verification code could not be accepted."
+      );
+    } finally {
+      setTransferOtpLoading(false);
+    }
+  }
+
+  async function resendCustomerTransferOtp() {
+    if (
+      transferResendLoading ||
+      requestLoading ||
+      !user
+    ) {
+      return;
+    }
+
+    setTransferResendLoading(true);
+    setTransferOtpStatus("");
+
+    try {
+      const amount = Number(requestForm.amount);
+
+      const data = await invokeCustomerTransfer({
+        action: "send_otp",
+        recipientAccountNumber:
+          requestForm.recipientAccountNumber.trim(),
+        recipientName:
+          requestForm.recipientName.trim(),
+        amount,
+        description:
+          requestForm.description.trim() ||
+          "Customer Transfer",
+      });
+
+      setTransferId(data.transferId);
+      setTransferOtp("");
+      setTransferOtpStatus(
+        `A new verification code has been sent to ${data.emailMasked || "your email address"}.`
+      );
+    } catch (err) {
+      setTransferOtpStatus(
+        err?.message ||
+          "We could not send a new verification code."
+      );
+    } finally {
+      setTransferResendLoading(false);
+    }
+  }
+
+  function closeTransferOtp() {
+    if (transferOtpLoading) return;
+
+    setTransferOtpOpen(false);
+    setTransferOtp("");
+    setTransferId("");
+    setTransferOtpStatus("");
+  }
+
+  function closeTransferReceipt() {
+    setTransferReceiptOpen(false);
+    setTransferReceipt(null);
+  }
+
 
   /*
     =====================================================
@@ -1530,161 +1772,267 @@ export default function Dashboard() {
             label="TRANSFERS & PAYMENTS"
           >
 
-            <form
-              onSubmit={submitRequest}
-            >
+            {activePage === "transfer" ? (
+              <form onSubmit={submitRequest}>
 
-              <div className="request-notice">
-
-                <strong>
-                  Request Information
-                </strong>
-
-                <p>
-                  Submit your request below.
-                  Requests are reviewed before
-                  any action is taken.
-                </p>
-
-              </div>
-
-              {activePage !== "withdraw" && (
-                <>
-
-                  <label className="form-label">
-
-                    Recipient Name
-
-                    <input
-                      className="portal-input"
-                      type="text"
-                      value={
-                        requestForm.recipientName
-                      }
-                      onChange={(event) =>
-                        updateRequestField(
-                          "recipientName",
-                          event.target.value
-                        )
-                      }
-                      placeholder="Enter recipient name"
-                    />
-
-                  </label>
-
-                  <label className="form-label">
-
-                    Recipient Account Number
-
-                    <input
-                      className="portal-input"
-                      type="text"
-                      value={
-                        requestForm.recipientAccountNumber
-                      }
-                      onChange={(event) =>
-                        updateRequestField(
-                          "recipientAccountNumber",
-                          event.target.value
-                        )
-                      }
-                      placeholder="Enter account number"
-                    />
-
-                  </label>
-
-                  <label className="form-label">
-
-                    Bank Name
-
-                    <input
-                      className="portal-input"
-                      type="text"
-                      value={
-                        requestForm.bankName
-                      }
-                      onChange={(event) =>
-                        updateRequestField(
-                          "bankName",
-                          event.target.value
-                        )
-                      }
-                      placeholder="Enter bank name"
-                    />
-
-                  </label>
-
-                </>
-              )}
-
-              <label className="form-label">
-
-                Amount
-
-                <input
-                  className="portal-input"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={
-                    requestForm.amount
-                  }
-                  onChange={(event) =>
-                    updateRequestField(
-                      "amount",
-                      event.target.value
-                    )
-                  }
-                  placeholder="0.00"
-                  required
-                />
-
-              </label>
-
-              <label className="form-label">
-
-                Description
-
-                <textarea
-                  className="portal-textarea"
-                  rows="4"
-                  value={
-                    requestForm.description
-                  }
-                  onChange={(event) =>
-                    updateRequestField(
-                      "description",
-                      event.target.value
-                    )
-                  }
-                  placeholder="Add a description or additional information"
-                />
-
-              </label>
-
-              {requestStatus && (
-
-                <div className="request-notice success-notice">
+                <div className="request-notice transfer-security-notice">
+                  <strong>
+                    Secure Customer Transfer
+                  </strong>
 
                   <p>
-                    {requestStatus}
+                    Enter the recipient and amount below.
+                    A one-time verification code will be sent
+                    to your registered email address before
+                    the transfer is completed.
                   </p>
-
                 </div>
 
-              )}
+                <label className="form-label">
+                  Recipient Name
 
-              <button
-                className="portal-button"
-                type="submit"
-                disabled={requestLoading}
-              >
-                {requestLoading
-                  ? "Submitting..."
-                  : "Submit Request"}
-              </button>
+                  <input
+                    className="portal-input"
+                    type="text"
+                    value={requestForm.recipientName}
+                    onChange={(event) =>
+                      updateRequestField(
+                        "recipientName",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter recipient's full name"
+                    autoComplete="off"
+                    required
+                  />
+                </label>
 
-            </form>
+                <label className="form-label">
+                  Recipient Account Number
+
+                  <input
+                    className="portal-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={requestForm.recipientAccountNumber}
+                    onChange={(event) =>
+                      updateRequestField(
+                        "recipientAccountNumber",
+                        event.target.value.replace(/\D/g, "")
+                      )
+                    }
+                    placeholder="Enter recipient account number"
+                    autoComplete="off"
+                    maxLength={20}
+                    required
+                  />
+                </label>
+
+                <div className="transfer-bank-display">
+                  <span>Bank</span>
+                  <strong>MIDATLANTIC FEDERAL BANK</strong>
+                </div>
+
+                <label className="form-label">
+                  Amount
+
+                  <input
+                    className="portal-input"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={requestForm.amount}
+                    onChange={(event) =>
+                      updateRequestField(
+                        "amount",
+                        event.target.value
+                      )
+                    }
+                    placeholder="0.00"
+                    required
+                  />
+
+                  <small className="transfer-balance-hint">
+                    Available balance: $
+                    {formatMoney(account.balance)}
+                  </small>
+                </label>
+
+                <label className="form-label">
+                  Description
+
+                  <textarea
+                    className="portal-textarea"
+                    rows="4"
+                    value={requestForm.description}
+                    onChange={(event) =>
+                      updateRequestField(
+                        "description",
+                        event.target.value
+                      )
+                    }
+                    placeholder="What is this transfer for? (optional)"
+                  />
+                </label>
+
+                {requestStatus && (
+                  <div className="request-notice error-notice">
+                    <p>{requestStatus}</p>
+                  </div>
+                )}
+
+                <button
+                  className="portal-button transfer-submit-button"
+                  type="submit"
+                  disabled={requestLoading}
+                >
+                  {requestLoading
+                    ? "Sending Verification Code..."
+                    : "Transfer"}
+                </button>
+
+              </form>
+            ) : (
+              <form onSubmit={submitRequest}>
+
+                <div className="request-notice">
+                  <strong>
+                    Request Information
+                  </strong>
+
+                  <p>
+                    Submit your request below.
+                    Requests are reviewed before
+                    any action is taken.
+                  </p>
+                </div>
+
+                {activePage !== "withdraw" && (
+                  <>
+
+                    <label className="form-label">
+                      Recipient Name
+
+                      <input
+                        className="portal-input"
+                        type="text"
+                        value={
+                          requestForm.recipientName
+                        }
+                        onChange={(event) =>
+                          updateRequestField(
+                            "recipientName",
+                            event.target.value
+                          )
+                        }
+                        placeholder="Enter recipient name"
+                      />
+                    </label>
+
+                    <label className="form-label">
+                      Recipient Account Number
+
+                      <input
+                        className="portal-input"
+                        type="text"
+                        value={
+                          requestForm.recipientAccountNumber
+                        }
+                        onChange={(event) =>
+                          updateRequestField(
+                            "recipientAccountNumber",
+                            event.target.value
+                          )
+                        }
+                        placeholder="Enter account number"
+                      />
+                    </label>
+
+                    <label className="form-label">
+                      Bank Name
+
+                      <input
+                        className="portal-input"
+                        type="text"
+                        value={
+                          requestForm.bankName
+                        }
+                        onChange={(event) =>
+                          updateRequestField(
+                            "bankName",
+                            event.target.value
+                          )
+                        }
+                        placeholder="Enter bank name"
+                      />
+                    </label>
+
+                  </>
+                )}
+
+                <label className="form-label">
+                  Amount
+
+                  <input
+                    className="portal-input"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={
+                      requestForm.amount
+                    }
+                    onChange={(event) =>
+                      updateRequestField(
+                        "amount",
+                        event.target.value
+                      )
+                    }
+                    placeholder="0.00"
+                    required
+                  />
+                </label>
+
+                <label className="form-label">
+                  Description
+
+                  <textarea
+                    className="portal-textarea"
+                    rows="4"
+                    value={
+                      requestForm.description
+                    }
+                    onChange={(event) =>
+                      updateRequestField(
+                        "description",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Add a description or additional information"
+                  />
+                </label>
+
+                {requestStatus && (
+                  <div className="request-notice success-notice">
+                    <p>
+                      {requestStatus}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  className="portal-button"
+                  type="submit"
+                  disabled={requestLoading}
+                >
+                  {requestLoading
+                    ? "Submitting..."
+                    : "Submit Request"}
+                </button>
+
+              </form>
+            )}
+
+
 
           </PortalPage>
         )}
@@ -2268,6 +2616,884 @@ export default function Dashboard() {
           color: #a12626;
         }
       `}</style>
+
+
+      {/* ===================================================
+          TRANSFER OTP MODAL
+      =================================================== */}
+
+      {transferOtpOpen && (
+        <div
+          className="transfer-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTransferOtp();
+            }
+          }}
+        >
+          <div
+            className="transfer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-otp-title"
+          >
+            <div className="transfer-modal-brand">
+              <div className="transfer-receipt-logo">M</div>
+              <div>
+                <strong>MIDATLANTIC FEDERAL BANK</strong>
+                <span>SECURE CUSTOMER TRANSFER</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="transfer-modal-close"
+              onClick={closeTransferOtp}
+              aria-label="Close verification"
+            >
+              ×
+            </button>
+
+            <div className="transfer-modal-content">
+              <span className="section-label">
+                EMAIL VERIFICATION
+              </span>
+
+              <h2 id="transfer-otp-title">
+                Verify Your Transfer
+              </h2>
+
+              <p>
+                Enter the 6-digit code we sent to your
+                registered email address.
+              </p>
+
+              {transferOtpStatus && (
+                <div
+                  className={`transfer-otp-status ${
+                    transferOtpStatus.toLowerCase().includes("sent")
+                      ? "success"
+                      : "error"
+                  }`}
+                  role="status"
+                >
+                  {transferOtpStatus}
+                </div>
+              )}
+
+              <form onSubmit={verifyCustomerTransfer}>
+                <label className="form-label">
+                  Verification Code
+
+                  <input
+                    className="portal-input transfer-otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={transferOtp}
+                    onChange={(event) =>
+                      setTransferOtp(
+                        event.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 6)
+                      )
+                    }
+                    placeholder="000000"
+                    autoFocus
+                    required
+                  />
+                </label>
+
+                <div className="transfer-otp-summary">
+                  <div>
+                    <span>Amount</span>
+                    <strong>
+                      ${formatMoney(requestForm.amount)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Recipient</span>
+                    <strong>
+                      {requestForm.recipientName}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Account</span>
+                    <strong>
+                      {requestForm.recipientAccountNumber}
+                    </strong>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="portal-button"
+                  disabled={
+                    transferOtpLoading ||
+                    transferOtp.length !== 6
+                  }
+                >
+                  {transferOtpLoading
+                    ? "Verifying..."
+                    : "Verify & Complete Transfer"}
+                </button>
+              </form>
+
+              <button
+                type="button"
+                className="transfer-resend-button"
+                onClick={resendCustomerTransferOtp}
+                disabled={transferResendLoading}
+              >
+                {transferResendLoading
+                  ? "Sending..."
+                  : "Didn't receive the code? Send a new code"}
+              </button>
+
+              <small className="transfer-security-footnote">
+                Never share your verification code with anyone,
+                including someone claiming to be bank staff.
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
+          TRANSFER SUCCESS RECEIPT
+      =================================================== */}
+
+      {transferReceiptOpen && transferReceipt && (
+        <div
+          className="transfer-modal-backdrop receipt-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTransferReceipt();
+            }
+          }}
+        >
+          <div
+            className="transfer-receipt"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-receipt-title"
+          >
+            <div className="receipt-top">
+              <div className="transfer-receipt-logo">M</div>
+
+              <div>
+                <strong>
+                  MIDATLANTIC FEDERAL BANK
+                </strong>
+                <span>
+                  CUSTOMER BANKING PORTAL
+                </span>
+              </div>
+            </div>
+
+            <div className="receipt-success-icon">
+              ✓
+            </div>
+
+            <span className="receipt-status">
+              TRANSFER SUCCESSFUL
+            </span>
+
+            <h2 id="transfer-receipt-title">
+              Your transfer was completed
+            </h2>
+
+            <div className="receipt-amount">
+              $
+              {formatMoney(transferReceipt.amount)}
+            </div>
+
+            <div className="receipt-details">
+              <div className="receipt-detail-row">
+                <span>Date</span>
+                <strong>
+                  {formatDate(transferReceipt.date)}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Customer Name</span>
+                <strong>
+                  {transferReceipt.customerName}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Receiver Name</span>
+                <strong>
+                  {transferReceipt.receiverName}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Receiver Account</span>
+                <strong>
+                  {transferReceipt.receiverAccountNumber}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Bank</span>
+                <strong>
+                  MIDATLANTIC FEDERAL BANK
+                </strong>
+              </div>
+
+              {transferReceipt.reference && (
+                <div className="receipt-detail-row">
+                  <span>Reference</span>
+                  <strong>
+                    {transferReceipt.reference}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            <div className="receipt-footer">
+              <span>
+                Keep this receipt for your records.
+              </span>
+
+              <button
+                type="button"
+                className="portal-button"
+                onClick={closeTransferReceipt}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ===================================================
+          TRANSFER OTP MODAL
+      =================================================== */}
+
+      {transferOtpOpen && (
+        <div
+          className="transfer-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTransferOtp();
+            }
+          }}
+        >
+          <div
+            className="transfer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-otp-title"
+          >
+            <div className="transfer-modal-brand">
+              <div className="transfer-receipt-logo">M</div>
+              <div>
+                <strong>MIDATLANTIC FEDERAL BANK</strong>
+                <span>SECURE CUSTOMER TRANSFER</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="transfer-modal-close"
+              onClick={closeTransferOtp}
+              aria-label="Close verification"
+            >
+              ×
+            </button>
+
+            <div className="transfer-modal-content">
+              <span className="section-label">
+                EMAIL VERIFICATION
+              </span>
+
+              <h2 id="transfer-otp-title">
+                Verify Your Transfer
+              </h2>
+
+              <p>
+                Enter the 6-digit code we sent to your
+                registered email address.
+              </p>
+
+              {transferOtpStatus && (
+                <div
+                  className={`transfer-otp-status ${
+                    transferOtpStatus.toLowerCase().includes("sent")
+                      ? "success"
+                      : "error"
+                  }`}
+                  role="status"
+                >
+                  {transferOtpStatus}
+                </div>
+              )}
+
+              <form onSubmit={verifyCustomerTransfer}>
+                <label className="form-label">
+                  Verification Code
+
+                  <input
+                    className="portal-input transfer-otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={transferOtp}
+                    onChange={(event) =>
+                      setTransferOtp(
+                        event.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 6)
+                      )
+                    }
+                    placeholder="000000"
+                    autoFocus
+                    required
+                  />
+                </label>
+
+                <div className="transfer-otp-summary">
+                  <div>
+                    <span>Amount</span>
+                    <strong>
+                      ${formatMoney(requestForm.amount)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Recipient</span>
+                    <strong>
+                      {requestForm.recipientName}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Account</span>
+                    <strong>
+                      {requestForm.recipientAccountNumber}
+                    </strong>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="portal-button"
+                  disabled={
+                    transferOtpLoading ||
+                    transferOtp.length !== 6
+                  }
+                >
+                  {transferOtpLoading
+                    ? "Verifying..."
+                    : "Verify & Complete Transfer"}
+                </button>
+              </form>
+
+              <button
+                type="button"
+                className="transfer-resend-button"
+                onClick={resendCustomerTransferOtp}
+                disabled={transferResendLoading}
+              >
+                {transferResendLoading
+                  ? "Sending..."
+                  : "Didn't receive the code? Send a new code"}
+              </button>
+
+              <small className="transfer-security-footnote">
+                Never share your verification code with anyone,
+                including someone claiming to be bank staff.
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
+          TRANSFER SUCCESS RECEIPT
+      =================================================== */}
+
+      {transferReceiptOpen && transferReceipt && (
+        <div
+          className="transfer-modal-backdrop receipt-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTransferReceipt();
+            }
+          }}
+        >
+          <div
+            className="transfer-receipt"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-receipt-title"
+          >
+            <div className="receipt-top">
+              <div className="transfer-receipt-logo">M</div>
+
+              <div>
+                <strong>
+                  MIDATLANTIC FEDERAL BANK
+                </strong>
+                <span>
+                  CUSTOMER BANKING PORTAL
+                </span>
+              </div>
+            </div>
+
+            <div className="receipt-success-icon">
+              ✓
+            </div>
+
+            <span className="receipt-status">
+              TRANSFER SUCCESSFUL
+            </span>
+
+            <h2 id="transfer-receipt-title">
+              Your transfer was completed
+            </h2>
+
+            <div className="receipt-amount">
+              $
+              {formatMoney(transferReceipt.amount)}
+            </div>
+
+            <div className="receipt-details">
+              <div className="receipt-detail-row">
+                <span>Date</span>
+                <strong>
+                  {formatDate(transferReceipt.date)}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Customer Name</span>
+                <strong>
+                  {transferReceipt.customerName}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Receiver Name</span>
+                <strong>
+                  {transferReceipt.receiverName}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Receiver Account</span>
+                <strong>
+                  {transferReceipt.receiverAccountNumber}
+                </strong>
+              </div>
+
+              <div className="receipt-detail-row">
+                <span>Bank</span>
+                <strong>
+                  MIDATLANTIC FEDERAL BANK
+                </strong>
+              </div>
+
+              {transferReceipt.reference && (
+                <div className="receipt-detail-row">
+                  <span>Reference</span>
+                  <strong>
+                    {transferReceipt.reference}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            <div className="receipt-footer">
+              <span>
+                Keep this receipt for your records.
+              </span>
+
+              <button
+                type="button"
+                className="portal-button"
+                onClick={closeTransferReceipt}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+<style jsx global>{`
+  .transfer-bank-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    margin: 0 0 18px;
+    border: 1px solid rgba(23, 59, 112, 0.14);
+    border-radius: 12px;
+    background: rgba(23, 59, 112, 0.045);
+  }
+
+  .transfer-bank-display span {
+    color: #667085;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .transfer-bank-display strong {
+    color: #173b70;
+    font-size: 13px;
+    text-align: right;
+  }
+
+  .transfer-balance-hint {
+    display: block;
+    margin-top: 6px;
+    color: #667085;
+    font-size: 12px;
+  }
+
+  .transfer-submit-button {
+    min-height: 50px;
+    font-weight: 800;
+  }
+
+  .transfer-security-notice {
+    border-color: rgba(23, 59, 112, 0.16);
+  }
+
+  .error-notice {
+    border-color: rgba(180, 35, 35, 0.22);
+    background: rgba(180, 35, 35, 0.055);
+  }
+
+  .transfer-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: rgba(8, 18, 36, 0.72);
+    backdrop-filter: blur(8px);
+    overflow-y: auto;
+  }
+
+  .transfer-modal,
+  .transfer-receipt {
+    position: relative;
+    width: min(100%, 520px);
+    max-height: calc(100vh - 44px);
+    overflow-y: auto;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3);
+  }
+
+  .transfer-modal {
+    padding: 26px;
+  }
+
+  .transfer-modal-brand,
+  .receipt-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 42px;
+  }
+
+  .transfer-modal-brand strong,
+  .receipt-top strong {
+    display: block;
+    color: #173b70;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .transfer-modal-brand span,
+  .receipt-top span {
+    display: block;
+    margin-top: 3px;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+  }
+
+  .transfer-receipt-logo {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: #173b70;
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 900;
+  }
+
+  .transfer-modal-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.06);
+    color: #344054;
+    font-size: 23px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .transfer-modal-content {
+    margin-top: 26px;
+  }
+
+  .transfer-modal-content h2 {
+    margin: 6px 0 8px;
+  }
+
+  .transfer-modal-content > p {
+    margin: 0 0 18px;
+    color: #667085;
+    line-height: 1.6;
+  }
+
+  .transfer-otp-status {
+    padding: 11px 13px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .transfer-otp-status.success {
+    background: rgba(18, 132, 89, 0.08);
+    color: #087443;
+  }
+
+  .transfer-otp-status.error {
+    background: rgba(180, 35, 35, 0.07);
+    color: #a11b1b;
+  }
+
+  .transfer-otp-input {
+    text-align: center;
+    font-size: 25px !important;
+    font-weight: 800;
+    letter-spacing: 0.35em;
+  }
+
+  .transfer-otp-summary {
+    display: grid;
+    gap: 9px;
+    margin: 18px 0;
+    padding: 15px;
+    border-radius: 12px;
+    background: #f7f9fc;
+  }
+
+  .transfer-otp-summary div {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .transfer-otp-summary span {
+    color: #667085;
+    font-size: 12px;
+  }
+
+  .transfer-otp-summary strong {
+    color: #172b4d;
+    font-size: 13px;
+    text-align: right;
+  }
+
+  .transfer-resend-button {
+    display: block;
+    width: 100%;
+    margin-top: 14px;
+    border: 0;
+    background: transparent;
+    color: #173b70;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .transfer-resend-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .transfer-security-footnote {
+    display: block;
+    margin-top: 18px;
+    color: #98a2b3;
+    font-size: 11px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .transfer-receipt {
+    padding: 28px;
+  }
+
+  .receipt-top {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  .receipt-success-icon {
+    width: 58px;
+    height: 58px;
+    margin: 25px auto 12px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #0e8a58;
+    color: #ffffff;
+    font-size: 31px;
+    font-weight: 800;
+  }
+
+  .receipt-status {
+    display: block;
+    color: #0e8a58;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+
+  .transfer-receipt h2 {
+    margin: 8px 0 0;
+    color: #172b4d;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .receipt-amount {
+    margin: 18px 0 22px;
+    color: #173b70;
+    font-size: 38px;
+    font-weight: 900;
+    text-align: center;
+  }
+
+  .receipt-details {
+    border-top: 1px solid #eaecf0;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  .receipt-detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 13px 0;
+    border-bottom: 1px dashed #eaecf0;
+  }
+
+  .receipt-detail-row:last-child {
+    border-bottom: 0;
+  }
+
+  .receipt-detail-row span {
+    color: #667085;
+    font-size: 12px;
+  }
+
+  .receipt-detail-row strong {
+    color: #172b4d;
+    font-size: 12px;
+    text-align: right;
+    word-break: break-word;
+  }
+
+  .receipt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  .receipt-footer > span {
+    color: #98a2b3;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 560px) {
+    .transfer-modal-backdrop {
+      align-items: flex-start;
+      padding: 12px;
+    }
+
+    .transfer-modal,
+    .transfer-receipt {
+      max-height: calc(100vh - 24px);
+      border-radius: 16px;
+    }
+
+    .transfer-modal {
+      padding: 20px;
+    }
+
+    .transfer-receipt {
+      padding: 20px;
+    }
+
+    .transfer-bank-display {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .transfer-bank-display strong {
+      text-align: left;
+    }
+
+    .receipt-amount {
+      font-size: 32px;
+    }
+
+    .receipt-detail-row {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .receipt-detail-row strong {
+      text-align: left;
+    }
+
+    .receipt-footer {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+`}</style>
 
       {/* ===================================================
           FLOATING SUPPORT BUTTON
