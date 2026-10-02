@@ -75,7 +75,17 @@ export default function AdminPage() {
 
     setAdmin(adminProfile);
 
-    const { data, error: accountsError } = await supabase
+    /*
+      Load customer accounts WITHOUT relying on a Supabase
+      foreign-key relationship to profiles.
+
+      Your database does not expose the relationship
+      customer_accounts -> profiles in the Supabase schema cache,
+      so we fetch the two tables separately and combine them
+      using user_id.
+    */
+
+    const { data: accountRows, error: accountsError } = await supabase
       .from("customer_accounts")
       .select(`
         id,
@@ -83,11 +93,9 @@ export default function AdminPage() {
         account_number,
         account_type,
         status,
+        balance,
         created_at,
-        effective_created_at,
-        profiles!customer_accounts_user_id_fkey (
-          full_name
-        )
+        effective_created_at
       `)
       .order("created_at", { ascending: false });
 
@@ -97,15 +105,66 @@ export default function AdminPage() {
       return;
     }
 
-    const rows = data || [];
-    setAccounts(rows);
+    const rows = accountRows || [];
+
+    const userIds = [
+      ...new Set(
+        rows
+          .map((account) => account.user_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    let profileMap = {};
+
+    if (userIds.length > 0) {
+      const {
+        data: profileRows,
+        error: profilesError,
+      } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .in("id", userIds);
+
+      if (profilesError) {
+        /*
+          The account list can still be displayed even if profile
+          names cannot be loaded.
+        */
+        console.warn(
+          "Customer profiles could not be loaded:",
+          profilesError.message
+        );
+      } else {
+        profileMap = Object.fromEntries(
+          (profileRows || []).map((profileRow) => [
+            profileRow.id,
+            profileRow,
+          ])
+        );
+      }
+    }
+
+    const combinedRows = rows.map((account) => ({
+      ...account,
+      customerName:
+        profileMap[account.user_id]?.full_name ||
+        "Customer",
+      customerRole:
+        profileMap[account.user_id]?.role || "",
+    }));
+
+    setAccounts(combinedRows);
 
     const initialDrafts = {};
-    for (const account of rows) {
+
+    for (const account of combinedRows) {
       initialDrafts[account.id] = toDateTimeLocal(
-        account.effective_created_at || account.created_at
+        account.effective_created_at ||
+        account.created_at
       );
     }
+
     setDrafts(initialDrafts);
     setLoading(false);
   }
@@ -238,7 +297,7 @@ export default function AdminPage() {
               {admin?.full_name || "Administrator"}
             </span>
             <a href="/dashboard" className="admin-back-link">
-              Back to dashboard
+              Customer Dashboard
             </a>
           </div>
         </header>
@@ -270,13 +329,13 @@ export default function AdminPage() {
               <div className="admin-empty">No customer accounts found.</div>
             ) : (
               accounts.map((account) => {
-                const profile = account.profiles;
+                const customerName = account.customerName || "Customer";
                 const hasOverride = Boolean(account.effective_created_at);
 
                 return (
                   <article className="admin-account-row" key={account.id}>
                     <div className="admin-account-summary">
-                      <strong>{profile?.full_name || "Customer"}</strong>
+                      <strong>{customerName}</strong>
                       <span>
                         Account #{account.account_number || "Not assigned"}
                       </span>
