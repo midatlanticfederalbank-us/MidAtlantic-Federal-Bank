@@ -8,479 +8,44 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function AdminDashboard() {
-  const [pending, setPending] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [messages, setMessages] = useState([]);
+export default function Dashboard() {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState("");
-  const [activeSection, setActiveSection] = useState("overview");
+  const [error, setError] = useState("");
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activePage, setActivePage] = useState("dashboard");
+
+  // Account number visibility
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  const [requestForm, setRequestForm] = useState({
+    recipientName: "",
+    recipientAccountNumber: "",
+    bankName: "",
+    amount: "",
+    description: "",
+  });
+
+  const [requestStatus, setRequestStatus] = useState("");
+  const [requestLoading, setRequestLoading] = useState(false);
 
   useEffect(() => {
-    loadAdmin();
+    loadDashboard();
   }, []);
 
-  async function loadAdmin() {
+  async function loadDashboard() {
     setLoading(true);
-    setNotice("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const { data: admin, error } =
-      await supabase.rpc("is_admin");
-
-    if (error || !admin) {
-      window.location.href = "/dashboard";
-      return;
-    }
-
-    await Promise.all([
-      loadPending(),
-      loadAccounts(),
-      loadMessages(),
-      loadTransactions(),
-    ]);
-
-    setLoading(false);
-  }
-
-  async function loadPending() {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, role, approval_status, created_at"
-      )
-      .eq("role", "customer")
-      .eq("approval_status", "pending")
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setPending(data || []);
-  }
-
-  async function loadAccounts() {
-    const {
-      data: accountData,
-      error: accountError,
-    } = await supabase
-      .from("customer_accounts")
-      .select(
-        "id, user_id, account_number, account_type, status, balance, created_at"
-      )
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (accountError) {
-      setNotice(accountError.message);
-      return;
-    }
-
-    if (!accountData?.length) {
-      setAccounts([]);
-      return;
-    }
-
-    const userIds = accountData.map(
-      (account) => account.user_id
-    );
-
-    const {
-      data: profileData,
-      error: profileError,
-    } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .in("id", userIds);
-
-    if (profileError) {
-      setNotice(profileError.message);
-      return;
-    }
-
-    const profileMap = {};
-
-    (profileData || []).forEach((profile) => {
-      profileMap[profile.id] = profile;
-    });
-
-    const combined = accountData.map((account) => ({
-      ...account,
-      customerName:
-        profileMap[account.user_id]?.full_name ||
-        "Customer",
-      customerEmail:
-        profileMap[account.user_id]?.email ||
-        "",
-    }));
-
-    setAccounts(combined);
-  }
-
-  async function loadMessages() {
-    const {
-      data: messageData,
-      error: messageError,
-    } = await supabase
-      .from("support_messages")
-      .select(
-        "id, user_id, sender, message, created_at"
-      )
-      .order("created_at", {
-        ascending: true,
-      });
-
-    if (messageError) {
-      console.error(
-        "SUPPORT MESSAGE ERROR:",
-        messageError
-      );
-
-      setNotice(messageError.message);
-      return;
-    }
-
-    if (!messageData?.length) {
-      setMessages([]);
-      return;
-    }
-
-    const userIds = [
-      ...new Set(
-        messageData
-          .map((message) => message.user_id)
-          .filter(Boolean)
-      ),
-    ];
-
-    let profileMap = {};
-
-    if (userIds.length > 0) {
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
-
-      if (profileError) {
-        setNotice(profileError.message);
-        return;
-      }
-
-      (profileData || []).forEach((profile) => {
-        profileMap[profile.id] = profile;
-      });
-    }
-
-    const combinedMessages = messageData.map(
-      (message) => ({
-        ...message,
-        customerName:
-          profileMap[message.user_id]?.full_name ||
-          "Customer",
-        customerEmail:
-          profileMap[message.user_id]?.email ||
-          "",
-      })
-    );
-
-    setMessages(combinedMessages);
-  }
-
-  async function loadTransactions() {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select(
-        "id, account_id, transaction_type, amount, description, transaction_date"
-      )
-      .order("transaction_date", {
-        ascending: false,
-      });
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setTransactions(data || []);
-  }
-
-  function generateAccountNumber() {
-    return String(
-      Math.floor(Math.random() * 1000000000)
-    ).padStart(9, "0");
-  }
-
-  async function getUniqueAccountNumber() {
-    for (let i = 0; i < 20; i++) {
-      const number = generateAccountNumber();
-
-      const { data, error } = await supabase
-        .from("customer_accounts")
-        .select("id")
-        .eq("account_number", number)
-        .maybeSingle();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data) {
-        return number;
-      }
-    }
-
-    throw new Error(
-      "Unable to generate a unique account number."
-    );
-  }
-
-  async function approveCustomer(customer) {
-    setNotice("Approving customer...");
-
-    try {
-      const {
-        data: existing,
-        error: existingError,
-      } = await supabase
-        .from("customer_accounts")
-        .select(
-          "id, account_number, account_type, status"
-        )
-        .eq("user_id", customer.id)
-        .maybeSingle();
-
-      if (existingError) {
-        throw new Error(existingError.message);
-      }
-
-      let accountNumber =
-        existing?.account_number;
-
-      if (!accountNumber) {
-        accountNumber =
-          await getUniqueAccountNumber();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("customer_accounts")
-            .update({
-              account_number: accountNumber,
-              account_type:
-                existing.account_type ||
-                "checking",
-              status: "active",
-            })
-            .eq("id", existing.id);
-
-          if (error) {
-            throw new Error(error.message);
-          }
-        } else {
-          const { error } = await supabase
-            .from("customer_accounts")
-            .insert({
-              user_id: customer.id,
-              account_number: accountNumber,
-              balance: 0,
-              account_type: "checking",
-              status: "active",
-            });
-
-          if (error) {
-            throw new Error(error.message);
-          }
-        }
-      }
-
-      const {
-        data: verified,
-        error: verifyError,
-      } = await supabase
-        .from("customer_accounts")
-        .select(
-          "id, account_number, account_type, status"
-        )
-        .eq("user_id", customer.id)
-        .maybeSingle();
-
-      if (verifyError) {
-        throw new Error(verifyError.message);
-      }
-
-      if (!verified?.account_number) {
-        throw new Error(
-          "The account number could not be verified."
-        );
-      }
-
-      const {
-        error: approvalError,
-      } = await supabase
-        .from("profiles")
-        .update({
-          approval_status: "approved",
-        })
-        .eq("id", customer.id);
-
-      if (approvalError) {
-        throw new Error(approvalError.message);
-      }
-
-      setNotice(
-        "Customer approved successfully."
-      );
-
-      await loadPending();
-      await loadAccounts();
-    } catch (error) {
-      console.error(
-        "APPROVAL ERROR:",
-        error
-      );
-
-      setNotice(
-        error?.message ||
-          "Unable to approve customer."
-      );
-    }
-  }
-
-  async function addTransaction(account) {
-    const type = window.prompt(
-      "Enter transaction type: credit or debit",
-      "credit"
-    );
-
-    if (!type) return;
-
-    const transactionType =
-      type.trim().toLowerCase();
-
-    if (
-      transactionType !== "credit" &&
-      transactionType !== "debit"
-    ) {
-      setNotice(
-        "Transaction type must be credit or debit."
-      );
-      return;
-    }
-
-    const value = window.prompt(
-      `Enter ${transactionType} amount:`,
-      "0.00"
-    );
-
-    if (value === null) return;
-
-    const amount = Number(value);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setNotice("Enter a valid amount.");
-      return;
-    }
-
-    const description =
-      window.prompt(
-        "Enter transaction description:",
-        transactionType === "credit"
-          ? "Incoming Payment"
-          : "Service Payment"
-      );
-
-    if (!description?.trim()) {
-      setNotice(
-        "Transaction description is required."
-      );
-      return;
-    }
-
-    const { error } = await supabase
-      .from("transactions")
-      .insert({
-        account_id: account.id,
-        transaction_type: transactionType,
-        amount,
-        description: description.trim(),
-        transaction_date:
-          new Date().toISOString(),
-      });
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setNotice(
-      `${
-        transactionType === "credit"
-          ? "Credit"
-          : "Debit"
-      } transaction added successfully.`
-    );
-
-    await loadAccounts();
-    await loadTransactions();
-  }
-
-  async function toggleAccount(account) {
-    const newStatus =
-      account.status === "active"
-        ? "frozen"
-        : "active";
-
-    const { error } = await supabase
-      .from("customer_accounts")
-      .update({
-        status: newStatus,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", account.id);
-
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setNotice(
-      newStatus === "frozen"
-        ? "Account frozen."
-        : "Account activated."
-    );
-
-    await loadAccounts();
-  }
-
-  async function sendReply(item) {
-    const input = document.getElementById(
-      `reply-${item.id}`
-    );
-
-    const reply = input?.value?.trim();
-
-    if (!reply) {
-      setNotice("Please enter a reply.");
-      return;
-    }
+    setError("");
 
     const {
       data: { user },
@@ -488,75 +53,253 @@ export default function AdminDashboard() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      setNotice("Your session has expired.");
+      window.location.href = "/login";
       return;
     }
 
-    setNotice("Sending support reply...");
+    setUser(user);
 
     /*
-      IMPORTANT:
-      The database function must have this exact signature:
+      CUSTOMER PROFILE
 
-      admin_send_support_reply(
-        p_message text,
-        p_user_id uuid
-      )
+      Make sure your profiles table contains:
 
-      We do NOT directly insert into
-      support_messages from the browser.
+      id
+      full_name
+      date_of_birth
+      phone_number
+      address
+      city
+      state
+      postal_code
+      country
+      role
+      approval_status
     */
 
-    const { error } = await supabase.rpc(
-      "admin_send_support_reply",
-      {
-        p_message: reply,
-        p_user_id: item.user_id,
-      }
-    );
+    const {
+      data: profileData,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        date_of_birth,
+        phone_number,
+        address,
+        city,
+        state,
+        postal_code,
+        country,
+        role,
+        approval_status
+      `)
+      .eq("id", user.id)
+      .single();
 
-    if (error) {
-      console.error(
-        "ADMIN SUPPORT REPLY ERROR:",
-        error
-      );
-
-      setNotice(error.message);
+    if (profileError) {
+      setError(profileError.message);
+      setLoading(false);
       return;
     }
 
-    if (input) {
-      input.value = "";
+    setProfile(profileData);
+
+    if (profileData.approval_status !== "approved") {
+      setLoading(false);
+      return;
     }
 
-    setNotice("Reply sent successfully.");
+    /*
+      CUSTOMER ACCOUNT
+    */
 
-    await loadMessages();
+    const {
+      data: accountData,
+      error: accountError,
+    } = await supabase
+      .from("customer_accounts")
+      .select(
+        "id, user_id, account_number, balance, status, account_type, created_at, effective_created_at"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (accountError) {
+      setError(accountError.message);
+      setLoading(false);
+      return;
+    }
+
+    setAccount(accountData);
+
+    /*
+      TRANSACTIONS
+    */
+
+    if (accountData) {
+      const {
+        data: transactionData,
+        error: transactionError,
+      } = await supabase
+        .from("transactions")
+        .select(
+          "id, transaction_type, amount, description, transaction_date, created_at"
+        )
+        .eq("account_id", accountData.id)
+        .order("transaction_date", {
+          ascending: false,
+        });
+
+      if (!transactionError) {
+        setTransactions(transactionData || []);
+      }
+    }
+
+    setLoading(false);
   }
+
+  /*
+    =====================================================
+    SUPPORT CHAT
+    =====================================================
+  */
+
+  async function loadChatMessages() {
+    if (!user) return;
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("support_messages")
+      .select("id, sender, message, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.warn(
+        "Support messages could not be loaded:",
+        error.message
+      );
+
+      setChatMessages([
+        {
+          id: "welcome",
+          sender: "support",
+          message:
+            "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      return;
+    }
+
+    setChatMessages(
+      data && data.length > 0
+        ? data
+        : [
+            {
+              id: "welcome",
+              sender: "support",
+              message:
+                "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+              created_at: new Date().toISOString(),
+            },
+          ]
+    );
+  }
+
+  async function sendChatMessage(event) {
+    event.preventDefault();
+
+    const message = chatMessage.trim();
+
+    if (!message || chatLoading || !user) return;
+
+    setChatLoading(true);
+
+    const localMessage = {
+      id: `local-${Date.now()}`,
+      sender: "customer",
+      message,
+      created_at: new Date().toISOString(),
+    };
+
+    setChatMessages((current) => [
+      ...current,
+      localMessage,
+    ]);
+
+    setChatMessage("");
+
+    try {
+      const { error } = await supabase
+        .from("support_messages")
+        .insert({
+          user_id: user.id,
+          sender: "customer",
+          message,
+        });
+
+      if (error) {
+        console.warn(
+          "Chat database insert failed:",
+          error.message
+        );
+      }
+    } catch (err) {
+      console.warn(
+        "Chat connection error:",
+        err
+      );
+    }
+
+    setChatLoading(false);
+  }
+
+  /*
+    =====================================================
+    GENERAL FUNCTIONS
+    =====================================================
+  */
 
   async function logout() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
 
-  const activeAccounts = accounts.filter(
-    (account) =>
-      account.status === "active"
-  );
+  function greeting() {
+    const hour = new Date().getHours();
 
-  const frozenAccounts = accounts.filter(
-    (account) =>
-      account.status === "frozen"
-  );
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
 
-  const customerMessages =
-    messages.filter(
-      (message) =>
-        message.sender === "customer"
-    );
+    return "Good evening";
+  }
 
-  function formatMoney(value) {
-    return Number(value || 0).toLocaleString(
+  function openPage(page) {
+    setActivePage(page);
+    setMenuOpen(false);
+    setRequestStatus("");
+
+    // Hide account number whenever navigating away
+    if (page !== "profile" && page !== "account") {
+      setShowAccountNumber(false);
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function formatMoney(amount) {
+    return Number(amount || 0).toLocaleString(
       "en-US",
       {
         minimumFractionDigits: 2,
@@ -565,601 +308,2103 @@ export default function AdminDashboard() {
     );
   }
 
-  function formatDate(value) {
-    if (!value) return "Not available";
+  function formatDate(date) {
+    if (!date) return "—";
 
-    return new Date(value).toLocaleString(
+    return new Date(date).toLocaleString(
       "en-US",
       {
-        dateStyle: "medium",
-        timeStyle: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       }
     );
   }
 
+  function formatDateOnly(date) {
+    if (!date) return "Not available";
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return date;
+    }
+
+    return parsed.toLocaleDateString(
+      "en-US",
+      {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }
+    );
+  }
+
+  function maskedAccountNumber(accountNumber) {
+    if (!accountNumber) {
+      return "Not available";
+    }
+
+    const value = String(accountNumber);
+
+    if (value.length <= 4) {
+      return value;
+    }
+
+    return `•••• ${value.slice(-4)}`;
+  }
+
+  function visibleAccountNumber(accountNumber) {
+    if (!accountNumber) {
+      return "Not available";
+    }
+
+    return String(accountNumber);
+  }
+
+  /*
+    =====================================================
+    TRANSFER / WITHDRAWAL REQUESTS
+    =====================================================
+  */
+
+  function updateRequestField(field, value) {
+    setRequestForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function submitRequest(event) {
+    event.preventDefault();
+
+    if (requestLoading || !user) return;
+
+    setRequestStatus("");
+
+    const amount = Number(requestForm.amount);
+
+    if (!amount || amount <= 0) {
+      setRequestStatus(
+        "Please enter a valid amount."
+      );
+
+      return;
+    }
+
+    if (
+      activePage !== "withdraw" &&
+      (
+        !requestForm.recipientName.trim() ||
+        !requestForm.recipientAccountNumber.trim() ||
+        !requestForm.bankName.trim()
+      )
+    ) {
+      setRequestStatus(
+        "Please complete the recipient information."
+      );
+
+      return;
+    }
+
+    setRequestLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("transfer_requests")
+        .insert({
+          user_id: user.id,
+          request_type: activePage,
+
+          recipient_name:
+            requestForm.recipientName.trim() ||
+            null,
+
+          recipient_account_number:
+            requestForm.recipientAccountNumber.trim() ||
+            null,
+
+          bank_name:
+            requestForm.bankName.trim() ||
+            null,
+
+          amount,
+
+          description:
+            requestForm.description.trim() ||
+            null,
+
+          status: "pending",
+        });
+
+      if (error) {
+        console.warn(
+          "Transfer request database insert failed:",
+          error.message
+        );
+
+        setRequestStatus(
+          "Your request could not be submitted. Please try again."
+        );
+
+        setRequestLoading(false);
+        return;
+      }
+
+      setRequestForm({
+        recipientName: "",
+        recipientAccountNumber: "",
+        bankName: "",
+        amount: "",
+        description: "",
+      });
+
+      setRequestStatus(
+        "Transfer request submitted successfully."
+      );
+    } catch (err) {
+      console.warn(
+        "Transfer request connection error:",
+        err
+      );
+
+      setRequestStatus(
+        "Unable to submit the request. Please try again."
+      );
+    }
+
+    setRequestLoading(false);
+  }
+
+  /*
+    =====================================================
+    LOADING
+    =====================================================
+  */
+
   if (loading) {
     return (
-      <main>
-        <span className="real-badge">
-          ADMIN
-        </span>
+      <main className="portal-loading">
+        <div className="loading-card">
 
-        <h1>
-          Administrator Dashboard
-        </h1>
+          <div className="loading-logo">
+            M
+          </div>
 
-        <p>
-          Loading administration panel...
-        </p>
+          <h2>
+            MIDATLANTIC FEDERAL BANK
+          </h2>
+
+          <p>
+            Loading your customer portal...
+          </p>
+
+        </div>
       </main>
     );
   }
 
-  return (
-    <main>
-      <div className="dashboard-header">
-        <div>
-          <span className="real-badge">
-            ADMIN
-          </span>
+  /*
+    =====================================================
+    ERROR
+    =====================================================
+  */
 
-          <h1>
-            Administrator Dashboard
-          </h1>
+  if (error) {
+    return (
+      <main className="portal-loading">
+
+        <div className="loading-card">
+
+          <h2>
+            Unable to Load Account
+          </h2>
 
           <p>
-            Customer, account and support
-            management.
+            {error}
           </p>
+
+          <button
+            className="portal-button"
+            onClick={logout}
+          >
+            Sign Out
+          </button>
+
         </div>
 
-        <button
-          className="primary-button"
-          onClick={logout}
-        >
-          Sign Out
-        </button>
-      </div>
+      </main>
+    );
+  }
 
-      {notice && (
-        <div className="notification">
-          <p>{notice}</p>
-        </div>
-      )}
+  /*
+    =====================================================
+    PENDING APPROVAL
+    =====================================================
+  */
 
-      <nav
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "10px",
-          marginBottom: "24px",
-        }}
-      >
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("overview")
-          }
-        >
-          Overview
-        </button>
+  if (
+    profile &&
+    profile.approval_status !== "approved"
+  ) {
+    return (
+      <main className="portal-page">
 
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("pending")
-          }
-        >
-          Pending ({pending.length})
-        </button>
+        <PortalHeader
+          menuOpen={false}
+          setMenuOpen={setMenuOpen}
+          logout={logout}
+          openPage={openPage}
+          showMenu={false}
+        />
 
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("accounts")
-          }
-        >
-          Accounts ({accounts.length})
-        </button>
+        <div className="portal-content">
 
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("support")
-          }
-        >
-          Support ({customerMessages.length})
-        </button>
-      </nav>
+          <section className="pending-card">
 
-      {activeSection === "overview" && (
-        <>
-          <section>
-            <h2>Overview</h2>
+            <span className="status-badge pending">
+              PENDING APPROVAL
+            </span>
 
-            <div className="dashboard-grid">
-              <div className="notification">
-                <h3>
-                  Pending Customers
-                </h3>
+            <h1>
+              {greeting()},{" "}
+              {profile.full_name || "Customer"}
+            </h1>
 
-                <h2>
-                  {pending.length}
-                </h2>
-              </div>
-
-              <div className="notification">
-                <h3>
-                  Active Accounts
-                </h3>
-
-                <h2>
-                  {activeAccounts.length}
-                </h2>
-              </div>
-
-              <div className="notification">
-                <h3>
-                  Frozen Accounts
-                </h3>
-
-                <h2>
-                  {frozenAccounts.length}
-                </h2>
-              </div>
-
-              <div className="notification">
-                <h3>
-                  Customer Messages
-                </h3>
-
-                <h2>
-                  {customerMessages.length}
-                </h2>
-              </div>
-            </div>
-          </section>
-
-          <section>
             <h2>
-              Recent Activity
+              Account Awaiting Approval
             </h2>
 
-            <div className="transaction-list">
-              {transactions.length ===
-              0 ? (
-                <div className="notification">
-                  <p>
-                    No transactions
-                    recorded.
-                  </p>
+            <p>
+              Your registration has been received
+              and is awaiting account approval.
+            </p>
+
+          </section>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  /*
+    =====================================================
+    NO ACCOUNT
+    =====================================================
+  */
+
+  if (!account) {
+    return (
+      <main className="portal-page">
+
+        <PortalHeader
+          menuOpen={false}
+          setMenuOpen={setMenuOpen}
+          logout={logout}
+          openPage={openPage}
+          showMenu={false}
+        />
+
+        <div className="portal-content">
+
+          <section className="pending-card">
+
+            <h1>
+              {greeting()},{" "}
+              {profile?.full_name || "Customer"}
+            </h1>
+
+            <h2>
+              Account Information Unavailable
+            </h2>
+
+            <p>
+              Your customer profile has been
+              approved, but an account record has
+              not yet been assigned.
+            </p>
+
+          </section>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  /*
+    =====================================================
+    MAIN PORTAL
+    =====================================================
+  */
+
+  return (
+    <main className="portal-page">
+
+      <PortalHeader
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        logout={logout}
+        openPage={openPage}
+        showMenu={true}
+      />
+
+      <div className="portal-content">
+
+        {/* =================================================
+            DASHBOARD
+        ================================================= */}
+
+        {activePage === "dashboard" && (
+          <>
+
+            <section className="welcome-section">
+
+              <div>
+
+                <span className="customer-badge">
+                  CUSTOMER ACCOUNT
+                </span>
+
+                <h1>
+                  {greeting()},{" "}
+                  {profile?.full_name || "Customer"}
+                </h1>
+
+                <p>
+                  Here's an overview of your
+                  customer account.
+                </p>
+
+              </div>
+
+            </section>
+
+            {/* BALANCE */}
+
+            <section className="balance-card-professional">
+
+              <div className="balance-main">
+
+                <p>
+                  AVAILABLE BALANCE
+                </p>
+
+                <h2>
+                  ${formatMoney(account.balance)}
+                </h2>
+
+                <span>
+                  Account ending in{" "}
+                  {String(
+                    account.account_number || ""
+                  ).slice(-4)}
+                </span>
+
+              </div>
+
+              <div className="balance-status">
+
+                <span className="online-dot"></span>
+
+                {account.status || "Active"}
+
+              </div>
+
+            </section>
+
+            {/* QUICK ACTIONS */}
+
+            <section className="portal-section">
+
+              <div className="section-heading">
+
+                <div>
+
+                  <span className="section-label">
+                    ACCOUNT SERVICES
+                  </span>
+
+                  <h2>
+                    Quick Actions
+                  </h2>
+
                 </div>
+
+              </div>
+
+              <div className="quick-action-grid">
+
+                <button
+                  onClick={() =>
+                    openPage("withdraw")
+                  }
+                  className="quick-action"
+                >
+                  <span className="action-icon">
+                    ↓
+                  </span>
+
+                  <strong>
+                    Withdraw
+                  </strong>
+
+                  <small>
+                    Submit a withdrawal request
+                  </small>
+                </button>
+
+                <button
+                  onClick={() =>
+                    openPage("transfer")
+                  }
+                  className="quick-action"
+                >
+                  <span className="action-icon">
+                    ↗
+                  </span>
+
+                  <strong>
+                    Transfer
+                  </strong>
+
+                  <small>
+                    Submit a transfer request
+                  </small>
+                </button>
+
+                <button
+                  onClick={() =>
+                    openPage("wire")
+                  }
+                  className="quick-action"
+                >
+                  <span className="action-icon">
+                    ⇄
+                  </span>
+
+                  <strong>
+                    Wire Transfer
+                  </strong>
+
+                  <small>
+                    Enter recipient information
+                  </small>
+                </button>
+
+                <button
+                  onClick={() =>
+                    openPage("local")
+                  }
+                  className="quick-action"
+                >
+                  <span className="action-icon">
+                    →
+                  </span>
+
+                  <strong>
+                    Local Transfer
+                  </strong>
+
+                  <small>
+                    Submit a local transfer request
+                  </small>
+                </button>
+
+              </div>
+
+            </section>
+
+            {/* ACCOUNT + NOTIFICATIONS */}
+
+            <div className="two-column">
+
+              <section className="portal-section">
+
+                <span className="section-label">
+                  ACCOUNT
+                </span>
+
+                <h2>
+                  Account Overview
+                </h2>
+
+                <div className="detail-row">
+
+                  <span>
+                    Account Holder
+                  </span>
+
+                  <strong>
+                    {profile?.full_name}
+                  </strong>
+
+                </div>
+
+                <div className="detail-row">
+
+                  <span>
+                    Account Number
+                  </span>
+
+                  <strong>
+                    {maskedAccountNumber(
+                      account.account_number
+                    )}
+                  </strong>
+
+                </div>
+
+                <div className="detail-row">
+
+                  <span>
+                    Account Type
+                  </span>
+
+                  <strong>
+                    {account.account_type ||
+                      "Checking"}
+                  </strong>
+
+                </div>
+
+                <div className="detail-row">
+
+                  <span>
+                    Account Status
+                  </span>
+
+                  <strong className="active-text">
+                    {account.status ||
+                      "Active"}
+                  </strong>
+
+                </div>
+
+              </section>
+
+              <section className="portal-section">
+
+                <span className="section-label">
+                  ACCOUNT ACTIVITY
+                </span>
+
+                <h2>
+                  Notifications
+                </h2>
+
+                <div className="notification-item">
+
+                  <div className="notification-icon">
+                    ✓
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Account Active
+                    </strong>
+
+                    <p>
+                      Your customer account is
+                      currently available.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <div className="notification-item">
+
+                  <div className="notification-icon warning">
+                    !
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Security Reminder
+                    </strong>
+
+                    <p>
+                      Never share passwords or
+                      verification codes.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </section>
+
+            </div>
+
+            {/* TRANSACTIONS */}
+
+            <section className="portal-section">
+
+              <div className="section-heading">
+
+                <div>
+
+                  <span className="section-label">
+                    ACCOUNT ACTIVITY
+                  </span>
+
+                  <h2>
+                    Recent Transactions
+                  </h2>
+
+                </div>
+
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    openPage("transactions")
+                  }
+                >
+                  View All
+                </button>
+
+              </div>
+
+              {transactions.length === 0 ? (
+
+                <div className="empty-state">
+
+                  <div className="empty-icon">
+                    ▣
+                  </div>
+
+                  <strong>
+                    No Transactions Yet
+                  </strong>
+
+                  <p>
+                    Transactions associated with
+                    this account will appear here.
+                  </p>
+
+                </div>
+
               ) : (
-                transactions
-                  .slice(0, 5)
-                  .map(
-                    (transaction) => (
+
+                <div className="transaction-list-professional">
+
+                  {transactions
+                    .slice(0, 5)
+                    .map((transaction) => (
+
                       <div
-                        className="transaction"
-                        key={
-                          transaction.id
-                        }
+                        className="transaction-row"
+                        key={transaction.id}
                       >
+
                         <div>
+
                           <strong>
                             {transaction.description ||
-                              "Transaction"}
+                              "Account Transaction"}
                           </strong>
 
-                          <p>
-                            {transaction.transaction_type ===
-                            "credit"
-                              ? "+"
-                              : "-"}
-                            $
-                            {formatMoney(
-                              transaction.amount
-                            )}
-                          </p>
-
-                          <p>
+                          <small>
                             {formatDate(
                               transaction.transaction_date
                             )}
-                          </p>
+                          </small>
+
                         </div>
-                      </div>
-                    )
-                  )
-              )}
-            </div>
-          </section>
-        </>
-      )}
 
-      {activeSection === "pending" && (
-        <section>
-          <h2>
-            Pending Customer
-            Approvals
-          </h2>
-
-          {pending.length === 0 ? (
-            <div className="notification">
-              <p>
-                No pending customers.
-              </p>
-            </div>
-          ) : (
-            <div className="transaction-list">
-              {pending.map(
-                (customer) => (
-                  <div
-                    className="transaction"
-                    key={customer.id}
-                  >
-                    <div>
-                      <strong>
-                        {customer.full_name ||
-                          "Customer"}
-                      </strong>
-
-                      <p>
-                        Email:{" "}
-                        {customer.email ||
-                          "Not available"}
-                      </p>
-
-                      <p>
-                        Status:{" "}
-                        {
-                          customer.approval_status
-                        }
-                      </p>
-
-                      <p>
-                        Registered:{" "}
-                        {formatDate(
-                          customer.created_at
-                        )}
-                      </p>
-                    </div>
-
-                    <button
-                      className="primary-button"
-                      onClick={() =>
-                        approveCustomer(
-                          customer
-                        )
-                      }
-                    >
-                      Approve Customer
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeSection === "accounts" && (
-        <>
-          <section>
-            <h2>
-              Customer Accounts
-            </h2>
-
-            {accounts.length === 0 ? (
-              <div className="notification">
-                <p>
-                  No customer accounts
-                  found.
-                </p>
-              </div>
-            ) : (
-              <div className="transaction-list">
-                {accounts.map(
-                  (account) => (
-                    <div
-                      className="transaction"
-                      key={account.id}
-                    >
-                      <div>
                         <strong>
-                          {
-                            account.customerName
-                          }
-                        </strong>
-
-                        <p>
-                          Email:{" "}
-                          {account.customerEmail ||
-                            "Not available"}
-                        </p>
-
-                        <p>
-                          Account No:{" "}
-                          {account.account_number ||
-                            "Not assigned"}
-                        </p>
-
-                        <p>
-                          Account type:{" "}
-                          {account.account_type ||
-                            "Checking"}
-                        </p>
-
-                        <p>
-                          Status:{" "}
-                          {account.status ||
-                            "active"}
-                        </p>
-
-                        <p>
-                          Balance: $
-                          {formatMoney(
-                            account.balance
-                          )}
-                        </p>
-                      </div>
-
-                      <div
-                        style={{
-                          display:
-                            "flex",
-                          flexDirection:
-                            "column",
-                          gap: "8px",
-                        }}
-                      >
-                        <button
-                          className="primary-button"
-                          onClick={() =>
-                            addTransaction(
-                              account
-                            )
-                          }
-                        >
-                          Add Transaction
-                        </button>
-
-                        <button
-                          className="primary-button"
-                          onClick={() =>
-                            toggleAccount(
-                              account
-                            )
-                          }
-                        >
-                          {account.status ===
-                          "active"
-                            ? "Freeze Account"
-                            : "Unfreeze Account"}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <h2>
-              Recent Transactions
-            </h2>
-
-            <div className="transaction-list">
-              {transactions.length ===
-              0 ? (
-                <div className="notification">
-                  <p>
-                    No transactions
-                    recorded.
-                  </p>
-                </div>
-              ) : (
-                transactions.map(
-                  (transaction) => (
-                    <div
-                      className="transaction"
-                      key={
-                        transaction.id
-                      }
-                    >
-                      <div>
-                        <strong>
-                          {transaction.description ||
-                            "Transaction"}
-                        </strong>
-
-                        <p>
-                          Type:{" "}
-                          {
-                            transaction.transaction_type
-                          }
-                        </p>
-
-                        <p>
-                          Amount:{" "}
-                          {transaction.transaction_type ===
-                          "credit"
-                            ? "+"
-                            : "-"}
                           $
                           {formatMoney(
                             transaction.amount
                           )}
-                        </p>
+                        </strong>
 
-                        <p>
-                          Date:{" "}
+                      </div>
+
+                    ))}
+
+                </div>
+
+              )}
+
+            </section>
+
+          </>
+        )}
+
+        {/* =================================================
+            MY PROFILE
+        ================================================= */}
+
+        {activePage === "profile" && (
+          <PortalPage
+            title="My Profile"
+            label="CUSTOMER"
+          >
+
+            <div className="profile-header">
+
+              <div className="profile-avatar">
+
+                {(profile?.full_name || "C")
+                  .charAt(0)
+                  .toUpperCase()}
+
+              </div>
+
+              <div>
+
+                <h2>
+                  {profile?.full_name ||
+                    "Customer"}
+                </h2>
+
+                <p>
+                  Customer Account
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="profile-section-title">
+              Personal Information
+            </div>
+
+            <InfoRow
+              label="Full Name"
+              value={profile?.full_name}
+            />
+
+            <InfoRow
+              label="Date of Birth"
+              value={formatDateOnly(
+                profile?.date_of_birth
+              )}
+            />
+
+            <InfoRow
+              label="Phone Number"
+              value={profile?.phone_number}
+            />
+
+            <InfoRow
+              label="Email Address"
+              value={user?.email}
+            />
+
+            <div className="profile-section-title">
+              Address Information
+            </div>
+
+            <InfoRow
+              label="Address"
+              value={profile?.address}
+            />
+
+            <InfoRow
+              label="City"
+              value={profile?.city}
+            />
+
+            <InfoRow
+              label="State"
+              value={profile?.state}
+            />
+
+            <InfoRow
+              label="Postal Code"
+              value={profile?.postal_code}
+            />
+
+            <InfoRow
+              label="Country"
+              value={profile?.country}
+            />
+
+            <div className="profile-section-title">
+              Account Information
+            </div>
+
+            <AccountNumberRow
+              accountNumber={
+                account.account_number
+              }
+              visible={
+                showAccountNumber
+              }
+              onToggle={() =>
+                setShowAccountNumber(
+                  (current) => !current
+                )
+              }
+            />
+
+            <InfoRow
+              label="Account Type"
+              value={
+                account.account_type ||
+                "Checking"
+              }
+            />
+
+            <InfoRow
+              label="Account Status"
+              value={
+                account.status ||
+                "Active"
+              }
+            />
+
+            <InfoRow
+              label="Account Created"
+              value={formatDate(
+                account.effective_created_at ||
+                account.created_at
+              )}
+            />
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            ACCOUNT INFORMATION
+        ================================================= */}
+
+        {activePage === "account" && (
+          <PortalPage
+            title="Account Information"
+            label="ACCOUNT"
+          >
+
+            <InfoRow
+              label="Account Holder"
+              value={profile?.full_name}
+            />
+
+            <AccountNumberRow
+              accountNumber={
+                account.account_number
+              }
+              visible={
+                showAccountNumber
+              }
+              onToggle={() =>
+                setShowAccountNumber(
+                  (current) => !current
+                )
+              }
+            />
+
+            <InfoRow
+              label="Account Type"
+              value={
+                account.account_type ||
+                "Checking"
+              }
+            />
+
+            <InfoRow
+              label="Account Status"
+              value={
+                account.status ||
+                "Active"
+              }
+            />
+
+            <InfoRow
+              label="Available Balance"
+              value={`$${formatMoney(
+                account.balance
+              )}`}
+            />
+
+            <InfoRow
+              label="Account Created"
+              value={formatDate(
+                account.effective_created_at ||
+                account.created_at
+              )}
+            />
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            WITHDRAW / TRANSFER / WIRE / LOCAL
+        ================================================= */}
+
+        {[
+          "withdraw",
+          "transfer",
+          "wire",
+          "local",
+        ].includes(activePage) && (
+
+          <PortalPage
+            title={
+              activePage === "withdraw"
+                ? "Withdraw"
+                : activePage === "transfer"
+                ? "Transfer"
+                : activePage === "wire"
+                ? "Wire Transfer"
+                : "Local Transfer"
+            }
+            label="TRANSFERS & PAYMENTS"
+          >
+
+            <form
+              onSubmit={submitRequest}
+            >
+
+              <div className="request-notice">
+
+                <strong>
+                  Request Information
+                </strong>
+
+                <p>
+                  Submit your request below.
+                  Requests are reviewed before
+                  any action is taken.
+                </p>
+
+              </div>
+
+              {activePage !== "withdraw" && (
+                <>
+
+                  <label className="form-label">
+
+                    Recipient Name
+
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={
+                        requestForm.recipientName
+                      }
+                      onChange={(event) =>
+                        updateRequestField(
+                          "recipientName",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter recipient name"
+                    />
+
+                  </label>
+
+                  <label className="form-label">
+
+                    Recipient Account Number
+
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={
+                        requestForm.recipientAccountNumber
+                      }
+                      onChange={(event) =>
+                        updateRequestField(
+                          "recipientAccountNumber",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter account number"
+                    />
+
+                  </label>
+
+                  <label className="form-label">
+
+                    Bank Name
+
+                    <input
+                      className="portal-input"
+                      type="text"
+                      value={
+                        requestForm.bankName
+                      }
+                      onChange={(event) =>
+                        updateRequestField(
+                          "bankName",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter bank name"
+                    />
+
+                  </label>
+
+                </>
+              )}
+
+              <label className="form-label">
+
+                Amount
+
+                <input
+                  className="portal-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={
+                    requestForm.amount
+                  }
+                  onChange={(event) =>
+                    updateRequestField(
+                      "amount",
+                      event.target.value
+                    )
+                  }
+                  placeholder="0.00"
+                  required
+                />
+
+              </label>
+
+              <label className="form-label">
+
+                Description
+
+                <textarea
+                  className="portal-textarea"
+                  rows="4"
+                  value={
+                    requestForm.description
+                  }
+                  onChange={(event) =>
+                    updateRequestField(
+                      "description",
+                      event.target.value
+                    )
+                  }
+                  placeholder="Add a description or additional information"
+                />
+
+              </label>
+
+              {requestStatus && (
+
+                <div className="request-notice success-notice">
+
+                  <p>
+                    {requestStatus}
+                  </p>
+
+                </div>
+
+              )}
+
+              <button
+                className="portal-button"
+                type="submit"
+                disabled={requestLoading}
+              >
+                {requestLoading
+                  ? "Submitting..."
+                  : "Submit Request"}
+              </button>
+
+            </form>
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            TRANSACTIONS
+        ================================================= */}
+
+        {activePage === "transactions" && (
+          <PortalPage
+            title="Transaction History"
+            label="ACTIVITY"
+          >
+
+            {transactions.length === 0 ? (
+
+              <div className="empty-state">
+
+                <div className="empty-icon">
+                  ▣
+                </div>
+
+                <strong>
+                  No Transactions Yet
+                </strong>
+
+                <p>
+                  Transactions associated with
+                  this account will appear here.
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="transaction-list-professional">
+
+                {transactions.map(
+                  (transaction) => (
+
+                    <div
+                      className="transaction-row"
+                      key={transaction.id}
+                    >
+
+                      <div>
+
+                        <strong>
+                          {transaction.description ||
+                            "Account Transaction"}
+                        </strong>
+
+                        <small>
                           {formatDate(
                             transaction.transaction_date
                           )}
-                        </p>
+                        </small>
+
                       </div>
-                    </div>
-                  )
-                )
-              )}
-            </div>
-          </section>
-        </>
-      )}
 
-      {activeSection === "support" && (
-        <section>
-          <h2>
-            Customer Support Inbox
-          </h2>
-
-          {customerMessages.length ===
-          0 ? (
-            <div className="notification">
-              <p>
-                No customer support
-                messages.
-              </p>
-            </div>
-          ) : (
-            <div className="transaction-list">
-              {customerMessages.map(
-                (item) => {
-                  const replies =
-                    messages.filter(
-                      (message) =>
-                        message.user_id ===
-                          item.user_id &&
-                        message.sender ===
-                          "support" &&
-                        new Date(
-                          message.created_at
-                        ) >
-                          new Date(
-                            item.created_at
-                          )
-                    );
-
-                  const latestReply =
-                    replies.length
-                      ? replies[
-                          replies.length - 1
-                        ]
-                      : null;
-
-                  return (
-                    <div
-                      className="notification"
-                      key={item.id}
-                    >
-                      <h3>
-                        {item.customerName ||
-                          "Customer"}
-                      </h3>
-
-                      <p>
-                        <strong>
-                          Email:
-                        </strong>{" "}
-                        {item.customerEmail ||
-                          "Not available"}
-                      </p>
-
-                      <p>
-                        <strong>
-                          Received:
-                        </strong>{" "}
-                        {formatDate(
-                          item.created_at
+                      <strong>
+                        $
+                        {formatMoney(
+                          transaction.amount
                         )}
-                      </p>
+                      </strong>
 
-                      <hr />
-
-                      <p>
-                        <strong>
-                          Customer Message
-                        </strong>
-                      </p>
-
-                      <p>
-                        {item.message}
-                      </p>
-
-                      {latestReply && (
-                        <>
-                          <hr />
-
-                          <p>
-                            <strong>
-                              Support Reply
-                            </strong>
-                          </p>
-
-                          <p>
-                            {
-                              latestReply.message
-                            }
-                          </p>
-
-                          <p>
-                            <strong>
-                              Replied:
-                            </strong>{" "}
-                            {formatDate(
-                              latestReply.created_at
-                            )}
-                          </p>
-                        </>
-                      )}
-
-                      <textarea
-                        id={`reply-${item.id}`}
-                        rows="4"
-                        placeholder="Write your support reply..."
-                        style={{
-                          width:
-                            "100%",
-                          marginTop:
-                            "12px",
-                        }}
-                      />
-
-                      <button
-                        className="primary-button"
-                        onClick={() =>
-                          sendReply(
-                            item
-                          )
-                        }
-                      >
-                        Send Support Reply
-                      </button>
                     </div>
-                  );
-                }
-              )}
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            NOTIFICATIONS
+        ================================================= */}
+
+        {activePage === "notifications" && (
+          <PortalPage
+            title="Notifications"
+            label="ACTIVITY"
+          >
+
+            <div className="notification-item">
+
+              <div className="notification-icon">
+                ✓
+              </div>
+
+              <div>
+
+                <strong>
+                  Account Active
+                </strong>
+
+                <p>
+                  Your customer account is
+                  currently active.
+                </p>
+
+              </div>
+
             </div>
-          )}
-        </section>
+
+            <div className="notification-item">
+
+              <div className="notification-icon warning">
+                !
+              </div>
+
+              <div>
+
+                <strong>
+                  Security Reminder
+                </strong>
+
+                <p>
+                  Never share your password,
+                  PIN, or verification codes.
+                </p>
+
+              </div>
+
+            </div>
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            CUSTOMER SUPPORT
+        ================================================= */}
+
+        {activePage === "support" && (
+          <PortalPage
+            title="Customer Support"
+            label="SUPPORT"
+          >
+
+            <div className="support-intro">
+
+              <h2>
+                How can we help you today?
+              </h2>
+
+              <p>
+                Choose a support option or use
+                the live chat button in the
+                bottom-right corner.
+              </p>
+
+            </div>
+
+            <div className="support-grid-professional">
+
+              <button
+                onClick={async () => {
+                  setChatOpen(true);
+                  await loadChatMessages();
+                }}
+                className="support-option"
+              >
+
+                <span>
+                  💬
+                </span>
+
+                <strong>
+                  Live Chat
+                </strong>
+
+                <small>
+                  Chat with customer support
+                </small>
+
+              </button>
+
+              <button className="support-option">
+
+                <span>
+                  🎫
+                </span>
+
+                <strong>
+                  Support Ticket
+                </strong>
+
+                <small>
+                  Submit a question or complaint
+                </small>
+
+              </button>
+
+              <button className="support-option">
+
+                <span>
+                  ?
+                </span>
+
+                <strong>
+                  Frequently Asked Questions
+                </strong>
+
+                <small>
+                  Find answers to common questions
+                </small>
+
+              </button>
+
+              <button className="support-option">
+
+                <span>
+                  !
+                </span>
+
+                <strong>
+                  Report a Problem
+                </strong>
+
+                <small>
+                  Report an account or security issue
+                </small>
+
+              </button>
+
+            </div>
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            SECURITY
+        ================================================= */}
+
+        {activePage === "security" && (
+          <PortalPage
+            title="Security Center"
+            label="SECURITY"
+          >
+
+            <div className="security-box">
+
+              <h2>
+                Protect Your Account
+              </h2>
+
+              <p>
+                Never share your password, PIN,
+                or verification codes with
+                another person.
+              </p>
+
+            </div>
+
+            <div className="security-box">
+
+              <h3>
+                Account Security
+              </h3>
+
+              <p>
+                Use a strong password and sign
+                out when using a shared device.
+              </p>
+
+            </div>
+
+          </PortalPage>
+        )}
+
+        {/* =================================================
+            SETTINGS
+        ================================================= */}
+
+        {activePage === "settings" && (
+          <PortalPage
+            title="Account Settings"
+            label="SECURITY"
+          >
+
+            <div className="settings-row">
+
+              <div>
+
+                <strong>
+                  Password
+                </strong>
+
+                <p>
+                  Change your account password.
+                </p>
+
+              </div>
+
+              <button
+                className="secondary-action"
+                onClick={() =>
+                  alert(
+                    "Password-change workflow can be connected to Supabase Auth."
+                  )
+                }
+              >
+                Change
+              </button>
+
+            </div>
+
+            <div className="settings-row">
+
+              <div>
+
+                <strong>
+                  Email Address
+                </strong>
+
+                <p>
+                  {user?.email}
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="settings-row">
+
+              <div>
+
+                <strong>
+                  Sign Out
+                </strong>
+
+                <p>
+                  End your current customer session.
+                </p>
+
+              </div>
+
+              <button
+                className="secondary-action"
+                onClick={logout}
+              >
+                Sign Out
+              </button>
+
+            </div>
+
+          </PortalPage>
+        )}
+
+      </div>
+
+      {/* ===================================================
+          FLOATING SUPPORT BUTTON
+      =================================================== */}
+
+      <button
+        className="live-chat-button"
+        onClick={async () => {
+
+          const next = !chatOpen;
+
+          setChatOpen(next);
+
+          if (next && user) {
+            await loadChatMessages();
+          }
+
+        }}
+        aria-label="Open live chat"
+      >
+
+        <span className="chat-online-dot"></span>
+
+        <span className="chat-symbol">
+          💬
+        </span>
+
+        <span className="chat-button-text">
+          Support
+        </span>
+
+      </button>
+
+      {/* ===================================================
+          CHAT WINDOW
+      =================================================== */}
+
+      {chatOpen && (
+
+        <div className="live-chat-window">
+
+          <div className="chat-header">
+
+            <div className="chat-header-info">
+
+              <div className="chat-header-logo">
+                M
+              </div>
+
+              <div>
+
+                <strong>
+                  Customer Support
+                </strong>
+
+                <span>
+
+                  <span className="chat-header-dot"></span>
+
+                  Online
+
+                </span>
+
+              </div>
+
+            </div>
+
+            <button
+              onClick={() =>
+                setChatOpen(false)
+              }
+              className="chat-close"
+              aria-label="Close chat"
+            >
+              ×
+            </button>
+
+          </div>
+
+          <div className="chat-body">
+
+            {chatMessages.map(
+              (message) => (
+
+                <div
+                  key={message.id}
+                  className={
+                    message.sender === "customer"
+                      ? "chat-message customer"
+                      : "chat-message support"
+                  }
+                >
+                  {message.message}
+                </div>
+
+              )
+            )}
+
+          </div>
+
+          <form
+            className="chat-input-area"
+            onSubmit={sendChatMessage}
+          >
+
+            <input
+              value={chatMessage}
+              onChange={(event) =>
+                setChatMessage(
+                  event.target.value
+                )
+              }
+              placeholder="Type your message..."
+              disabled={chatLoading}
+            />
+
+            <button
+              type="submit"
+              disabled={chatLoading}
+            >
+              {chatLoading
+                ? "..."
+                : "Send"}
+            </button>
+
+          </form>
+
+        </div>
+
       )}
 
-      <section className="real-notice">
-        <h2>
-          ⛔ Security Warning
-        </h2>
-
-        <p>
-          Never share your password, PIN,
-          verification codes, or other
-          sensitive account information
-          with anyone. Our support team
-          will never ask you to disclose
-          your password or security codes.
-        </p>
-      </section>
     </main>
   );
+}
+
+/*
+=====================================================
+CUSTOMER PORTAL HEADER
+=====================================================
+*/
+
+function PortalHeader({
+  menuOpen,
+  setMenuOpen,
+  logout,
+  openPage,
+  showMenu = true,
+}) {
+  return (
+    <header className="portal-header">
+
+      <div className="portal-brand">
+
+        <div className="portal-logo">
+          M
+        </div>
+
+        <div className="portal-brand-text">
+
+          <strong>
+            MIDATLANTIC
+          </strong>
+
+          <span>
+            FEDERAL BANK
+          </span>
+
+          <small>
+            CUSTOMER BANKING PORTAL
+          </small>
+
+        </div>
+
+      </div>
+
+      <div className="portal-header-right">
+
+        <div className="portal-online">
+
+          <span className="online-dot"></span>
+
+          <span>
+            Online
+          </span>
+
+        </div>
+
+        {showMenu ? (
+
+          <button
+            className={`menu-trigger ${
+              menuOpen
+                ? "menu-trigger-open"
+                : ""
+            }`}
+            onClick={() =>
+              setMenuOpen(!menuOpen)
+            }
+            aria-label="Open customer menu"
+            aria-expanded={menuOpen}
+          >
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+          </button>
+
+        ) : (
+
+          <button
+            className="portal-button header-signout"
+            onClick={logout}
+          >
+            Sign Out
+          </button>
+
+        )}
+
+      </div>
+
+      {showMenu && menuOpen && (
+
+        <div className="customer-menu">
+
+          <div className="menu-header">
+
+            <div>
+
+              <strong>
+                Customer Portal
+              </strong>
+
+              <span>
+                Account Menu
+              </span>
+
+            </div>
+
+            <button
+              className="menu-close"
+              onClick={() =>
+                setMenuOpen(false)
+              }
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+
+          </div>
+
+          <div className="menu-group">
+
+            <div className="menu-section">
+              MAIN
+            </div>
+
+            <button
+              onClick={() =>
+                openPage("dashboard")
+              }
+            >
+              <span className="menu-icon">
+                ⌂
+              </span>
+
+              <span>
+                Dashboard
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("profile")
+              }
+            >
+              <span className="menu-icon">
+                ○
+              </span>
+
+              <span>
+                My Profile
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("account")
+              }
+            >
+              <span className="menu-icon">
+                ▣
+              </span>
+
+              <span>
+                Account Information
+              </span>
+            </button>
+
+          </div>
+
+          <div className="menu-group">
+
+            <div className="menu-section">
+              TRANSFERS & PAYMENTS
+            </div>
+
+            <button
+              onClick={() =>
+                openPage("withdraw")
+              }
+            >
+              <span className="menu-icon">
+                ↓
+              </span>
+
+              <span>
+                Withdraw
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("transfer")
+              }
+            >
+              <span className="menu-icon">
+                ↗
+              </span>
+
+              <span>
+                Transfer
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("wire")
+              }
+            >
+              <span className="menu-icon">
+                ⇄
+              </span>
+
+              <span>
+                Wire Transfer
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("local")
+              }
+            >
+              <span className="menu-icon">
+                →
+              </span>
+
+              <span>
+                Local Transfer
+              </span>
+            </button>
+
+          </div>
+
+          <div className="menu-group">
+
+            <div className="menu-section">
+              ACTIVITY
+            </div>
+
+            <button
+              onClick={() =>
+                openPage("transactions")
+              }
+            >
+              <span className="menu-icon">
+                ▤
+              </span>
+
+              <span>
+                Transaction History
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("notifications")
+              }
+            >
+              <span className="menu-icon">
+                ○
+              </span>
+
+              <span>
+                Notifications
+              </span>
+            </button>
+
+          </div>
+
+          <div className="menu-group">
+
+            <div className="menu-section">
+              SUPPORT
+            </div>
+
+            <button
+              onClick={() =>
+                openPage("support")
+              }
+            >
+              <span className="menu-icon">
+                ?
+              </span>
+
+              <span>
+                Customer Support
+              </span>
+            </button>
+
+          </div>
+
+          <div className="menu-group">
+
+            <div className="menu-section">
+              SECURITY
+            </div>
+
+            <button
+              onClick={() =>
+                openPage("security")
+              }
+            >
+              <span className="menu-icon">
+                ◇
+              </span>
+
+              <span>
+                Security Center
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                openPage("settings")
+              }
+            >
+              <span className="menu-icon">
+                ⚙
+              </span>
+
+              <span>
+                Account Settings
+              </span>
+            </button>
+
+          </div>
+
+          <div className="menu-divider"></div>
+
+          <button
+            className="signout-menu"
+            onClick={logout}
+          >
+            <span className="menu-icon">
+              ↪
+            </span>
+
+            <span>
+              Sign Out
+            </span>
+          </button>
+
+        </div>
+
+      )}
+
+    </header>
+  );
+}
+
+/*
+=====================================================
+ACCOUNT NUMBER ROW
+Eye button reveals/hides the complete number.
+=====================================================
+*/
+
+function AccountNumberRow({
+  accountNumber,
+  visible,
+  onToggle,
+}) {
+  return (
+    <div className="detail-row large account-number-row">
+
+      <span>
+        Account Number
+      </span>
+
+      <div className="account-number-value">
+
+        <strong>
+          {visible
+            ? visibleAccountNumber(
+                accountNumber
+              )
+            : maskedAccountNumber(
+                accountNumber
+              )}
+        </strong>
+
+        {accountNumber && (
+
+          <button
+            type="button"
+            className="account-number-eye"
+            onClick={onToggle}
+            aria-label={
+              visible
+                ? "Hide account number"
+                : "Show account number"
+            }
+            title={
+              visible
+                ? "Hide account number"
+                : "Show account number"
+            }
+          >
+            {visible
+              ? "◉"
+              : "◌"}
+          </button>
+
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+/*
+=====================================================
+GENERIC PAGE
+=====================================================
+*/
+
+function PortalPage({
+  title,
+  label,
+  children,
+}) {
+  return (
+    <section className="portal-page-section">
+
+      <div className="page-heading">
+
+        <div>
+
+          <span className="section-label">
+            {label}
+          </span>
+
+          <h1>
+            {title}
+          </h1>
+
+        </div>
+
+      </div>
+
+      <div className="page-body">
+        {children}
+      </div>
+
+    </section>
+  );
+}
+
+/*
+=====================================================
+INFO ROW
+=====================================================
+*/
+
+function InfoRow({
+  label,
+  value,
+}) {
+  return (
+    <div className="detail-row large">
+
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value || "Not available"}
+      </strong>
+
+    </div>
+  );
+}
+
+/*
+=====================================================
+ACCOUNT NUMBER HELPERS
+=====================================================
+*/
+
+function maskedAccountNumber(
+  accountNumber
+) {
+  if (!accountNumber) {
+    return "Not available";
+  }
+
+  const value =
+    String(accountNumber);
+
+  if (value.length <= 4) {
+    return value;
+  }
+
+  return `•••• ${value.slice(-4)}`;
+}
+
+function visibleAccountNumber(
+  accountNumber
+) {
+  if (!accountNumber) {
+    return "Not available";
+  }
+
+  return String(accountNumber);
 }
