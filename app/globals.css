@@ -6813,3 +6813,976 @@ body {
     padding: 15px;
   }
 }
+/* =========================================================
+   FINAL RESPONSIVE OVERRIDE
+   MIDATLANTIC FEDERAL BANK
+   This section intentionally comes last so it overrides
+   earlier responsive fragments without requiring JSX changes.
+========================================================= */
+
+/* Page shells should not inherit the generic centered `main` width. */
+main:has(.public-header),
+main:has(.public-hero),
+main:has(.auth-page),
+main:has(.portal-page) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* =========================================================
+   PUBLIC HEADER
+========================================================= */
+
+.public-header {
+  width: 100%;
+  min-height: 78px;
+  padding: 14px clamp(16px, 4vw, 56px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.public-logo {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.public-logo > div:last-child {
+  min-width: 0;
+}
+
+.public-logo strong,
+.public-logo span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.public-nav {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.header-signin,
+.header-open {
+  white-space: nowrap;
+}
+
+/* =========================================================
+   PUBLIC HERO
+========================================================= */
+
+.public-hero {
+  width: min(1240px, calc(100% - 32px));
+  margin: 24px auto 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 70px);
+}
+
+.hero-content,
+.hero-card {
+  min-width: 0;
+}
+
+.public-hero h1,
+.hero-card h2,
+.public-section h2,
+.about-preview h2,
+.loan-section h2,
+.support-banner h2,
+.security-public h2,
+.final-cta h2 {
+  overflow-wrap: anywhere;
+}
+
+.hero-security {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.hero-card {
+  max-width: 100%;
+}
+
+/* =========================================================
+   PUBLIC GRIDS / CONTENT
+========================================================= */
+
+.public-feature-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.about-preview,
+.loan-section,
+.support-banner {
+  width: min(1180px, calc(100% - 32px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.about-preview,
+.loan-section {
+  min-width: 0;
+}
+
+.about-preview > *,
+.loan-section > *,
+.support-banner > * {
+  min-width: 0;
+}
+
+.about-preview-image {
+  min-width: 0;
+}
+
+.news-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.news-card,
+.public-feature-card,
+.loan-options > div {
+  min-width: 0;
+}
+
+.loan-options {
+  min-width: 0;
+}
+
+.support-banner-actions {
+  flex-wrap: wrap;
+}
+
+.security-public {
+  width: min(1180px, calc(100% - 32px));
+  margin-left: auto;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.security-public > * {
+  min-width: 0;
+}
+
+.public-footer {
+  width: 100%;
+}
+
+.footer-main,
+.footer-bottom {
+  min-width: 0;
+}
+
+.footer-brand,
+.footer-column,
+.footer-contact {
+  min-width: 0;
+}
+
+.footer-column a,
+.footer-contact a,
+.footer-bottom span {
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   AUTH PAGES
+========================================================= */
+
+.auth-page {
+  width: 100%;
+  min-height: 100svh;
+  padding: clamp(24px, 5vw, 60px) 16px;
+  align-items: flex-start;
+}
+
+.auth-card {
+  width: min(100%, 760px);
+  min-width: 0;
+}
+
+.auth-card:not(.signup-card) {
+  max-width: 470px;
+}
+
+.auth-brand,
+.auth-heading,
+.auth-card form,
+.auth-links,
+.auth-error,
+.auth-success {
+  min-width: 0;
+}
+
+.bank-name {
+  overflow-wrap: anywhere;
+}
+
+.auth-card input,
+.auth-card select,
+.auth-card textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.auth-submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+/* Signup-specific grids */
+
+.signup-card {
+  max-width: 820px;
+}
+
+.signup-section {
+  min-width: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.form-grid > label,
+.form-grid > .gender-field {
+  min-width: 0;
+}
+
+.full-width-field {
+  grid-column: 1 / -1;
+}
+
+.password-field {
+  min-width: 0;
+}
+
+.password-field input {
+  min-width: 0;
+}
+
+.password-toggle {
+  flex-shrink: 0;
+}
+
+.gender-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.signup-agreement {
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   PORTAL SAFETY / FLEXIBLE CONTENT
+========================================================= */
+
+.portal-page {
+  width: 100%;
+  min-height: 100svh;
+  overflow-x: hidden;
+}
+
+.portal-content {
+  width: min(1180px, calc(100% - 32px));
+  min-width: 0;
+}
+
+.portal-content * {
+  min-width: 0;
+}
+
+.portal-header,
+.portal-header-inner {
+  min-width: 0;
+}
+
+.portal-brand,
+.portal-brand-text {
+  min-width: 0;
+}
+
+.portal-brand-text strong,
+.portal-brand-text span {
+  overflow-wrap: anywhere;
+}
+
+.customer-menu {
+  width: min(340px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+}
+
+.quick-action-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.quick-action {
+  min-width: 0;
+}
+
+.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-row,
+.transaction-row,
+.notification-item,
+.settings-row {
+  min-width: 0;
+}
+
+.detail-row strong,
+.transaction-row strong,
+.transaction-row small,
+.notification-item p,
+.notification-item strong {
+  overflow-wrap: anywhere;
+}
+
+.transaction-row > strong {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.portal-input,
+.portal-textarea,
+.portal-page select,
+.portal-page input {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.support-grid-professional {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.live-chat-window {
+  max-width: calc(100vw - 24px);
+}
+
+/* =========================================================
+   TABLETS
+========================================================= */
+
+@media (max-width: 1100px) {
+  .public-header {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .public-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-top: 10px;
+  }
+
+  .public-header {
+    flex-wrap: wrap;
+  }
+
+  .public-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr);
+  }
+
+  .public-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .news-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .about-preview,
+  .loan-section {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .footer-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-content {
+    width: min(100% - 32px, 1180px);
+  }
+}
+
+/* =========================================================
+   MOBILE / PHONES
+========================================================= */
+
+@media (max-width: 760px) {
+  main:has(.public-header),
+  main:has(.public-hero),
+  main:has(.auth-page),
+  main:has(.portal-page) {
+    padding: 0;
+  }
+
+  .public-header {
+    min-height: auto;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .public-logo {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .public-logo .bank-logo {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .public-logo strong {
+    font-size: 13px;
+    letter-spacing: .5px;
+  }
+
+  .public-logo span {
+    font-size: 8px;
+    letter-spacing: 1px;
+  }
+
+  .public-nav {
+    order: 4;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0;
+    padding: 8px 0 0;
+  }
+
+  .public-nav a {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .header-signin,
+  .header-open {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .header-open {
+    max-width: 120px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .public-hero {
+    width: calc(100% - 24px);
+    margin-top: 12px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .hero-content {
+    padding: 10px 0;
+  }
+
+  .public-hero h1 {
+    font-size: clamp(32px, 9vw, 44px);
+    line-height: 1.08;
+  }
+
+  .public-hero p {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .hero-actions .primary-button,
+  .hero-actions .secondary-button {
+    flex: 1 1 160px;
+  }
+
+  .hero-security {
+    flex-direction: column;
+    gap: 7px;
+    font-size: 12px;
+  }
+
+  .hero-card {
+    width: 100%;
+  }
+
+  .public-section,
+  .about-values,
+  .bank-information,
+  .final-cta {
+    width: calc(100% - 32px);
+    padding: 48px 0;
+  }
+
+  .public-feature-grid,
+  .about-value-grid,
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-feature-card,
+  .about-value-card,
+  .news-card {
+    padding: 20px;
+  }
+
+  .about-preview,
+  .loan-section,
+  .support-banner {
+    width: calc(100% - 32px);
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 48px 0;
+  }
+
+  .about-preview-image {
+    min-height: 250px;
+  }
+
+  .loan-options {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .support-banner-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .support-banner-actions a {
+    width: 100%;
+  }
+
+  .security-public {
+    width: calc(100% - 32px);
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 22px;
+  }
+
+  .security-public > a {
+    justify-self: start;
+  }
+
+  .final-cta .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .final-cta .hero-actions a {
+    width: 100%;
+  }
+
+  .footer-main {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footer-bottom > div {
+    flex-wrap: wrap;
+  }
+
+  /* Auth */
+  .auth-page {
+    padding: 20px 12px 40px;
+  }
+
+  .auth-card {
+    padding: 24px 18px;
+    border-radius: 14px;
+  }
+
+  .auth-brand {
+    align-items: flex-start;
+  }
+
+  .auth-heading h1 {
+    font-size: clamp(27px, 8vw, 36px);
+  }
+
+  .auth-heading p {
+    font-size: 13px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .full-width-field {
+    grid-column: auto;
+  }
+
+  .signup-section-heading {
+    align-items: flex-start;
+  }
+
+  .gender-options {
+    gap: 10px 14px;
+  }
+
+  .gender-option {
+    min-height: 42px;
+  }
+
+  .password-field {
+    display: flex;
+  }
+
+  .password-field input {
+    width: 100%;
+  }
+
+  .password-toggle {
+    min-width: 58px;
+  }
+
+  /* Portal */
+  .portal-content {
+    width: calc(100% - 24px);
+    padding-top: 22px;
+    padding-bottom: 90px;
+  }
+
+  .quick-action-grid,
+  .two-column,
+  .support-grid-professional {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-card-professional {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .balance-status {
+    align-self: flex-start;
+  }
+
+  .section-heading,
+  .page-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .detail-row {
+    align-items: flex-start;
+  }
+
+  .detail-row strong {
+    max-width: 60%;
+  }
+
+  .transaction-row {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .transaction-row > strong {
+    max-width: 42%;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .customer-menu {
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
+
+  .live-chat-window {
+    right: 10px;
+    bottom: 74px;
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    height: min(570px, calc(100svh - 96px));
+  }
+}
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 430px) {
+  .public-header {
+    padding: 12px;
+  }
+
+  .public-logo .bank-logo {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .public-logo strong {
+    font-size: 11px;
+  }
+
+  .public-logo span {
+    font-size: 7px;
+  }
+
+  .header-actions {
+    width: 100%;
+    order: 3;
+  }
+
+  .header-signin,
+  .header-open {
+    flex: 1;
+  }
+
+  .public-nav {
+    order: 4;
+  }
+
+  .public-hero {
+    width: calc(100% - 20px);
+  }
+
+  .public-section,
+  .about-values,
+  .bank-information,
+  .final-cta,
+  .about-preview,
+  .loan-section,
+  .support-banner,
+  .security-public {
+    width: calc(100% - 24px);
+  }
+
+  .hero-actions .primary-button,
+  .hero-actions .secondary-button {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .hero-card {
+    padding: 20px;
+  }
+
+  .auth-page {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .auth-card {
+    padding: 20px 14px;
+  }
+
+  .auth-brand .bank-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .bank-name {
+    font-size: 14px;
+    letter-spacing: .5px;
+  }
+
+  .bank-subtitle {
+    font-size: 8px;
+    letter-spacing: .8px;
+  }
+
+  .signup-section {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .signup-section-heading h2 {
+    font-size: 18px;
+  }
+
+  .portal-content {
+    width: calc(100% - 18px);
+  }
+
+  .portal-section,
+  .portal-page-section {
+    padding: 15px;
+  }
+
+  .quick-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-action {
+    min-height: 105px;
+  }
+
+  .balance-main h2 {
+    font-size: 28px;
+  }
+
+  .page-heading h1 {
+    font-size: 25px;
+  }
+
+  .live-chat-window {
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
+}
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 360px) {
+  .public-nav a {
+    font-size: 11px;
+  }
+
+  .public-logo strong {
+    font-size: 10px;
+  }
+
+  .public-logo span {
+    font-size: 6.5px;
+  }
+
+  .auth-card {
+    padding: 18px 12px;
+  }
+
+  .auth-heading h1 {
+    font-size: 26px;
+  }
+
+  .auth-card label {
+    font-size: 12px;
+  }
+
+  .auth-card input,
+  .auth-card select,
+  .auth-card textarea {
+    font-size: 16px;
+  }
+
+  .password-toggle {
+    min-width: 54px;
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 11px;
+  }
+
+  .detail-row,
+  .transaction-row {
+    gap: 8px;
+  }
+
+  .detail-row span,
+  .detail-row strong,
+  .transaction-row strong,
+  .transaction-row small {
+    font-size: 10px;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY / INPUT SAFETY
+========================================================= */
+
+@media (pointer: coarse) {
+  .public-nav a,
+  .header-signin,
+  .header-open,
+  .auth-submit,
+  .password-toggle,
+  .quick-action,
+  .menu-trigger,
+  .header-signout,
+  .live-chat-button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
