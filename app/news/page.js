@@ -1,274 +1,340 @@
-export default function News() {
-  const news = [
+export default function NewsPage() {
+  const stories = [
     {
-      title: "Introducing Our New Banking Experience",
-      date: "August 20, 2026",
       category: "BANKING",
-      text:
-        "Explore the updated online banking experience designed to make account management easier and more convenient.",
+      title: "Digital banking continues to reshape everyday financial services",
+      summary:
+        "Explore the changing role of secure digital banking, online account access and modern customer service.",
+      image:
+        "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=85",
+      featured: true,
     },
     {
-      title: "Customer Support Improvements",
-      date: "August 15, 2026",
-      category: "CUSTOMER SERVICE",
-      text:
-        "Customers can access support resources and submit questions through our customer support center.",
+      category: "FOREIGN INVESTMENT",
+      title: "Global capital and international investment remain key market themes",
+      summary:
+        "Cross-border investment, infrastructure and business expansion continue to connect economies around the world.",
+      image:
+        "https://images.unsplash.com/photo-1521292270410-a8c4d716d518?auto=format&fit=crop&w=1200&q=85",
     },
     {
-      title: "Mobile Banking Experience Update",
-      date: "August 10, 2026",
-      category: "DIGITAL BANKING",
-      text:
-        "Our online banking experience has been optimized for phones, tablets, and desktop screens.",
+      category: "GLOBAL MARKETS",
+      title: "Markets continue to follow rates, currencies and economic growth",
+      summary:
+        "Keep an eye on the financial themes that influence businesses, investors and international capital.",
+      image:
+        "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=85",
+    },
+    {
+      category: "FINANCIAL TECHNOLOGY",
+      title: "Technology is changing the way customers interact with financial institutions",
+      summary:
+        "From digital payments to online services, financial technology continues to transform the customer experience.",
+      image:
+        "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=85",
+    },
+    {
+      category: "BUSINESS",
+      title: "Businesses continue to watch international trade and investment conditions",
+      summary:
+        "International business activity connects companies, financial institutions and investors across markets.",
+      image:
+        "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1200&q=85",
+    },
+    {
+      category: "SECURITY",
+      title: "Online banking security remains an important customer priority",
+      summary:
+        "Strong passwords, careful verification and secure account access are important parts of protecting financial information.",
+      image:
+        "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=85",
     },
   ];
 
   return (
-    <main className="public-page">
+    <main>
+      {/* HEADER */}
+      <header className="public-header">
+        <div className="public-logo">
+          <div className="bank-logo">M</div>
+          <div>
+            <strong>MIDATLANTIC</strong>
+            <span>FEDERAL BANK</span>
+          </div>
+        </div>
 
-      {/* =========================
-          PAGE HERO
-      ========================== */}
+        <nav className="public-nav">
+          <a href="/">Home</a>
+          <a href="/about">About Us</a>
+          <a href="/services">Banking</a>
+          <a href="/loans">Loans</a>
+          <a className="active" href="/news">News</a>
+          <a href="/contact">Contact</a>
+        </nav>
 
-      <section className="page-hero">
-        <div className="page-hero-content">
+        <div className="header-actions">
+          <a className="header-signin" href="/login">
+            Sign In
+          </a>
+          <a className="header-open" href="/signup">
+            Open an Account
+          </a>
+        </div>
+      </header>
 
-          <span className="hero-eyebrow">
-            NEWS & UPDATES
-          </span>
+      {/* NEWS HERO */}
+      <section className="news-page-hero">
+        <div>
+          <span className="section-label">NEWS & MARKET INSIGHTS</span>
 
-          <h1>
-            Stay informed with
-            <span> MidAtlantic Federal Bank.</span>
-          </h1>
+          <h1>Banking, markets and global investment.</h1>
 
           <p>
-            Read the latest banking announcements,
-            digital banking updates, customer service
-            information, and security resources.
+            Stay connected with banking developments, financial technology,
+            global markets, business activity and international investment
+            themes.
           </p>
 
-          <div className="hero-actions">
-            <a
-              className="primary-button"
-              href="/"
-            >
-              Back to Home
+          <div className="news-hero-actions">
+            <a className="primary-button" href="/login">
+              Access Online Banking
             </a>
-
-            <a
-              className="secondary-button"
-              href="/contact"
-            >
+            <a className="secondary-button" href="/contact">
               Contact Us
             </a>
           </div>
+        </div>
 
+        <div className="news-hero-panel">
+          <div className="news-hero-stat">
+            <strong>6</strong>
+            <span>Featured stories</span>
+          </div>
+
+          <div className="news-hero-stat">
+            <strong>4</strong>
+            <span>Market themes</span>
+          </div>
+
+          <div className="news-hero-stat">
+            <strong>24/7</strong>
+            <span>Online access</span>
+          </div>
         </div>
       </section>
 
-
-      {/* =========================
-          LATEST NEWS
-      ========================== */}
-
-      <section className="public-section">
-
-        <div className="section-introduction">
-
-          <span className="section-label">
-            LATEST UPDATES
-          </span>
-
-          <h2>
-            News from the bank
-          </h2>
-
-          <p>
-            Stay up to date with information about
-            banking services, customer support,
-            digital banking, and security.
-          </p>
-
+      {/* FEATURED STORY */}
+      <section className="public-section news-featured-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-label">FEATURED</span>
+            <h2>What's happening in finance</h2>
+          </div>
         </div>
 
+        <article className="news-featured-card">
+          <div className="news-featured-image">
+            <img
+              src={stories[0].image}
+              alt={stories[0].title}
+              loading="eager"
+            />
+            <span className="news-overlay-label">{stories[0].category}</span>
+          </div>
 
-        <div className="news-grid">
+          <div className="news-featured-content">
+            <span className="news-category">{stories[0].category}</span>
+            <h2>{stories[0].title}</h2>
+            <p>{stories[0].summary}</p>
+            <a className="primary-button" href="/contact">
+              Explore This Topic →
+            </a>
+          </div>
+        </article>
+      </section>
 
-          {news.map((item, index) => (
-            <article
-              className="news-card"
-              key={index}
-            >
+      {/* ALL STORIES */}
+      <section className="public-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-label">LATEST STORIES</span>
+            <h2>Banking & global market news</h2>
+          </div>
 
-              {/* Image-style news header */}
+          <span className="news-updated">
+            MARKET & BANKING
+          </span>
+        </div>
 
-              <div
-                className={`news-image news-image-${index + 1}`}
-              >
-                <div className="news-image-overlay">
-                  <strong>
-                    MIDATLANTIC
-                  </strong>
-
-                  <span>
-                    FEDERAL BANK
-                  </span>
-                </div>
+        <div className="news-page-grid">
+          {stories.slice(1).map((story) => (
+            <article className="news-page-card" key={story.title}>
+              <div className="news-page-image">
+                <img
+                  src={story.image}
+                  alt={story.title}
+                  loading="lazy"
+                />
+                <span className="news-overlay-label">{story.category}</span>
               </div>
 
+              <div className="news-page-content">
+                <span className="news-category">{story.category}</span>
 
-              <div className="news-content">
+                <h3>{story.title}</h3>
 
-                <span className="news-category">
-                  {item.category}
-                </span>
+                <p>{story.summary}</p>
 
-                <h3>
-                  {item.title}
-                </h3>
-
-                <p className="news-date">
-                  {item.date}
-                </p>
-
-                <p>
-                  {item.text}
-                </p>
-
-                <a href="/contact">
-                  Learn More →
-                </a>
-
+                <a href="/contact">Read More →</a>
               </div>
-
             </article>
           ))}
-
         </div>
-
       </section>
 
-
-      {/* =========================
-          CUSTOMER SUPPORT
-      ========================== */}
-
-      <section className="support-banner">
-
+      {/* MARKET THEMES */}
+      <section className="news-market-strip">
         <div>
-
-          <span className="section-label">
-            CUSTOMER SUPPORT
-          </span>
-
-          <h2>
-            Need help?
-          </h2>
-
+          <span className="section-label">MARKET THEMES</span>
+          <h2>Areas to watch</h2>
           <p>
-            If you have a question about your account
-            or our banking services, our customer
-            support resources are available to assist.
+            Follow the broad financial themes that can shape businesses,
+            investors and international markets.
           </p>
-
         </div>
 
-        <div className="support-banner-actions">
+        <div className="news-theme-list">
+          <div>
+            <strong>Global Investment</strong>
+            <span>Cross-border capital and business expansion</span>
+          </div>
 
-          <a
-            className="primary-button"
-            href="/support"
-          >
-            Customer Support
-          </a>
+          <div>
+            <strong>Digital Finance</strong>
+            <span>Technology and modern financial services</span>
+          </div>
 
-          <a
-            className="secondary-button"
-            href="/contact"
-          >
-            Contact Us
-          </a>
+          <div>
+            <strong>Market Activity</strong>
+            <span>Rates, currencies and economic conditions</span>
+          </div>
 
+          <div>
+            <strong>Banking Security</strong>
+            <span>Protecting customers and financial information</span>
+          </div>
         </div>
-
       </section>
 
-
-      {/* =========================
-          SECURITY NOTICE
-      ========================== */}
-
-      <section className="security-public">
-
-        <div className="security-icon">
-          ✓
-        </div>
-
-        <div>
-
-          <span className="section-label">
-            ONLINE SECURITY
-          </span>
-
-          <h2>
-            Protect your account information.
-          </h2>
-
-          <p>
-            Never share your password, PIN,
-            verification codes, or other sensitive
-            account information with anyone.
-          </p>
-
-        </div>
-
-        <a href="/security">
-          Security Center →
-        </a>
-
+      {/* DISCLAIMER */}
+      <section className="news-disclaimer-public">
+        <strong>MARKET INFORMATION</strong>
+        <p>
+          News and market content on this page is provided for general
+          informational purposes. It is not investment advice or a
+          recommendation to buy or sell any financial product.
+        </p>
       </section>
 
-
-      {/* =========================
-          FINAL CTA
-      ========================== */}
-
+      {/* CTA */}
       <section className="final-cta">
+        <span className="section-label">MIDATLANTIC FEDERAL BANK</span>
 
-        <span className="section-label">
-          MIDATLANTIC FEDERAL BANK
-        </span>
-
-        <h2>
-          Stay connected with your bank.
-        </h2>
+        <h2>Stay connected with your banking.</h2>
 
         <p>
-          Access online banking, explore banking
-          services, or contact customer support.
+          Access your account online or explore our banking and lending
+          services.
         </p>
 
         <div className="hero-actions">
-
-          <a
-            className="primary-button"
-            href="/login"
-          >
+          <a className="primary-button" href="/login">
             Sign In
           </a>
 
-          <a
-            className="secondary-button"
-            href="/"
-          >
-            Back to Home
+          <a className="secondary-button" href="/services">
+            Explore Banking
           </a>
-
         </div>
-
       </section>
 
+      {/* FOOTER */}
+      <footer className="public-footer">
+        <div className="footer-main">
+          <div className="footer-brand">
+            <div className="public-logo">
+              <div className="bank-logo">M</div>
+              <div>
+                <strong>MIDATLANTIC</strong>
+                <span>FEDERAL BANK</span>
+              </div>
+            </div>
+
+            <p>
+              Online banking and customer support resources.
+            </p>
+          </div>
+
+          <div className="footer-column">
+            <h3>Banking</h3>
+            <a href="/services">Banking Services</a>
+            <a href="/loans">Loans</a>
+            <a href="/login">Online Banking</a>
+          </div>
+
+          <div className="footer-column">
+            <h3>Company</h3>
+            <a href="/about">About Us</a>
+            <a href="/news">News</a>
+            <a href="/contact">Contact Us</a>
+          </div>
+
+          <div className="footer-column">
+            <h3>Support</h3>
+            <a href="/support">Customer Support</a>
+            <a href="/security">Security Center</a>
+            <a href="/faq">FAQs</a>
+          </div>
+        </div>
+
+        <div className="footer-contact">
+          <strong>Bank Contact Information</strong>
+
+          <p>
+            12822 Wisteria Dr,
+            <br />
+            Germantown, MD 20874,
+            <br />
+            United States
+          </p>
+
+          <p>
+            Email:{" "}
+            <a href="mailto:midfb@outlook.com">
+              midfb@outlook.com
+            </a>
+          </p>
+
+          <p>
+            Phone:{" "}
+            <a href="tel:+16266063125">
+              +1 626-606-3125
+            </a>
+          </p>
+        </div>
+
+        <div className="footer-bottom">
+          <span>
+            © 2026 MidAtlantic Federal Bank. All rights reserved.
+          </span>
+
+          <div>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/security">Security</a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
