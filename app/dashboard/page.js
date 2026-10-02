@@ -1035,6 +1035,81 @@ export default function Dashboard() {
 
             </section>
 
+            {/* NEWS & MARKET INSIGHTS */}
+
+            <section className="portal-section news-section">
+
+              <div className="section-heading news-heading">
+                <div>
+                  <span className="section-label">
+                    MARKET & BANKING
+                  </span>
+                  <h2>News & Investment Insights</h2>
+                  <p className="news-subtitle">
+                    Banking, global markets and foreign investment highlights.
+                  </p>
+                </div>
+              </div>
+
+              <div className="news-grid">
+
+                <article className="news-card news-card-featured">
+                  <div className="news-image news-image-banking">
+                    <span className="news-image-tag">BANKING</span>
+                    <div>
+                      <strong>Modern Banking &amp; Digital Finance</strong>
+                      <small>Financial services continue to evolve around secure digital banking.</small>
+                    </div>
+                  </div>
+                  <div className="news-content">
+                    <span>FINANCIAL SERVICES</span>
+                    <h3>Digital banking continues to reshape how customers manage money</h3>
+                    <p>Follow developments in payments, banking technology and the future of financial services.</p>
+                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
+                  </div>
+                </article>
+
+                <article className="news-card">
+                  <div className="news-image news-image-investment">
+                    <span className="news-image-tag">FOREIGN INVESTMENT</span>
+                    <div>
+                      <strong>Global Capital &amp; Investment</strong>
+                      <small>International investors continue to watch emerging markets and infrastructure.</small>
+                    </div>
+                  </div>
+                  <div className="news-content">
+                    <span>GLOBAL MARKETS</span>
+                    <h3>Foreign investment remains a key focus for emerging economies</h3>
+                    <p>Explore the themes shaping cross-border investment, infrastructure and business growth.</p>
+                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
+                  </div>
+                </article>
+
+                <article className="news-card">
+                  <div className="news-image news-image-markets">
+                    <span className="news-image-tag">MARKETS</span>
+                    <div>
+                      <strong>Global Markets &amp; Economic Outlook</strong>
+                      <small>Interest rates, currencies and economic activity remain central market themes.</small>
+                    </div>
+                  </div>
+                  <div className="news-content">
+                    <span>ECONOMIC OUTLOOK</span>
+                    <h3>Markets continue to track rates, currencies and economic growth</h3>
+                    <p>Keep up with major financial themes that can influence businesses and international capital.</p>
+                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
+                  </div>
+                </article>
+
+              </div>
+
+              <div className="news-disclaimer">
+                <span>MARKET INFORMATION</span>
+                <p>News and market content is provided for general information and is not investment advice.</p>
+              </div>
+
+            </section>
+
           </>
         )}
 
