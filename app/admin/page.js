@@ -485,6 +485,37 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Allow the admin to back-date the transaction history.
+    // datetime-local uses the admin's local browser time, then we
+    // convert it to UTC before storing it in Supabase.
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const defaultDateTime =
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+        now.getDate()
+      )}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const dateInput = window.prompt(
+      "Enter transaction date and time (YYYY-MM-DDTHH:MM). You can back-date this transaction:",
+      defaultDateTime
+    );
+
+    if (dateInput === null) return;
+
+    const enteredDate = new Date(dateInput);
+
+    if (Number.isNaN(enteredDate.getTime())) {
+      setNotice(
+        "Enter a valid transaction date and time, for example 2026-09-15T14:30."
+      );
+      return;
+    }
+
+    if (enteredDate.getTime() > now.getTime()) {
+      setNotice("Transaction date cannot be in the future.");
+      return;
+    }
+
     const { error } = await supabase
       .from("transactions")
       .insert({
@@ -492,8 +523,7 @@ export default function AdminDashboard() {
         transaction_type: transactionType,
         amount,
         description: description.trim(),
-        transaction_date:
-          new Date().toISOString(),
+        transaction_date: enteredDate.toISOString(),
       });
 
     if (error) {
