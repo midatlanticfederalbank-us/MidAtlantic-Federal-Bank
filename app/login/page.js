@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -109,6 +109,12 @@ export default function LoginPage() {
               required
             />
           </label>
+
+          <div className="forgot-password-row">
+            <a href="/forgot-password">
+              Forgot Password?
+            </a>
+          </div>
 
           <button
             type="submit"
