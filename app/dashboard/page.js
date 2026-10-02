@@ -282,8 +282,8 @@ export default function Dashboard() {
 
     setPasswordStatus("");
 
-    const password = newPassword.trim();
-    const confirmation = confirmPassword.trim();
+    const password = newPassword;
+    const confirmation = confirmPassword;
 
     if (password.length < 8) {
       setPasswordStatus("Password must be at least 8 characters long.");
@@ -297,13 +297,33 @@ export default function Dashboard() {
 
     setPasswordLoading(true);
 
-    const { error: passwordError } = await supabase.auth.updateUser({
-      password,
-    });
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
 
-    if (passwordError) {
+      if (sessionError || !sessionData?.session?.user) {
+        setPasswordStatus(
+          "Your session has expired. Please sign in again."
+        );
+        setPasswordLoading(false);
+        return;
+      }
+
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (passwordError) {
+        setPasswordStatus(
+          passwordError.message ||
+            "Your password could not be changed. Please try again."
+        );
+        setPasswordLoading(false);
+        return;
+      }
+    } catch (err) {
       setPasswordStatus(
-        passwordError.message ||
+        err?.message ||
           "Your password could not be changed. Please try again."
       );
       setPasswordLoading(false);
@@ -1903,45 +1923,79 @@ export default function Dashboard() {
 
       {passwordModalOpen && (
         <div
-          className="password-modal-backdrop"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
+            if (event.target === event.currentTarget && !passwordLoading) {
               setPasswordModalOpen(false);
               setPasswordStatus("");
             }
           }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            background: "rgba(0, 0, 0, 0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            overflowY: "auto",
+          }}
         >
           <div
-            className="password-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="change-password-title"
+            onMouseDown={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              background: "#ffffff",
+              borderRadius: "16px",
+              padding: "28px",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.35)",
+              color: "#172033",
+              position: "relative",
+            }}
           >
-            <div className="password-modal-header">
-              <div>
-                <span className="section-label">SECURITY</span>
-                <h2 id="change-password-title">Change Password</h2>
-                <p>
-                  Choose a new password for your MIDATLANTIC FEDERAL BANK account.
-                </p>
-              </div>
+            <button
+              type="button"
+              aria-label="Close change password"
+              onClick={() => {
+                if (passwordLoading) return;
+                setPasswordModalOpen(false);
+                setPasswordStatus("");
+              }}
+              style={{
+                position: "absolute",
+                top: "14px",
+                right: "16px",
+                border: "none",
+                background: "transparent",
+                fontSize: "28px",
+                lineHeight: 1,
+                cursor: passwordLoading ? "not-allowed" : "pointer",
+                color: "#5b6577",
+              }}
+            >
+              ×
+            </button>
 
-              <button
-                type="button"
-                className="password-modal-close"
-                aria-label="Close change password"
-                onClick={() => {
-                  setPasswordModalOpen(false);
-                  setPasswordStatus("");
-                }}
-              >
-                ×
-              </button>
+            <div style={{ paddingRight: "30px", marginBottom: "22px" }}>
+              <span className="section-label">SECURITY</span>
+              <h2 id="change-password-title" style={{ margin: "6px 0 8px" }}>
+                Change Password
+              </h2>
+              <p style={{ margin: 0, color: "#667085", lineHeight: 1.6 }}>
+                Choose a new password for your MIDATLANTIC FEDERAL BANK account.
+              </p>
             </div>
 
-            <form onSubmit={changePassword} className="password-change-form">
-              <label htmlFor="new-password">
+            <form onSubmit={changePassword}>
+              <label
+                htmlFor="new-password"
+                style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}
+              >
                 New Password
               </label>
               <input
@@ -1954,13 +2008,27 @@ export default function Dashboard() {
                 minLength={8}
                 required
                 disabled={passwordLoading}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "13px 14px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "9px",
+                  fontSize: "15px",
+                  marginBottom: "8px",
+                  background: "#fff",
+                  color: "#172033",
+                }}
               />
 
-              <small className="password-help">
+              <small style={{ display: "block", color: "#667085", marginBottom: "18px" }}>
                 Use at least 8 characters. A longer password is recommended.
               </small>
 
-              <label htmlFor="confirm-new-password">
+              <label
+                htmlFor="confirm-new-password"
+                style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}
+              >
                 Confirm New Password
               </label>
               <input
@@ -1973,26 +2041,41 @@ export default function Dashboard() {
                 minLength={8}
                 required
                 disabled={passwordLoading}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "13px 14px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "9px",
+                  fontSize: "15px",
+                  marginBottom: "16px",
+                  background: "#fff",
+                  color: "#172033",
+                }}
               />
 
               {passwordStatus && (
                 <div
-                  className={
-                    passwordStatus.toLowerCase().includes("success")
-                      ? "password-status success"
-                      : "password-status error"
-                  }
                   role="status"
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    marginBottom: "18px",
+                    background: passwordStatus.toLowerCase().includes("success") ? "#ecfdf3" : "#fef2f2",
+                    color: passwordStatus.toLowerCase().includes("success") ? "#067647" : "#b42318",
+                    border: `1px solid ${passwordStatus.toLowerCase().includes("success") ? "#abefc6" : "#fecdca"}`,
+                  }}
                 >
                   {passwordStatus}
                 </div>
               )}
 
-              <div className="password-modal-actions">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="secondary-action"
                   onClick={() => {
+                    if (passwordLoading) return;
                     setPasswordModalOpen(false);
                     setPasswordStatus("");
                   }}
