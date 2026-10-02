@@ -252,8 +252,15 @@ export default function Home() {
         </div>
 
         <div className="news-grid">
+          {/* BANKING NEWS */}
           <article className="news-card">
-            <div className="news-image">BANK NEWS</div>
+            <div className="news-image">
+              <img
+                src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=85"
+                alt="Professionals discussing banking and financial services"
+                loading="lazy"
+              />
+            </div>
 
             <div className="news-content">
               <span>BANKING</span>
@@ -262,36 +269,46 @@ export default function Home() {
 
               <p>
                 Learn more about managing your account through
-                online banking.
+                online banking and convenient digital services.
               </p>
 
               <a href="/news">Read More →</a>
             </div>
           </article>
 
+          {/* GLOBAL / FOREIGN INVESTMENT NEWS */}
           <article className="news-card">
             <div className="news-image">
-              CUSTOMER
-              <br />
-              SERVICES
+              <img
+                src="https://images.unsplash.com/photo-1521292270410-a8c4d716d518?auto=format&fit=crop&w=1200&q=85"
+                alt="Global city representing international business and investment"
+                loading="lazy"
+              />
             </div>
 
             <div className="news-content">
-              <span>CUSTOMER SERVICE</span>
+              <span>GLOBAL MARKETS</span>
 
-              <h3>Staying connected with customer support</h3>
+              <h3>Global markets and foreign investment</h3>
 
               <p>
-                Discover the available ways to contact customer
-                support.
+                Follow developments in international markets,
+                cross-border investment, and the global economy.
               </p>
 
               <a href="/news">Read More →</a>
             </div>
           </article>
 
+          {/* SECURITY NEWS */}
           <article className="news-card">
-            <div className="news-image">SECURITY</div>
+            <div className="news-image">
+              <img
+                src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=85"
+                alt="Digital security and online banking protection"
+                loading="lazy"
+              />
+            </div>
 
             <div className="news-content">
               <span>SECURITY</span>
@@ -300,7 +317,7 @@ export default function Home() {
 
               <p>
                 Review important security practices for protecting
-                your account.
+                your account and personal financial information.
               </p>
 
               <a href="/news">Read More →</a>
