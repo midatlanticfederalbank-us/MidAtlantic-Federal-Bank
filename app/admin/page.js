@@ -13,55 +13,62 @@ function toDateTimeLocal(value) {
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
+  if (Number.isNaN(date.getTime())) return "";
 
-  const pad = (n) => String(n).padStart(2, "0");
+  const pad = (number) => String(number).padStart(2, "0");
 
-  return `${date.getFullYear()}-${pad(
-    date.getMonth() + 1
-  )}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function formatMoney(value) {
-  return Number(value || 0).toLocaleString("en-US", {
+  const number = Number(value || 0);
+
+  return number.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
 function formatDate(value) {
-  if (!value) return "Not available";
+  if (!value) return "—";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
-  }
+  if (Number.isNaN(date.getTime())) return "—";
 
   return date.toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
-export default function AdminDashboard() {
-  const [pending, setPending] = useState([]);
+function statusLabel(value) {
+  if (!value) return "—";
+
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export default function AdminPage() {
+  const [pendingCustomers, setPendingCustomers] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [cardRequests, setCardRequests] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [activeSection, setActiveSection] = useState("overview");
 
-  // Admin-controlled effective Account Created date.
-  // Original created_at is never changed.
   const [createdDateDrafts, setCreatedDateDrafts] = useState({});
   const [savingCreatedDate, setSavingCreatedDate] = useState(null);
+  const [approvingCardRequest, setApprovingCardRequest] = useState(null);
 
   useEffect(() => {
     loadAdmin();
@@ -71,120 +78,99 @@ export default function AdminDashboard() {
     setLoading(true);
     setNotice("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      window.location.href = "/login";
-      return;
+      if (userError || !user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const { data: admin, error: adminError } = await supabase.rpc(
+        "is_admin"
+      );
+
+      if (adminError || !admin) {
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      await Promise.all([
+        loadPending(),
+        loadAccounts(),
+        loadMessages(),
+        loadTransactions(),
+        loadCardRequests(),
+      ]);
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+      setNotice(error?.message || "Unable to load the administrator dashboard.");
+    } finally {
+      setLoading(false);
     }
-
-    const { data: admin, error } =
-      await supabase.rpc("is_admin");
-
-    if (error || !admin) {
-      window.location.href = "/dashboard";
-      return;
-    }
-
-    await Promise.all([
-      loadPending(),
-      loadAccounts(),
-      loadMessages(),
-      loadTransactions(),
-    ]);
-
-    setLoading(false);
   }
 
   async function loadPending() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, approval_status, created_at"
+        "id, email, full_name, phone, approval_status, created_at, updated_at"
       )
       .eq("role", "customer")
       .eq("approval_status", "pending")
-      .order("created_at", {
-        ascending: false,
-      });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      setNotice(error.message);
+      console.error("Pending customers error:", error);
       return;
     }
 
-    setPending(data || []);
+    setPendingCustomers(data || []);
   }
 
   async function loadAccounts() {
-    /*
-      Do not use a Supabase profiles relationship here.
-      Your schema does not expose a customer_accounts -> profiles
-      relationship in the schema cache, so the two tables are
-      loaded separately and combined by user_id.
-    */
-    const {
-      data: accountData,
-      error: accountError,
-    } = await supabase
+    const { data: accountRows, error } = await supabase
       .from("customer_accounts")
       .select(
-        "id, user_id, account_number, account_type, status, balance, created_at, effective_created_at"
+        "id, user_id, account_number, account_type, status, balance, effective_created_at, created_at, updated_at"
       )
-      .order("created_at", {
-        ascending: false,
-      });
+      .order("created_at", { ascending: false });
 
-    if (accountError) {
-      setNotice(accountError.message);
+    if (error) {
+      console.error("Accounts error:", error);
       return;
     }
 
-    if (!accountData?.length) {
-      setAccounts([]);
-      setCreatedDateDrafts({});
-      return;
-    }
-
+    const accountsData = accountRows || [];
     const userIds = [
-      ...new Set(
-        accountData
-          .map((account) => account.user_id)
-          .filter(Boolean)
-      ),
+      ...new Set(accountsData.map((account) => account.user_id).filter(Boolean)),
     ];
 
-    let profileMap = {};
+    let profiles = [];
 
     if (userIds.length > 0) {
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
+      const { data: profileRows, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, email, full_name, phone, approval_status")
         .in("id", userIds);
 
       if (profileError) {
-        setNotice(profileError.message);
-        return;
+        console.error("Account profiles error:", profileError);
+      } else {
+        profiles = profileRows || [];
       }
-
-      (profileData || []).forEach((profile) => {
-        profileMap[profile.id] = profile;
-      });
     }
 
-    const combined = accountData.map((account) => ({
+    const profileMap = new Map(
+      profiles.map((profile) => [profile.id, profile])
+    );
+
+    const combined = accountsData.map((account) => ({
       ...account,
-      customerName:
-        profileMap[account.user_id]?.full_name ||
-        "Customer",
-      customerEmail:
-        profileMap[account.user_id]?.email ||
-        "",
+      profile: profileMap.get(account.user_id) || null,
     }));
 
     setAccounts(combined);
@@ -192,544 +178,467 @@ export default function AdminDashboard() {
     const drafts = {};
 
     combined.forEach((account) => {
-      drafts[account.id] = toDateTimeLocal(
-        account.effective_created_at ||
-          account.created_at
-      );
+      if (account.effective_created_at) {
+        drafts[account.id] = toDateTimeLocal(account.effective_created_at);
+      } else {
+        drafts[account.id] = toDateTimeLocal(account.created_at);
+      }
     });
 
     setCreatedDateDrafts(drafts);
   }
 
   async function loadMessages() {
-    const {
-      data: messageData,
-      error: messageError,
-    } = await supabase
+    const { data: messageRows, error } = await supabase
       .from("support_messages")
-      .select(
-        "id, user_id, sender, message, created_at"
-      )
-      .order("created_at", {
-        ascending: true,
-      });
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    if (messageError) {
-      console.error(
-        "SUPPORT MESSAGE ERROR:",
-        messageError
-      );
-
-      setNotice(messageError.message);
+    if (error) {
+      console.error("Messages error:", error);
       return;
     }
 
-    if (!messageData?.length) {
-      setMessages([]);
-      return;
-    }
+    const rows = messageRows || [];
 
     const userIds = [
-      ...new Set(
-        messageData
-          .map((message) => message.user_id)
-          .filter(Boolean)
-      ),
+      ...new Set(rows.map((message) => message.user_id).filter(Boolean)),
     ];
 
-    let profileMap = {};
+    let profiles = [];
 
     if (userIds.length > 0) {
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
+      const { data: profileRows, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, email, full_name")
         .in("id", userIds);
 
       if (profileError) {
-        setNotice(profileError.message);
-        return;
+        console.error("Message profiles error:", profileError);
+      } else {
+        profiles = profileRows || [];
       }
-
-      (profileData || []).forEach((profile) => {
-        profileMap[profile.id] = profile;
-      });
     }
 
-    const combinedMessages = messageData.map(
-      (message) => ({
-        ...message,
-        customerName:
-          profileMap[message.user_id]?.full_name ||
-          "Customer",
-        customerEmail:
-          profileMap[message.user_id]?.email ||
-          "",
-      })
+    const profileMap = new Map(
+      profiles.map((profile) => [profile.id, profile])
     );
 
-    setMessages(combinedMessages);
+    setMessages(
+      rows.map((message) => ({
+        ...message,
+        profile: profileMap.get(message.user_id) || null,
+      }))
+    );
   }
 
   async function loadTransactions() {
     const { data, error } = await supabase
       .from("transactions")
-      .select(
-        "id, account_id, transaction_type, amount, description, transaction_date"
-      )
-      .order("transaction_date", {
-        ascending: false,
-      });
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      setNotice(error.message);
+      console.error("Transactions error:", error);
       return;
     }
 
     setTransactions(data || []);
   }
 
-  function generateAccountNumber() {
-    return String(
-      Math.floor(Math.random() * 1000000000)
-    ).padStart(9, "0");
-  }
+  async function loadCardRequests() {
+    const { data: requestRows, error } = await supabase
+      .from("customer_card_orders")
+      .select(
+        "id, user_id, account_id, card_type, reason, status, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false });
 
-  async function getUniqueAccountNumber() {
-    for (let i = 0; i < 20; i++) {
-      const number = generateAccountNumber();
+    if (error) {
+      console.error("Card requests error:", error);
+      setNotice(
+        `Card requests could not be loaded: ${error.message || "Unknown error"}`
+      );
+      return;
+    }
 
-      const { data, error } = await supabase
-        .from("customer_accounts")
-        .select("id")
-        .eq("account_number", number)
-        .maybeSingle();
+    const rows = requestRows || [];
 
-      if (error) {
-        throw new Error(error.message);
-      }
+    const userIds = [
+      ...new Set(rows.map((request) => request.user_id).filter(Boolean)),
+    ];
 
-      if (!data) {
-        return number;
+    let profiles = [];
+
+    if (userIds.length > 0) {
+      const { data: profileRows, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", userIds);
+
+      if (profileError) {
+        console.error("Card request profiles error:", profileError);
+      } else {
+        profiles = profileRows || [];
       }
     }
 
-    throw new Error(
-      "Unable to generate a unique account number."
+    const profileMap = new Map(
+      profiles.map((profile) => [profile.id, profile])
+    );
+
+    setCardRequests(
+      rows.map((request) => ({
+        ...request,
+        profile: profileMap.get(request.user_id) || null,
+      }))
     );
   }
 
   async function approveCustomer(customer) {
-    setNotice("Approving customer...");
+    setNotice("");
 
     try {
-      const {
-        data: existing,
-        error: existingError,
-      } = await supabase
+      const { data: existingAccount, error: existingError } = await supabase
         .from("customer_accounts")
         .select(
-          "id, account_number, account_type, status"
+          "id, user_id, account_number, account_type, status, balance, effective_created_at, created_at"
         )
         .eq("user_id", customer.id)
         .maybeSingle();
 
       if (existingError) {
-        throw new Error(existingError.message);
+        throw existingError;
       }
 
-      let accountNumber =
-        existing?.account_number;
+      let account = existingAccount;
 
-      if (!accountNumber) {
-        accountNumber =
-          await getUniqueAccountNumber();
+      if (!account) {
+        let accountNumber = null;
 
-        if (existing) {
-          const { error } = await supabase
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const candidate = String(
+            Math.floor(100000000 + Math.random() * 900000000)
+          );
+
+          const { data: duplicate } = await supabase
             .from("customer_accounts")
-            .update({
-              account_number: accountNumber,
-              account_type:
-                existing.account_type ||
-                "checking",
-              status: "active",
-            })
-            .eq("id", existing.id);
+            .select("id")
+            .eq("account_number", candidate)
+            .maybeSingle();
 
-          if (error) {
-            throw new Error(error.message);
+          if (!duplicate) {
+            accountNumber = candidate;
+            break;
           }
-        } else {
-          const { error } = await supabase
+        }
+
+        if (!accountNumber) {
+          throw new Error("Unable to generate a unique account number.");
+        }
+
+        const { data: newAccount, error: accountInsertError } =
+          await supabase
             .from("customer_accounts")
             .insert({
               user_id: customer.id,
               account_number: accountNumber,
-              balance: 0,
               account_type: "checking",
               status: "active",
-            });
+              balance: 0,
+            })
+            .select(
+              "id, user_id, account_number, account_type, status, balance, effective_created_at, created_at"
+            )
+            .single();
 
-          if (error) {
-            throw new Error(error.message);
-          }
+        if (accountInsertError) {
+          throw accountInsertError;
+        }
+
+        account = newAccount;
+      } else if (account.status !== "active") {
+        const { error: accountUpdateError } = await supabase
+          .from("customer_accounts")
+          .update({ status: "active" })
+          .eq("id", account.id);
+
+        if (accountUpdateError) {
+          throw accountUpdateError;
         }
       }
 
-      const {
-        data: verified,
-        error: verifyError,
-      } = await supabase
-        .from("customer_accounts")
-        .select(
-          "id, account_number, account_type, status"
-        )
-        .eq("user_id", customer.id)
-        .maybeSingle();
-
-      if (verifyError) {
-        throw new Error(verifyError.message);
-      }
-
-      if (!verified?.account_number) {
-        throw new Error(
-          "The account number could not be verified."
-        );
-      }
-
-      const {
-        error: approvalError,
-      } = await supabase
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({
           approval_status: "approved",
         })
         .eq("id", customer.id);
 
-      if (approvalError) {
-        throw new Error(approvalError.message);
+      if (profileError) {
+        throw profileError;
       }
 
       setNotice(
-        "Customer approved successfully."
+        `${customer.full_name || customer.email || "Customer"} has been approved.`
       );
 
-      await loadPending();
-      await loadAccounts();
+      await Promise.all([loadPending(), loadAccounts()]);
     } catch (error) {
-      console.error(
-        "APPROVAL ERROR:",
-        error
+      console.error("Approve customer error:", error);
+      setNotice(error?.message || "Unable to approve customer.");
+    }
+  }
+
+  async function approveCardRequest(request) {
+    setApprovingCardRequest(request.id);
+    setNotice("");
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "approve_customer_card_request",
+        {
+          p_request_id: request.id,
+        }
       );
+
+      if (error) {
+        throw error;
+      }
+
+      const customerName =
+        request.profile?.full_name ||
+        request.profile?.email ||
+        "Customer";
+
+      const last4 = data?.last4 ? ` •••• ${data.last4}` : "";
+
+      setNotice(
+        `Card request approved for ${customerName}.${last4} The customer can now view the active card from the dashboard.`
+      );
+
+      await loadCardRequests();
+    } catch (error) {
+      console.error("Approve card request error:", error);
 
       setNotice(
         error?.message ||
-          "Unable to approve customer."
+          "Unable to approve this card request. Make sure the administrator account has permission to approve cards."
       );
+    } finally {
+      setApprovingCardRequest(null);
     }
   }
 
   async function addTransaction(account) {
-    const type = window.prompt(
+    const typeInput = window.prompt(
       "Enter transaction type: credit or debit",
       "credit"
     );
 
-    if (!type) return;
+    if (!typeInput) return;
 
-    const transactionType =
-      type.trim().toLowerCase();
+    const type = typeInput.trim().toLowerCase();
 
-    if (
-      transactionType !== "credit" &&
-      transactionType !== "debit"
-    ) {
-      setNotice(
-        "Transaction type must be credit or debit."
-      );
+    if (type !== "credit" && type !== "debit") {
+      setNotice("Transaction type must be credit or debit.");
       return;
     }
 
-    const value = window.prompt(
-      `Enter ${transactionType} amount:`,
-      "0.00"
-    );
+    const amountInput = window.prompt("Enter amount", "100");
 
-    if (value === null) return;
+    if (!amountInput) return;
 
-    const amount = Number(value);
+    const amount = Number(amountInput);
 
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
-      setNotice("Enter a valid amount.");
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setNotice("Enter a valid transaction amount.");
       return;
     }
 
     const description =
+      window.prompt("Enter transaction description", "Account transaction") ||
+      "Account transaction";
+
+    const defaultDate = toDateTimeLocal(new Date());
+
+    const dateInput =
       window.prompt(
-        "Enter transaction description:",
-        transactionType === "credit"
-          ? "Incoming Payment"
-          : "Service Payment"
-      );
+        "Enter transaction date and time (YYYY-MM-DDTHH:MM)",
+        defaultDate
+      ) || defaultDate;
 
-    if (!description?.trim()) {
-      setNotice(
-        "Transaction description is required."
-      );
+    const transactionDate = new Date(dateInput);
+
+    if (Number.isNaN(transactionDate.getTime())) {
+      setNotice("Enter a valid transaction date and time.");
       return;
     }
 
-    // Allow the admin to back-date the transaction history.
-    // datetime-local uses the admin's local browser time, then we
-    // convert it to UTC before storing it in Supabase.
-    const now = new Date();
-    const pad = (value) => String(value).padStart(2, "0");
-    const defaultDateTime =
-      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
-        now.getDate()
-      )}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    setNotice("");
 
-    const dateInput = window.prompt(
-      "Enter transaction date and time (YYYY-MM-DDTHH:MM). You can back-date this transaction:",
-      defaultDateTime
-    );
-
-    if (dateInput === null) return;
-
-    const enteredDate = new Date(dateInput);
-
-    if (Number.isNaN(enteredDate.getTime())) {
-      setNotice(
-        "Enter a valid transaction date and time, for example 2026-09-15T14:30."
-      );
-      return;
-    }
-
-    if (enteredDate.getTime() > now.getTime()) {
-      setNotice("Transaction date cannot be in the future.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("transactions")
-      .insert({
+    try {
+      const { error } = await supabase.from("transactions").insert({
         account_id: account.id,
-        transaction_type: transactionType,
+        user_id: account.user_id,
+        type,
         amount,
-        description: description.trim(),
-        transaction_date: enteredDate.toISOString(),
+        description,
+        created_at: transactionDate.toISOString(),
       });
 
-    if (error) {
-      setNotice(error.message);
-      return;
+      if (error) {
+        throw error;
+      }
+
+      setNotice(
+        `${type === "credit" ? "Credit" : "Debit"} transaction added successfully.`
+      );
+
+      await Promise.all([loadTransactions(), loadAccounts()]);
+    } catch (error) {
+      console.error("Add transaction error:", error);
+      setNotice(error?.message || "Unable to add transaction.");
     }
-
-    setNotice(
-      `${
-        transactionType === "credit"
-          ? "Credit"
-          : "Debit"
-      } transaction added successfully.`
-    );
-
-    await loadAccounts();
-    await loadTransactions();
   }
 
   async function toggleAccount(account) {
-    const newStatus =
-      account.status === "active"
-        ? "frozen"
-        : "active";
+    const nextStatus = account.status === "active" ? "frozen" : "active";
 
-    const { error } = await supabase
-      .from("customer_accounts")
-      .update({
-        status: newStatus,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", account.id);
+    const action =
+      nextStatus === "active"
+        ? "activate this account"
+        : "freeze this account";
 
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    setNotice(
-      newStatus === "frozen"
-        ? "Account frozen."
-        : "Account activated."
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action}?`
     );
 
-    await loadAccounts();
-  }
+    if (!confirmed) return;
 
-  function updateCreatedDateDraft(
-    accountId,
-    value
-  ) {
-    setCreatedDateDrafts((current) => ({
-      ...current,
-      [accountId]: value,
-    }));
+    setNotice("");
+
+    try {
+      const { error } = await supabase
+        .from("customer_accounts")
+        .update({ status: nextStatus })
+        .eq("id", account.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setNotice(
+        `Account ${nextStatus === "active" ? "activated" : "frozen"} successfully.`
+      );
+
+      await loadAccounts();
+    } catch (error) {
+      console.error("Toggle account error:", error);
+      setNotice(error?.message || "Unable to update account.");
+    }
   }
 
   async function saveCreatedDate(account) {
-    const localValue =
-      createdDateDrafts[account.id];
+    const value = createdDateDrafts[account.id];
 
-    if (!localValue) {
-      setNotice(
-        "Please enter a valid Account Created date and time."
-      );
+    if (!value) {
+      setNotice("Choose a valid account creation date.");
       return;
     }
 
-    const parsed = new Date(localValue);
+    const date = new Date(value);
 
-    if (Number.isNaN(parsed.getTime())) {
-      setNotice(
-        "Please enter a valid Account Created date and time."
-      );
-      return;
-    }
-
-    if (parsed > new Date()) {
-      setNotice(
-        "The effective Account Created date cannot be in the future."
-      );
+    if (Number.isNaN(date.getTime())) {
+      setNotice("Choose a valid account creation date.");
       return;
     }
 
     setSavingCreatedDate(account.id);
-    setNotice("Saving Account Created date...");
+    setNotice("");
 
-    const { error } = await supabase
-      .from("customer_accounts")
-      .update({
-        effective_created_at:
-          parsed.toISOString(),
-      })
-      .eq("id", account.id);
+    try {
+      const { error } = await supabase
+        .from("customer_accounts")
+        .update({
+          effective_created_at: date.toISOString(),
+        })
+        .eq("id", account.id);
 
-    if (error) {
-      setNotice(error.message);
+      if (error) {
+        throw error;
+      }
+
+      setNotice("Account creation date updated successfully.");
+
+      await loadAccounts();
+    } catch (error) {
+      console.error("Save created date error:", error);
+      setNotice(error?.message || "Unable to update account creation date.");
+    } finally {
       setSavingCreatedDate(null);
-      return;
     }
-
-    setNotice(
-      `Account Created date updated for ${
-        account.customerName || "Customer"
-      }.`
-    );
-
-    setSavingCreatedDate(null);
-
-    await loadAccounts();
   }
 
-  async function clearCreatedDateOverride(
-    account
-  ) {
+  async function clearCreatedDateOverride(account) {
     setSavingCreatedDate(account.id);
-    setNotice(
-      "Restoring the original Account Created timestamp..."
-    );
+    setNotice("");
 
-    const { error } = await supabase
-      .from("customer_accounts")
-      .update({
-        effective_created_at: null,
-      })
-      .eq("id", account.id);
+    try {
+      const { error } = await supabase
+        .from("customer_accounts")
+        .update({
+          effective_created_at: null,
+        })
+        .eq("id", account.id);
 
-    if (error) {
-      setNotice(error.message);
+      if (error) {
+        throw error;
+      }
+
+      setNotice("Custom account creation date removed.");
+
+      await loadAccounts();
+    } catch (error) {
+      console.error("Clear created date error:", error);
+      setNotice(error?.message || "Unable to remove custom creation date.");
+    } finally {
       setSavingCreatedDate(null);
-      return;
     }
-
-    setNotice(
-      `Original Account Created timestamp restored for ${
-        account.customerName || "Customer"
-      }.`
-    );
-
-    setSavingCreatedDate(null);
-
-    await loadAccounts();
   }
 
   async function sendReply(item) {
-    const input = document.getElementById(
-      `reply-${item.id}`
+    const reply = window.prompt(
+      "Enter your reply:",
+      item.admin_reply || ""
     );
 
-    const reply = input?.value?.trim();
+    if (reply === null) return;
 
-    if (!reply) {
-      setNotice("Please enter a reply.");
+    if (!reply.trim()) {
+      setNotice("Reply cannot be empty.");
       return;
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    setNotice("");
 
-    if (userError || !user) {
-      setNotice("Your session has expired.");
-      return;
-    }
+    try {
+      const { error } = await supabase.rpc("admin_send_support_reply", {
+        p_message_id: item.id,
+        p_reply: reply.trim(),
+      });
 
-    setNotice("Sending support reply...");
-
-    /*
-      IMPORTANT:
-      The database function must have this signature:
-
-      admin_send_support_reply(
-        p_message text,
-        p_user_id uuid
-      )
-
-      We do not directly insert support replies from
-      the browser.
-    */
-    const { error } = await supabase.rpc(
-      "admin_send_support_reply",
-      {
-        p_message: reply,
-        p_user_id: item.user_id,
+      if (error) {
+        throw error;
       }
-    );
 
-    if (error) {
-      console.error(
-        "ADMIN SUPPORT REPLY ERROR:",
-        error
-      );
+      setNotice("Support reply sent successfully.");
 
-      setNotice(error.message);
-      return;
+      await loadMessages();
+    } catch (error) {
+      console.error("Send reply error:", error);
+      setNotice(error?.message || "Unable to send support reply.");
     }
-
-    if (input) {
-      input.value = "";
-    }
-
-    setNotice("Reply sent successfully.");
-
-    await loadMessages();
   }
 
   async function logout() {
@@ -738,736 +647,1694 @@ export default function AdminDashboard() {
   }
 
   const activeAccounts = accounts.filter(
-    (account) =>
-      account.status === "active"
+    (account) => account.status === "active"
   );
 
   const frozenAccounts = accounts.filter(
-    (account) =>
-      account.status === "frozen"
+    (account) => account.status === "frozen"
   );
 
-  const customerMessages =
-    messages.filter(
-      (message) =>
-        message.sender === "customer"
-    );
+  const customerMessages = messages.filter(
+    (message) => message.user_id || message.profile
+  );
+
+  const pendingCardRequests = cardRequests.filter(
+    (request) => String(request.status).toLowerCase() === "pending"
+  );
+
+  const approvedCardRequests = cardRequests.filter(
+    (request) => String(request.status).toLowerCase() === "approved"
+  );
+
+  const recentTransactions = transactions.slice(0, 10);
+
+  function accountTransactions(accountId) {
+    return transactions
+      .filter((transaction) => transaction.account_id === accountId)
+      .slice(0, 5);
+  }
 
   if (loading) {
     return (
-      <main>
-        <span className="real-badge">
-          ADMIN
-        </span>
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          padding: "24px",
+          background: "#f4f7fb",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "520px",
+            background: "#ffffff",
+            borderRadius: "18px",
+            padding: "32px",
+            textAlign: "center",
+            boxShadow: "0 12px 35px rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: "24px" }}>
+            Loading Administrator Dashboard
+          </h1>
 
-        <h1>
-          Administrator Dashboard
-        </h1>
-
-        <p>
-          Loading administration panel...
-        </p>
+          <p
+            style={{
+              marginTop: "10px",
+              color: "#64748b",
+            }}
+          >
+            Please wait...
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main>
-      <div className="dashboard-header">
-        <div>
-          <span className="real-badge">
-            ADMIN
-          </span>
-
-          <h1>
-            Administrator Dashboard
-          </h1>
-
-          <p>
-            Customer, account and support
-            management.
-          </p>
-        </div>
-
-        <button
-          className="primary-button"
-          onClick={logout}
-        >
-          Sign Out
-        </button>
-      </div>
-
-      {notice && (
-        <div className="notification">
-          <p>{notice}</p>
-        </div>
-      )}
-
-      <nav
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f4f7fb",
+        color: "#0f172a",
+      }}
+    >
+      <header
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "10px",
-          marginBottom: "24px",
+          background: "#0b1f3a",
+          color: "#ffffff",
+          padding: "22px 24px",
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          boxShadow: "0 4px 18px rgba(15, 23, 42, 0.16)",
         }}
       >
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("overview")
-          }
+        <div
+          style={{
+            maxWidth: "1400px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "18px",
+            flexWrap: "wrap",
+          }}
         >
-          Overview
-        </button>
+          <div>
+            <div
+              style={{
+                fontSize: "12px",
+                letterSpacing: "0.14em",
+                fontWeight: 800,
+                opacity: 0.72,
+              }}
+            >
+              MIDATLANTIC FEDERAL BANK
+            </div>
 
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("pending")
-          }
+            <h1
+              style={{
+                margin: "5px 0 0",
+                fontSize: "25px",
+                lineHeight: 1.15,
+              }}
+            >
+              Administrator Dashboard
+            </h1>
+          </div>
+
+          <button
+            type="button"
+            onClick={logout}
+            style={{
+              border: "1px solid rgba(255,255,255,0.3)",
+              background: "rgba(255,255,255,0.08)",
+              color: "#ffffff",
+              borderRadius: "10px",
+              padding: "10px 16px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+          padding: "24px",
+        }}
+      >
+        {notice && (
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "14px 16px",
+              borderRadius: "12px",
+              background: "#eaf3ff",
+              color: "#0b3b70",
+              border: "1px solid #c9def5",
+              fontWeight: 600,
+            }}
+          >
+            {notice}
+          </div>
+        )}
+
+        <nav
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+            marginBottom: "24px",
+          }}
         >
-          Pending ({pending.length})
-        </button>
+          {[
+            {
+              id: "overview",
+              label: "Overview",
+            },
+            {
+              id: "pending",
+              label: `Pending Customers${
+                pendingCustomers.length ? ` (${pendingCustomers.length})` : ""
+              }`,
+            },
+            {
+              id: "cards",
+              label: `Card Requests${
+                pendingCardRequests.length
+                  ? ` (${pendingCardRequests.length})`
+                  : ""
+              }`,
+            },
+            {
+              id: "accounts",
+              label: "Accounts",
+            },
+            {
+              id: "support",
+              label: "Support",
+            },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveSection(item.id)}
+              style={{
+                border:
+                  activeSection === item.id
+                    ? "1px solid #0b1f3a"
+                    : "1px solid #d7dee8",
+                background:
+                  activeSection === item.id ? "#0b1f3a" : "#ffffff",
+                color:
+                  activeSection === item.id ? "#ffffff" : "#334155",
+                borderRadius: "10px",
+                padding: "10px 14px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("accounts")
-          }
-        >
-          Accounts ({accounts.length})
-        </button>
-
-        <button
-          className="primary-button"
-          onClick={() =>
-            setActiveSection("support")
-          }
-        >
-          Support ({customerMessages.length})
-        </button>
-      </nav>
-
-      {activeSection === "overview" && (
-        <>
+        {activeSection === "overview" && (
           <section>
-            <h2>Overview</h2>
-
-            <div className="dashboard-grid">
-              <div className="notification">
-                <h3>
-                  Pending Customers
-                </h3>
-
-                <h2>
-                  {pending.length}
-                </h2>
-              </div>
-
-              <div className="notification">
-                <h3>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: "16px",
+                marginBottom: "24px",
+              }}
+            >
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
                   Active Accounts
-                </h3>
+                </div>
 
-                <h2>
+                <div
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    marginTop: "8px",
+                  }}
+                >
                   {activeAccounts.length}
-                </h2>
+                </div>
               </div>
 
-              <div className="notification">
-                <h3>
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
                   Frozen Accounts
-                </h3>
+                </div>
 
-                <h2>
+                <div
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    marginTop: "8px",
+                  }}
+                >
                   {frozenAccounts.length}
-                </h2>
+                </div>
               </div>
 
-              <div className="notification">
-                <h3>
-                  Customer Messages
-                </h3>
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Pending Customers
+                </div>
 
-                <h2>
+                <div
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    marginTop: "8px",
+                  }}
+                >
+                  {pendingCustomers.length}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Pending Card Requests
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    marginTop: "8px",
+                  }}
+                >
+                  {pendingCardRequests.length}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Support Messages
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    marginTop: "8px",
+                  }}
+                >
                   {customerMessages.length}
-                </h2>
+                </div>
               </div>
             </div>
-          </section>
 
-          <section>
-            <h2>
-              Recent Activity
-            </h2>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "20px",
+                }}
+              >
+                Recent Activity
+              </h2>
 
-            <div className="transaction-list">
-              {transactions.length === 0 ? (
-                <div className="notification">
-                  <p>
-                    No transactions
-                    recorded.
+              <div style={{ marginTop: "18px" }}>
+                {recentTransactions.length === 0 ? (
+                  <p style={{ color: "#64748b" }}>
+                    No transactions have been recorded yet.
                   </p>
-                </div>
-              ) : (
-                transactions
-                  .slice(0, 5)
-                  .map(
-                    (transaction) => (
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    {recentTransactions.map((transaction) => (
                       <div
-                        className="transaction"
-                        key={
-                          transaction.id
-                        }
+                        key={transaction.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "15px",
+                          padding: "13px 14px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "12px",
+                        }}
                       >
                         <div>
-                          <strong>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                            }}
+                          >
                             {transaction.description ||
-                              "Transaction"}
-                          </strong>
-
-                          <p>
-                            {transaction.transaction_type ===
-                            "credit"
-                              ? "+"
-                              : "-"}
-                            $
-                            {formatMoney(
-                              transaction.amount
-                            )}
-                          </p>
-
-                          <p>
-                            {formatDate(
-                              transaction.transaction_date
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  )
-              )}
-            </div>
-          </section>
-        </>
-      )}
-
-      {activeSection === "pending" && (
-        <section>
-          <h2>
-            Pending Customer
-            Approvals
-          </h2>
-
-          {pending.length === 0 ? (
-            <div className="notification">
-              <p>
-                No pending customers.
-              </p>
-            </div>
-          ) : (
-            <div className="transaction-list">
-              {pending.map(
-                (customer) => (
-                  <div
-                    className="transaction"
-                    key={customer.id}
-                  >
-                    <div>
-                      <strong>
-                        {customer.full_name ||
-                          "Customer"}
-                      </strong>
-
-                      <p>
-                        Email:{" "}
-                        {customer.email ||
-                          "Not available"}
-                      </p>
-
-                      <p>
-                        Status:{" "}
-                        {
-                          customer.approval_status
-                        }
-                      </p>
-
-                      <p>
-                        Registered:{" "}
-                        {formatDate(
-                          customer.created_at
-                        )}
-                      </p>
-                    </div>
-
-                    <button
-                      className="primary-button"
-                      onClick={() =>
-                        approveCustomer(
-                          customer
-                        )
-                      }
-                    >
-                      Approve Customer
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeSection === "accounts" && (
-        <>
-          <section>
-            <h2>
-              Customer Accounts
-            </h2>
-
-            {accounts.length === 0 ? (
-              <div className="notification">
-                <p>
-                  No customer accounts
-                  found.
-                </p>
-              </div>
-            ) : (
-              <div className="transaction-list">
-                {accounts.map(
-                  (account) => {
-                    const hasDateOverride =
-                      Boolean(
-                        account.effective_created_at
-                      );
-
-                    return (
-                      <div
-                        className="transaction"
-                        key={account.id}
-                      >
-                        <div
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          <strong>
-                            {account.customerName}
-                          </strong>
-
-                          <p>
-                            Email:{" "}
-                            {account.customerEmail ||
-                              "Not available"}
-                          </p>
-
-                          <p>
-                            Account No:{" "}
-                            {account.account_number ||
-                              "Not assigned"}
-                          </p>
-
-                          <p>
-                            Account type:{" "}
-                            {account.account_type ||
-                              "Checking"}
-                          </p>
-
-                          <p>
-                            Status:{" "}
-                            {account.status ||
-                              "active"}
-                          </p>
-
-                          <p>
-                            Balance: $
-                            {formatMoney(
-                              account.balance
-                            )}
-                          </p>
-
-                          <p>
-                            <strong>
-                              Original Created:
-                            </strong>{" "}
-                            {formatDate(
-                              account.created_at
-                            )}
-                          </p>
-
-                          <p>
-                            <strong>
-                              Displayed Created:
-                            </strong>{" "}
-                            {formatDate(
-                              account.effective_created_at ||
-                                account.created_at
-                            )}
-                            {hasDateOverride
-                              ? " (admin override)"
-                              : " (original)"}
-                          </p>
+                              "Account transaction"}
+                          </div>
 
                           <div
                             style={{
-                              marginTop: "14px",
-                              paddingTop: "14px",
-                              borderTop:
-                                "1px solid rgba(0,0,0,0.08)",
+                              marginTop: "3px",
+                              color: "#64748b",
+                              fontSize: "13px",
                             }}
                           >
-                            <label
-                              htmlFor={`created-date-${account.id}`}
-                              style={{
-                                display:
-                                  "block",
-                                fontWeight: 700,
-                                marginBottom:
-                                  "7px",
-                              }}
-                            >
-                              Account Created
-                              Date & Time
-                            </label>
-
-                            <input
-                              id={`created-date-${account.id}`}
-                              type="datetime-local"
-                              value={
-                                createdDateDrafts[
-                                  account.id
-                                ] || ""
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                updateCreatedDateDraft(
-                                  account.id,
-                                  event.target
-                                    .value
-                                )
-                              }
-                              style={{
-                                width:
-                                  "100%",
-                                maxWidth:
-                                  "360px",
-                                padding:
-                                  "10px",
-                                border:
-                                  "1px solid #ccc",
-                                borderRadius:
-                                  "8px",
-                              }}
-                            />
-
-                            <div
-                              style={{
-                                display:
-                                  "flex",
-                                flexWrap:
-                                  "wrap",
-                                gap: "8px",
-                                marginTop:
-                                  "8px",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className="primary-button"
-                                onClick={() =>
-                                  saveCreatedDate(
-                                    account
-                                  )
-                                }
-                                disabled={
-                                  savingCreatedDate ===
-                                  account.id
-                                }
-                              >
-                                {savingCreatedDate ===
-                                account.id
-                                  ? "Saving..."
-                                  : "Save Created Date"}
-                              </button>
-
-                              {hasDateOverride && (
-                                <button
-                                  type="button"
-                                  className="primary-button"
-                                  onClick={() =>
-                                    clearCreatedDateOverride(
-                                      account
-                                    )
-                                  }
-                                  disabled={
-                                    savingCreatedDate ===
-                                    account.id
-                                  }
-                                >
-                                  Use Original Date
-                                </button>
-                              )}
-                            </div>
+                            {formatDate(transaction.created_at)}
                           </div>
                         </div>
 
                         <div
                           style={{
-                            display:
-                              "flex",
-                            flexDirection:
-                              "column",
-                            gap: "8px",
-                            minWidth:
-                              "190px",
+                            fontWeight: 800,
+                            color:
+                              transaction.type === "credit"
+                                ? "#15803d"
+                                : "#b91c1c",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          <button
-                            className="primary-button"
-                            onClick={() =>
-                              addTransaction(
-                                account
-                              )
-                            }
-                          >
-                            Add Transaction
-                          </button>
+                          {transaction.type === "credit" ? "+" : "-"}$
+                          {formatMoney(transaction.amount)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
-                          <button
-                            className="primary-button"
-                            onClick={() =>
-                              toggleAccount(
-                                account
-                              )
-                            }
+        {activeSection === "pending" && (
+          <section>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "21px",
+                    }}
+                  >
+                    Pending Customer Approvals
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "7px 0 0",
+                      color: "#64748b",
+                    }}
+                  >
+                    Review customers waiting for account approval.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loadPending}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    borderRadius: "9px",
+                    padding: "9px 13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "20px",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                {pendingCustomers.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "22px",
+                      borderRadius: "12px",
+                      background: "#f8fafc",
+                      color: "#64748b",
+                    }}
+                  >
+                    There are no pending customer approvals.
+                  </div>
+                ) : (
+                  pendingCustomers.map((customer) => (
+                    <div
+                      key={customer.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "18px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "16px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div>
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: "17px",
+                            }}
                           >
-                            {account.status ===
-                            "active"
-                              ? "Freeze Account"
-                              : "Unfreeze Account"}
-                          </button>
+                            {customer.full_name || "Unnamed Customer"}
+                          </h3>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              color: "#64748b",
+                            }}
+                          >
+                            {customer.email || "No email"}
+                          </div>
+
+                          {customer.phone && (
+                            <div
+                              style={{
+                                marginTop: "3px",
+                                color: "#64748b",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {customer.phone}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              marginTop: "8px",
+                              fontSize: "13px",
+                              color: "#64748b",
+                            }}
+                          >
+                            Registered: {formatDate(customer.created_at)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => approveCustomer(customer)}
+                          style={{
+                            border: "none",
+                            background: "#0b1f3a",
+                            color: "#ffffff",
+                            borderRadius: "10px",
+                            padding: "11px 16px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Approve Customer
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeSection === "cards" && (
+          <section>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "21px",
+                    }}
+                  >
+                    Card Requests
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "7px 0 0",
+                      color: "#64748b",
+                    }}
+                  >
+                    Review and approve ATM / debit card requests from
+                    customers.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loadCardRequests}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    borderRadius: "9px",
+                    padding: "9px 13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "20px",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                {cardRequests.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "24px",
+                      borderRadius: "12px",
+                      background: "#f8fafc",
+                      color: "#64748b",
+                    }}
+                  >
+                    No ATM / debit card requests have been submitted yet.
+                  </div>
+                ) : (
+                  cardRequests.map((request) => {
+                    const status = String(
+                      request.status || ""
+                    ).toLowerCase();
+
+                    const customerName =
+                      request.profile?.full_name ||
+                      request.profile?.email ||
+                      "Customer";
+
+                    return (
+                      <div
+                        key={request.id}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "14px",
+                          padding: "18px",
+                          background:
+                            status === "pending" ? "#ffffff" : "#f8fafc",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: "18px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div
+                            style={{
+                              minWidth: 0,
+                              flex: "1 1 420px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <h3
+                                style={{
+                                  margin: 0,
+                                  fontSize: "17px",
+                                }}
+                              >
+                                {customerName}
+                              </h3>
+
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  borderRadius: "999px",
+                                  padding: "5px 10px",
+                                  fontSize: "12px",
+                                  fontWeight: 800,
+                                  background:
+                                    status === "pending"
+                                      ? "#fff7ed"
+                                      : status === "approved"
+                                      ? "#ecfdf5"
+                                      : "#f1f5f9",
+                                  color:
+                                    status === "pending"
+                                      ? "#c2410c"
+                                      : status === "approved"
+                                      ? "#047857"
+                                      : "#475569",
+                                }}
+                              >
+                                {statusLabel(request.status)}
+                              </span>
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                color: "#64748b",
+                              }}
+                            >
+                              {request.profile?.email || "No email"}
+                            </div>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                  "repeat(auto-fit, minmax(170px, 1fr))",
+                                gap: "12px",
+                                marginTop: "17px",
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.08em",
+                                    color: "#94a3b8",
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  Card Type
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: "4px",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {request.card_type || "ATM / Debit Card"}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.08em",
+                                    color: "#94a3b8",
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  Request Date
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: "4px",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {formatDate(request.created_at)}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.08em",
+                                    color: "#94a3b8",
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  Account
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: "4px",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {request.account_id
+                                    ? `Account linked`
+                                    : "No account linked"}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: "16px",
+                                padding: "12px 14px",
+                                borderRadius: "10px",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: "11px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.08em",
+                                  color: "#94a3b8",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Reason
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop: "5px",
+                                  color: "#334155",
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {request.reason ||
+                                  "No reason provided by customer."}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              flex: "0 0 auto",
+                              minWidth: "150px",
+                            }}
+                          >
+                            {status === "pending" ? (
+                              <button
+                                type="button"
+                                onClick={() => approveCardRequest(request)}
+                                disabled={
+                                  approvingCardRequest === request.id
+                                }
+                                style={{
+                                  width: "100%",
+                                  border: "none",
+                                  background:
+                                    approvingCardRequest === request.id
+                                      ? "#64748b"
+                                      : "#0b1f3a",
+                                  color: "#ffffff",
+                                  borderRadius: "10px",
+                                  padding: "12px 15px",
+                                  fontWeight: 800,
+                                  cursor:
+                                    approvingCardRequest === request.id
+                                      ? "wait"
+                                      : "pointer",
+                                }}
+                              >
+                                {approvingCardRequest === request.id
+                                  ? "Approving..."
+                                  : "Approve Card"}
+                              </button>
+                            ) : status === "approved" ? (
+                              <div
+                                style={{
+                                  width: "100%",
+                                  boxSizing: "border-box",
+                                  textAlign: "center",
+                                  borderRadius: "10px",
+                                  padding: "12px 15px",
+                                  background: "#ecfdf5",
+                                  color: "#047857",
+                                  fontWeight: 800,
+                                  border: "1px solid #a7f3d0",
+                                }}
+                              >
+                                Card Approved
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  width: "100%",
+                                  boxSizing: "border-box",
+                                  textAlign: "center",
+                                  borderRadius: "10px",
+                                  padding: "12px 15px",
+                                  background: "#f1f5f9",
+                                  color: "#475569",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {statusLabel(request.status)}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
-                  }
+                  })
                 )}
               </div>
-            )}
-          </section>
 
-          <section>
-            <h2>
-              Recent Transactions
-            </h2>
-
-            <div className="transaction-list">
-              {transactions.length === 0 ? (
-                <div className="notification">
-                  <p>
-                    No transactions
-                    recorded.
-                  </p>
+              {approvedCardRequests.length > 0 && (
+                <div
+                  style={{
+                    marginTop: "20px",
+                    padding: "14px 16px",
+                    borderRadius: "12px",
+                    background: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    color: "#1e40af",
+                    fontSize: "14px",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Approved card requests are now linked to the customer's
+                  active card record. The customer dashboard can display the
+                  approved card without exposing sensitive card information
+                  such as a full card number, CVV, or PIN.
                 </div>
-              ) : (
-                transactions.map(
-                  (transaction) => (
-                    <div
-                      className="transaction"
-                      key={
-                        transaction.id
-                      }
-                    >
-                      <div>
-                        <strong>
-                          {transaction.description ||
-                            "Transaction"}
-                        </strong>
-
-                        <p>
-                          Type:{" "}
-                          {
-                            transaction.transaction_type
-                          }
-                        </p>
-
-                        <p>
-                          Amount:{" "}
-                          {transaction.transaction_type ===
-                          "credit"
-                            ? "+"
-                            : "-"}
-                          $
-                          {formatMoney(
-                            transaction.amount
-                          )}
-                        </p>
-
-                        <p>
-                          Date:{" "}
-                          {formatDate(
-                            transaction.transaction_date
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                )
               )}
             </div>
           </section>
-        </>
-      )}
+        )}
 
-      {activeSection === "support" && (
-        <section>
-          <h2>
-            Customer Support Inbox
-          </h2>
+        {activeSection === "accounts" && (
+          <section>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "18px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "21px",
+                  }}
+                >
+                  Customer Accounts
+                </h2>
 
-          {customerMessages.length ===
-          0 ? (
-            <div className="notification">
-              <p>
-                No customer support
-                messages.
-              </p>
+                <p
+                  style={{
+                    margin: "7px 0 0",
+                    color: "#64748b",
+                  }}
+                >
+                  Manage account status, dates, balances, and transactions.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  loadAccounts();
+                  loadTransactions();
+                }}
+                style={{
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  borderRadius: "9px",
+                  padding: "9px 13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Refresh
+              </button>
             </div>
-          ) : (
-            <div className="transaction-list">
-              {customerMessages.map(
-                (item) => {
-                  const replies =
-                    messages.filter(
-                      (message) =>
-                        message.user_id ===
-                          item.user_id &&
-                        message.sender ===
-                          "support" &&
-                        new Date(
-                          message.created_at
-                        ) >
-                          new Date(
-                            item.created_at
-                          )
-                    );
 
-                  const latestReply =
-                    replies.length
-                      ? replies[
-                          replies.length - 1
-                        ]
-                      : null;
+            <div
+              style={{
+                display: "grid",
+                gap: "18px",
+              }}
+            >
+              {accounts.length === 0 ? (
+                <div
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "16px",
+                    padding: "24px",
+                    color: "#64748b",
+                  }}
+                >
+                  No customer accounts found.
+                </div>
+              ) : (
+                accounts.map((account) => {
+                  const accountTxns = accountTransactions(account.id);
 
                   return (
                     <div
-                      className="notification"
-                      key={item.id}
+                      key={account.id}
+                      style={{
+                        background: "#ffffff",
+                        borderRadius: "16px",
+                        padding: "22px",
+                        boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+                      }}
                     >
-                      <h3>
-                        {item.customerName ||
-                          "Customer"}
-                      </h3>
-
-                      <p>
-                        <strong>
-                          Email:
-                        </strong>{" "}
-                        {item.customerEmail ||
-                          "Not available"}
-                      </p>
-
-                      <p>
-                        <strong>
-                          Received:
-                        </strong>{" "}
-                        {formatDate(
-                          item.created_at
-                        )}
-                      </p>
-
-                      <hr />
-
-                      <p>
-                        <strong>
-                          Customer Message
-                        </strong>
-                      </p>
-
-                      <p>
-                        {item.message}
-                      </p>
-
-                      {latestReply && (
-                        <>
-                          <hr />
-
-                          <p>
-                            <strong>
-                              Support Reply
-                            </strong>
-                          </p>
-
-                          <p>
-                            {
-                              latestReply.message
-                            }
-                          </p>
-
-                          <p>
-                            <strong>
-                              Replied:
-                            </strong>{" "}
-                            {formatDate(
-                              latestReply.created_at
-                            )}
-                          </p>
-                        </>
-                      )}
-
-                      <textarea
-                        id={`reply-${item.id}`}
-                        rows="4"
-                        placeholder="Write your support reply..."
+                      <div
                         style={{
-                          width: "100%",
-                          marginTop:
-                            "12px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "16px",
+                          flexWrap: "wrap",
                         }}
-                      />
-
-                      <button
-                        className="primary-button"
-                        onClick={() =>
-                          sendReply(item)
-                        }
                       >
-                        Send Support Reply
-                      </button>
+                        <div>
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: "18px",
+                            }}
+                          >
+                            {account.profile?.full_name ||
+                              account.profile?.email ||
+                              "Customer"}
+                          </h3>
+
+                          <div
+                            style={{
+                              marginTop: "4px",
+                              color: "#64748b",
+                            }}
+                          >
+                            {account.profile?.email || "No email"}
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            borderRadius: "999px",
+                            padding: "6px 11px",
+                            fontSize: "12px",
+                            fontWeight: 800,
+                            background:
+                              account.status === "active"
+                                ? "#ecfdf5"
+                                : "#fef2f2",
+                            color:
+                              account.status === "active"
+                                ? "#047857"
+                                : "#b91c1c",
+                          }}
+                        >
+                          {statusLabel(account.status)}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(170px, 1fr))",
+                          gap: "14px",
+                          marginTop: "20px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: "14px",
+                            background: "#f8fafc",
+                            borderRadius: "11px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "#94a3b8",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Account Number
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              fontWeight: 800,
+                            }}
+                          >
+                            ••••{" "}
+                            {String(account.account_number || "").slice(-4)}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: "14px",
+                            background: "#f8fafc",
+                            borderRadius: "11px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "#94a3b8",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Account Type
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {account.account_type || "checking"}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: "14px",
+                            background: "#f8fafc",
+                            borderRadius: "11px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "#94a3b8",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Balance
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              fontWeight: 800,
+                            }}
+                          >
+                            ${formatMoney(account.balance)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "20px",
+                          padding: "16px",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            marginBottom: "10px",
+                          }}
+                        >
+                          Account Created Date
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                          }}
+                        >
+                          <input
+                            type="datetime-local"
+                            value={createdDateDrafts[account.id] || ""}
+                            onChange={(event) =>
+                              setCreatedDateDrafts((current) => ({
+                                ...current,
+                                [account.id]: event.target.value,
+                              }))
+                            }
+                            style={{
+                              border: "1px solid #cbd5e1",
+                              borderRadius: "9px",
+                              padding: "10px",
+                              background: "#ffffff",
+                              color: "#0f172a",
+                            }}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => saveCreatedDate(account)}
+                            disabled={savingCreatedDate === account.id}
+                            style={{
+                              border: "none",
+                              background: "#0b1f3a",
+                              color: "#ffffff",
+                              borderRadius: "9px",
+                              padding: "10px 13px",
+                              fontWeight: 700,
+                              cursor:
+                                savingCreatedDate === account.id
+                                  ? "wait"
+                                  : "pointer",
+                            }}
+                          >
+                            {savingCreatedDate === account.id
+                              ? "Saving..."
+                              : "Save Date"}
+                          </button>
+
+                          {account.effective_created_at && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                clearCreatedDateOverride(account)
+                              }
+                              disabled={savingCreatedDate === account.id}
+                              style={{
+                                border: "1px solid #cbd5e1",
+                                background: "#ffffff",
+                                color: "#334155",
+                                borderRadius: "9px",
+                                padding: "10px 13px",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Use Original Date
+                            </button>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: "8px",
+                            color: "#64748b",
+                            fontSize: "13px",
+                          }}
+                        >
+                          Current displayed date:{" "}
+                          {formatDate(
+                            account.effective_created_at ||
+                              account.created_at
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                          marginTop: "18px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => addTransaction(account)}
+                          style={{
+                            border: "none",
+                            background: "#0b1f3a",
+                            color: "#ffffff",
+                            borderRadius: "9px",
+                            padding: "10px 14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Add Transaction
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleAccount(account)}
+                          style={{
+                            border:
+                              account.status === "active"
+                                ? "1px solid #fecaca"
+                                : "1px solid #bbf7d0",
+                            background:
+                              account.status === "active"
+                                ? "#fff7f7"
+                                : "#f0fdf4",
+                            color:
+                              account.status === "active"
+                                ? "#b91c1c"
+                                : "#15803d",
+                            borderRadius: "9px",
+                            padding: "10px 14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {account.status === "active"
+                            ? "Freeze Account"
+                            : "Unfreeze Account"}
+                        </button>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "22px",
+                        }}
+                      >
+                        <h4
+                          style={{
+                            margin: "0 0 10px",
+                            fontSize: "15px",
+                          }}
+                        >
+                          Recent Transactions
+                        </h4>
+
+                        {accountTxns.length === 0 ? (
+                          <div
+                            style={{
+                              padding: "13px",
+                              background: "#f8fafc",
+                              borderRadius: "10px",
+                              color: "#64748b",
+                              fontSize: "14px",
+                            }}
+                          >
+                            No transactions for this account.
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: "8px",
+                            }}
+                          >
+                            {accountTxns.map((transaction) => (
+                              <div
+                                key={transaction.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: "14px",
+                                  padding: "12px 13px",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "10px",
+                                }}
+                              >
+                                <div>
+                                  <div
+                                    style={{
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {transaction.description ||
+                                      "Account transaction"}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      color: "#64748b",
+                                      fontSize: "12px",
+                                      marginTop: "3px",
+                                    }}
+                                  >
+                                    {formatDate(transaction.created_at)}
+                                  </div>
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontWeight: 800,
+                                    whiteSpace: "nowrap",
+                                    color:
+                                      transaction.type === "credit"
+                                        ? "#15803d"
+                                        : "#b91c1c",
+                                  }}
+                                >
+                                  {transaction.type === "credit"
+                                    ? "+"
+                                    : "-"}
+                                  $
+                                  {formatMoney(transaction.amount)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
-                }
+                })
               )}
             </div>
-          )}
+          </section>
+        )}
+
+        {activeSection === "support" && (
+          <section>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "21px",
+                    }}
+                  >
+                    Support Inbox
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "7px 0 0",
+                      color: "#64748b",
+                    }}
+                  >
+                    Review customer messages and send replies.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loadMessages}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    borderRadius: "9px",
+                    padding: "9px 13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "20px",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                {customerMessages.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "22px",
+                      borderRadius: "12px",
+                      background: "#f8fafc",
+                      color: "#64748b",
+                    }}
+                  >
+                    No customer support messages found.
+                  </div>
+                ) : (
+                  customerMessages.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "18px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "15px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div>
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: "16px",
+                            }}
+                          >
+                            {item.profile?.full_name ||
+                              item.profile?.email ||
+                              "Customer"}
+                          </h3>
+
+                          <div
+                            style={{
+                              marginTop: "4px",
+                              color: "#64748b",
+                              fontSize: "13px",
+                            }}
+                          >
+                            {item.profile?.email || "No email"}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            color: "#64748b",
+                            fontSize: "13px",
+                          }}
+                        >
+                          {formatDate(item.created_at)}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "15px",
+                          padding: "14px",
+                          background: "#f8fafc",
+                          borderRadius: "10px",
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {item.message || item.content || "No message content."}
+                      </div>
+
+                      {item.admin_reply && (
+                        <div
+                          style={{
+                            marginTop: "10px",
+                            padding: "14px",
+                            background: "#eff6ff",
+                            borderRadius: "10px",
+                            border: "1px solid #bfdbfe",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                              color: "#2563eb",
+                              fontWeight: 800,
+                              marginBottom: "5px",
+                            }}
+                          >
+                            Admin Reply
+                          </div>
+
+                          {item.admin_reply}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          marginTop: "13px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => sendReply(item)}
+                          style={{
+                            border: "none",
+                            background: "#0b1f3a",
+                            color: "#ffffff",
+                            borderRadius: "9px",
+                            padding: "10px 14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {item.admin_reply ? "Update Reply" : "Reply"}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section
+          style={{
+            marginTop: "24px",
+            padding: "16px 18px",
+            background: "#fff7ed",
+            border: "1px solid #fed7aa",
+            borderRadius: "14px",
+            color: "#9a3412",
+            fontSize: "13px",
+            lineHeight: 1.55,
+          }}
+        >
+          <strong>Security Warning:</strong> Never store or display complete
+          card numbers, CVV codes, PINs, passwords, authentication codes, or
+          other sensitive credentials in the administrator interface.
         </section>
-      )}
-
-      <section className="real-notice">
-        <h2>
-          ⛔ Security Warning
-        </h2>
-
-        <p>
-          Never share your password, PIN,
-          verification codes, or other
-          sensitive account information
-          with anyone. Our support team
-          will never ask you to disclose
-          your password or security codes.
-        </p>
-      </section>
+      </div>
     </main>
   );
 }
