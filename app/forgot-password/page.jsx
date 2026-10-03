@@ -8,6 +8,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+const PRODUCTION_URL = "https://mid-atlantic-federal-bank-7m2m.vercel.app";
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
@@ -20,37 +22,48 @@ export default function ForgotPasswordPage() {
     setStatus("");
     setError("");
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
-      setError("Please enter the email address associated with your account.");
+      setError(
+        "Please enter the email address associated with your account."
+      );
       return;
     }
 
     setLoading(true);
 
-    const redirectUrl = `${window.location.origin}/reset-password`;
+    try {
+      const redirectUrl = `${PRODUCTION_URL}/reset-password`;
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      cleanEmail,
-      {
-        redirectTo: redirectUrl,
+      const { error: resetError } =
+        await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: redirectUrl,
+        });
+
+      if (resetError) {
+        console.error("PASSWORD RESET ERROR:", resetError);
+        throw new Error(
+          resetError.message ||
+            "We could not send the password reset email. Please try again."
+        );
       }
-    );
 
-    setLoading(false);
+      setStatus(
+        "If an account exists for that email address, a password reset link has been sent. Please check your inbox and spam folder."
+      );
 
-    if (resetError) {
+      setEmail("");
+    } catch (err) {
+      console.error("RESET EMAIL ERROR:", err);
+
       setError(
-        resetError.message ||
+        err?.message ||
           "We could not send the password reset email. Please try again."
       );
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setStatus(
-      "If an account exists for that email address, a password reset link has been sent. Please check your inbox and spam folder."
-    );
   }
 
   return (
@@ -58,7 +71,9 @@ export default function ForgotPasswordPage() {
       <div className="auth-card password-recovery-card">
         <div className="auth-heading">
           <span className="section-label">ACCOUNT SECURITY</span>
+
           <h1>Forgot Password?</h1>
+
           <p>
             Enter your email address and we will send you a secure link to
             create a new password.
@@ -67,6 +82,7 @@ export default function ForgotPasswordPage() {
 
         <form onSubmit={sendResetEmail} className="auth-form">
           <label htmlFor="recovery-email">Email Address</label>
+
           <input
             id="recovery-email"
             type="email"
@@ -90,7 +106,11 @@ export default function ForgotPasswordPage() {
             </div>
           )}
 
-          <button className="auth-submit" type="submit" disabled={loading}>
+          <button
+            className="auth-submit"
+            type="submit"
+            disabled={loading}
+          >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
         </form>
