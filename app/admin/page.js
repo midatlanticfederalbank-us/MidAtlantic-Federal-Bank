@@ -172,51 +172,26 @@ export default function AdminDashboard() {
   }
 
   async function loadCardOrders() {
-    const { data, error } = await supabase
-      .from("customer_card_orders")
-      .select("id, user_id, account_id, card_type, reason, status, created_at, updated_at")
-      .order("created_at", { ascending: false });
-
+    const { data, error } = await supabase.rpc("admin_list_card_orders");
     if (error) {
       console.error("CARD ORDER LIST ERROR:", error);
       setNotice(`Card requests could not be loaded: ${error.message}`);
       setCardOrders([]);
       return;
     }
-
     const rows = data || [];
     const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
     const accountIds = [...new Set(rows.map((r) => r.account_id).filter(Boolean))];
-
     let profileMap = {};
     let accountMap = {};
-
     if (userIds.length) {
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
-
-      if (!profileError) {
-        (profiles || []).forEach((p) => {
-          profileMap[p.id] = p;
-        });
-      }
+      const { data: profiles, error: profileError } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
+      if (!profileError) (profiles || []).forEach((p) => { profileMap[p.id] = p; });
     }
-
     if (accountIds.length) {
-      const { data: accountRows, error: accountError } = await supabase
-        .from("customer_accounts")
-        .select("id, account_number, account_type")
-        .in("id", accountIds);
-
-      if (!accountError) {
-        (accountRows || []).forEach((a) => {
-          accountMap[a.id] = a;
-        });
-      }
+      const { data: accountRows, error: accountError } = await supabase.from("customer_accounts").select("id, account_number, account_type").in("id", accountIds);
+      if (!accountError) (accountRows || []).forEach((a) => { accountMap[a.id] = a; });
     }
-
     setCardOrders(rows.map((r) => ({
       ...r,
       customerName: profileMap[r.user_id]?.full_name || "Customer",
@@ -226,74 +201,17 @@ export default function AdminDashboard() {
     })));
   }
 
-  function generateCardLast4() {
-    return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  }
-
-  function generateCardExpiry() {
-    const now = new Date();
-    const expiry = new Date(now.getFullYear() + 4, now.getMonth(), 1);
-    return {
-      month: expiry.getMonth() + 1,
-      year: expiry.getFullYear(),
-    };
-  }
-
   async function approveCardOrder(request) {
     if (cardAction) return;
     if (!window.confirm(`Approve the ATM / Debit Card request for ${request.customerName}?`)) return;
-
     setCardAction({ id: request.id, type: "approve" });
     setNotice("Approving card request...");
-
     try {
-      const { data: existingCard, error: existingError } = await supabase
-        .from("customer_cards")
-        .select("id")
-        .eq("user_id", request.user_id)
-        .limit(1)
-        .maybeSingle();
-
-      if (existingError) throw new Error(existingError.message);
-
-      if (existingCard?.id) {
-        const { error: statusError } = await supabase
-          .from("customer_card_orders")
-          .update({ status: "approved", updated_at: new Date().toISOString() })
-          .eq("id", request.id);
-
-        if (statusError) throw new Error(statusError.message);
-        setNotice("Card request approved. The existing customer card remains on the account.");
-      } else {
-        const { month, year } = generateCardExpiry();
-        const profileName = request.customerName || "Customer";
-
-        const { error: cardError } = await supabase
-          .from("customer_cards")
-          .insert({
-            user_id: request.user_id,
-            account_id: request.account_id,
-            card_type: request.card_type || "ATM / Debit Card",
-            card_network: "VISA",
-            cardholder_name: profileName,
-            last4: generateCardLast4(),
-            expiry_month: month,
-            expiry_year: year,
-            status: "active",
-          });
-
-        if (cardError) throw new Error(cardError.message);
-
-        const { error: orderError } = await supabase
-          .from("customer_card_orders")
-          .update({ status: "approved", updated_at: new Date().toISOString() })
-          .eq("id", request.id);
-
-        if (orderError) throw new Error(orderError.message);
-
-        setNotice("Card request approved and card issued successfully.");
-      }
-
+      const { data, error } = await supabase.rpc("admin_approve_card_order", { p_request_id: request.id });
+      if (error) throw new Error(error.message);
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result?.status && String(result.status).toLowerCase() !== "approved") throw new Error("The card request was not approved.");
+      setNotice("Card request approved and card issued successfully.");
       await loadCardOrders();
     } catch (error) {
       console.error("APPROVE CARD ERROR:", error);
@@ -307,22 +225,16 @@ export default function AdminDashboard() {
     if (cardAction) return;
     const reason = window.prompt("Optional rejection reason:", "Card request rejected by bank review.");
     if (reason === null) return;
-
     setCardAction({ id: request.id, type: "reject" });
     setNotice("Rejecting card request...");
-
     try {
-      const { error } = await supabase
-        .from("customer_card_orders")
-        .update({
-          status: "rejected",
-          reason: reason.trim() || request.reason || "Card request rejected by bank review.",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request.id);
-
+      const { data, error } = await supabase.rpc("admin_reject_card_order", {
+        p_request_id: request.id,
+        p_reason: reason.trim() || null,
+      });
       if (error) throw new Error(error.message);
-
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result?.status && String(result.status).toLowerCase() !== "rejected") throw new Error("The card request was not rejected.");
       setNotice("Card request rejected. No card was issued.");
       await loadCardOrders();
     } catch (error) {
