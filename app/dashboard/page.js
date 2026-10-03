@@ -1858,7 +1858,6 @@ ${formatMoney(withdrawal.amount)}
 </div>
 )}
 </section>
-)}
 </PortalPage>
 )}
 {/* =================================================
