@@ -49,6 +49,8 @@ description: "",
 });
 const [requestStatus, setRequestStatus] = useState("");
 const [requestLoading, setRequestLoading] = useState(false);
+const [withdrawalRequests, setWithdrawalRequests] = useState([]);
+const [withdrawalLoading, setWithdrawalLoading] = useState(false);
 // Customer transfer + email OTP
 const [transferOtpOpen, setTransferOtpOpen] = useState(false);
 const [transferOtp, setTransferOtp] = useState("");
@@ -177,6 +179,7 @@ setTransactions(transactionData || []);
 }
 }
 await loadCardData(user.id, accountData?.id);
+await loadWithdrawalRequests(user.id);
 setLoading(false);
 }
 async function loadCardData(userId = user?.id, accountId = account?.id) {
@@ -206,6 +209,27 @@ setCardOrders(orders || []);
 console.warn("Card information could not be loaded:", cardError);
 } finally {
 setCardLoading(false);
+}
+}
+async function loadWithdrawalRequests(userId = user?.id) {
+if (!userId) return;
+setWithdrawalLoading(true);
+try {
+const { data, error } = await supabase
+.from("withdrawal_requests")
+.select("id, account_id, amount, withdrawal_method, status, notes, created_at, updated_at")
+.eq("user_id", userId)
+.order("created_at", { ascending: false })
+.limit(10);
+if (!error) {
+setWithdrawalRequests(data || []);
+} else {
+console.warn("Withdrawal requests could not be loaded:", error.message);
+}
+} catch (withdrawalError) {
+console.warn("Withdrawal request connection error:", withdrawalError);
+} finally {
+setWithdrawalLoading(false);
 }
 }
 async function orderNewCard() {
@@ -529,6 +553,48 @@ return;
 }
 if (["transfer", "wire", "local"].includes(activePage)) {
 await startCustomerTransfer(activePage);
+return;
+}
+if (activePage === "withdraw") {
+if (!account?.id) {
+setRequestStatus("Your account information is not available. Please try again.");
+return;
+}
+if (account?.status !== "active") {
+setRequestStatus("Your account is not active and cannot submit a withdrawal.");
+return;
+}
+if (amount > Number(account.balance || 0)) {
+setRequestStatus("The withdrawal amount is greater than your available balance.");
+return;
+}
+setRequestLoading(true);
+try {
+const { error } = await supabase
+.from("withdrawal_requests")
+.insert({
+user_id: user.id,
+account_id: account.id,
+amount,
+withdrawal_method: "cash",
+status: "pending",
+notes: requestForm.description.trim() || null,
+});
+if (error) throw error;
+resetRequestForm();
+setRequestStatus("Your withdrawal request has been submitted successfully. It is pending bank review.");
+await loadWithdrawalRequests(user.id);
+} catch (withdrawalError) {
+console.error("Withdrawal request insert failed:", withdrawalError);
+const message =
+withdrawalError?.message ||
+withdrawalError?.details ||
+withdrawalError?.hint ||
+"Your withdrawal request could not be submitted. Please try again.";
+setRequestStatus(`Withdrawal request failed: ${message}`);
+} finally {
+setRequestLoading(false);
+}
 return;
 }
 if (
@@ -1669,69 +1735,23 @@ or IBAN" autoComplete="off" required />
 <form onSubmit={submitRequest}>
 <div className="request-notice">
 <strong>
-Request Information
+Withdrawal Request
 </strong>
 <p>
-Submit your request below.
-Requests are reviewed before
-any action is taken.
+Submit a withdrawal request from your customer account.
+Requests are reviewed by the bank before any action is taken.
 </p>
 </div>
-{activePage !== "withdraw" && (
-<>
 <label className="form-label">
-Recipient Name
-<input
+Withdrawal Method
+<select
 className="portal-input"
-type="text"
-value={
-requestForm.recipientName
-}
-onChange={(event) =>
-updateRequestField(
-"recipientName",
-event.target.value
-)
-}
-placeholder="Enter recipient name"
-/>
+value="cash"
+disabled
+>
+<option value="cash">Cash Withdrawal</option>
+</select>
 </label>
-<label className="form-label">
-Recipient Account Number
-<input
-className="portal-input"
-type="text"
-value={
-requestForm.recipientAccountNumber
-}
-onChange={(event) =>
-updateRequestField(
-"recipientAccountNumber",
-event.target.value
-)
-}
-placeholder="Enter account number"
-/>
-</label>
-<label className="form-label">
-Bank Name
-<input
-className="portal-input"
-type="text"
-value={
-requestForm.bankName
-}
-onChange={(event) =>
-updateRequestField(
-"bankName",
-event.target.value
-)
-}
-placeholder="Enter bank name"
-/>
-</label>
-</>
-)}
 <label className="form-label">
 Amount
 <input
@@ -1739,9 +1759,8 @@ className="portal-input"
 type="number"
 min="0.01"
 step="0.01"
-value={
-requestForm.amount
-}
+max={Number(account.balance || 0)}
+value={requestForm.amount}
 onChange={(event) =>
 updateRequestField(
 "amount",
@@ -1751,29 +1770,35 @@ event.target.value
 placeholder="0.00"
 required
 />
+<small className="transfer-balance-hint">
+Available balance: ${formatMoney(account.balance)}
+</small>
 </label>
 <label className="form-label">
-Description
+Notes
 <textarea
 className="portal-textarea"
 rows="4"
-value={
-requestForm.description
-}
+value={requestForm.description}
 onChange={(event) =>
 updateRequestField(
 "description",
 event.target.value
 )
 }
-placeholder="Add a description or additional information"
+placeholder="Add any information about this withdrawal"
 />
 </label>
 {requestStatus && (
-<div className="request-notice success-notice">
-<p>
-{requestStatus}
-</p>
+<div
+className={`request-notice ${
+requestStatus.toLowerCase().includes("successfully") ||
+requestStatus.toLowerCase().includes("pending bank review")
+? "success-notice"
+: "error-notice"
+}`}
+>
+<p>{requestStatus}</p>
 </div>
 )}
 <button
@@ -1783,9 +1808,54 @@ disabled={requestLoading}
 >
 {requestLoading
 ? "Submitting..."
-: "Submit Request"}
+: "Submit Withdrawal Request"}
 </button>
 </form>
+<section className="portal-section" style={{ marginTop: "24px" }}>
+<div className="section-heading">
+<div>
+<span className="section-label">
+WITHDRAWAL ACTIVITY
+</span>
+<h2>Recent Withdrawal Requests</h2>
+</div>
+</div>
+{withdrawalLoading ? (
+<div className="empty-state">Loading withdrawal requests...</div>
+) : withdrawalRequests.length === 0 ? (
+<div className="empty-state">
+<div className="empty-icon">↓</div>
+<strong>No Withdrawal Requests</strong>
+<p>Your submitted withdrawal requests will appear here.</p>
+</div>
+) : (
+<div className="transaction-list-professional">
+{withdrawalRequests.map((withdrawal) => (
+<div
+className="transaction-row"
+key={withdrawal.id}
+>
+<div>
+<strong>
+Cash Withdrawal Request
+</strong>
+<small>
+{formatDate(withdrawal.created_at)}
+</small>
+</div>
+<div style={{ textAlign: "right" }}>
+<strong>
+${formatMoney(withdrawal.amount)}
+</strong>
+<small style={{ display: "block", textTransform: "capitalize" }}>
+{withdrawal.status || "pending"}
+</small>
+</div>
+</div>
+))}
+</div>
+)}
+</section>
 )}
 </PortalPage>
 )}
@@ -1918,6 +1988,7 @@ Chat with customer support
 </button>
 <button className="support-option">
 <span>
+
 </span>
 <strong>
 Support Ticket
@@ -2794,6 +2865,539 @@ text-align: left;
 align-items: stretch;
 flex-direction: column;
 }
+}
+/* =========================================================
+MIDATLANTIC FEDERAL BANK — MODERN CUSTOMER PORTAL THEME
+Visual refresh only: existing dashboard functionality remains intact.
+========================================================= */
+:global(body) {
+background: #f3f6fb;
+}
+:global(*) {
+box-sizing: border-box;
+}
+.portal-shell {
+min-height: 100vh;
+background:
+radial-gradient(circle at 80% 0%, rgba(34, 91, 160, 0.08), transparent 30%),
+linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
+color: #14213d;
+}
+.portal-header {
+position: sticky;
+top: 0;
+z-index: 80;
+min-height: 76px;
+padding: 0 34px;
+background: rgba(255, 255, 255, 0.94);
+border-bottom: 1px solid #e4eaf2;
+box-shadow: 0 8px 28px rgba(20, 33, 61, 0.055);
+backdrop-filter: blur(16px);
+}
+.portal-header,
+.portal-header-right {
+display: flex;
+align-items: center;
+}
+.portal-header {
+justify-content: space-between;
+gap: 24px;
+}
+.portal-brand {
+display: flex;
+align-items: center;
+gap: 13px;
+color: #123b72;
+}
+.portal-logo,
+.portal-brand > .portal-logo {
+width: 44px;
+height: 44px;
+display: grid;
+place-items: center;
+flex: 0 0 44px;
+border-radius: 13px;
+background: linear-gradient(145deg, #123b72, #1d5a9e);
+color: #fff;
+font-size: 20px;
+font-weight: 900;
+box-shadow: 0 10px 22px rgba(18, 59, 114, 0.22);
+}
+.portal-brand-text {
+display: flex;
+flex-direction: column;
+gap: 2px;
+}
+.portal-brand-text strong {
+font-size: 15px;
+letter-spacing: 0.045em;
+line-height: 1.15;
+}
+.portal-brand-text span {
+color: #7b879a;
+font-size: 9px;
+font-weight: 800;
+letter-spacing: 0.18em;
+}
+.portal-online {
+display: inline-flex;
+align-items: center;
+gap: 8px;
+margin-right: 8px;
+padding: 8px 11px;
+border: 1px solid #dcefe5;
+border-radius: 999px;
+background: #f2fbf6;
+color: #18794e;
+font-size: 11px;
+font-weight: 800;
+}
+.online-dot,
+.chat-online-dot,
+.chat-header-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: #1aa56f;
+box-shadow: 0 0 0 4px rgba(26, 165, 111, 0.1);
+}
+.header-signout {
+border: 1px solid #dbe3ed;
+border-radius: 10px;
+padding: 9px 13px;
+background: #fff;
+color: #31445f;
+font-size: 12px;
+font-weight: 800;
+cursor: pointer;
+transition: 0.2s ease;
+}
+.header-signout:hover {
+border-color: #b8c8db;
+background: #f7faff;
+transform: translateY(-1px);
+}
+.page-body {
+width: min(100% - 48px, 1240px);
+margin: 0 auto;
+padding: 38px 0 70px;
+}
+.welcome-section {
+position: relative;
+overflow: hidden;
+margin-bottom: 26px;
+padding: 32px;
+border-radius: 24px;
+background: linear-gradient(135deg, #10396e 0%, #165b9d 58%, #2478bd 100%);
+color: #fff;
+box-shadow: 0 22px 55px rgba(16, 57, 110, 0.18);
+}
+.welcome-section::after {
+content: "";
+position: absolute;
+width: 280px;
+height: 280px;
+right: -90px;
+top: -130px;
+border: 1px solid rgba(255,255,255,.16);
+border-radius: 50%;
+box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 75px rgba(255,255,255,.025);
+}
+.welcome-section h1,
+.welcome-section h2 {
+position: relative;
+z-index: 1;
+margin: 0;
+color: #fff;
+font-size: clamp(25px, 3vw, 36px);
+letter-spacing: -0.035em;
+}
+.welcome-section p {
+position: relative;
+z-index: 1;
+max-width: 680px;
+margin: 9px 0 0;
+color: rgba(255,255,255,.78);
+line-height: 1.65;
+}
+.section-label,
+.page-heading .section-label {
+color: #5d6d84;
+font-size: 10px;
+font-weight: 900;
+letter-spacing: .16em;
+text-transform: uppercase;
+}
+.page-heading {
+margin-bottom: 22px;
+}
+.page-heading h1 {
+margin: 5px 0 0;
+color: #12233f;
+font-size: clamp(25px, 3vw, 34px);
+letter-spacing: -.035em;
+}
+.page-heading p {
+margin: 8px 0 0;
+color: #69778b;
+line-height: 1.6;
+}
+.portal-section,
+.portal-page-section,
+.support-grid-professional,
+.card-service-panel,
+.card-order-panel,
+.portal-page {
+border: 1px solid #e1e8f1;
+border-radius: 20px;
+background: rgba(255,255,255,.96);
+box-shadow: 0 12px 36px rgba(30, 52, 80, .06);
+}
+.portal-section,
+.portal-page-section {
+padding: 24px;
+}
+.section-heading {
+margin-bottom: 17px;
+color: #1b2f4c;
+font-size: 16px;
+font-weight: 850;
+letter-spacing: -.01em;
+}
+.balance-card-professional {
+position: relative;
+overflow: hidden;
+padding: 28px;
+border-radius: 22px;
+background: linear-gradient(135deg, #0d376d 0%, #174f8b 60%, #216fa9 100%);
+color: #fff;
+box-shadow: 0 18px 45px rgba(13,55,109,.2);
+}
+.balance-card-professional::before {
+content: "";
+position: absolute;
+width: 240px;
+height: 240px;
+right: -100px;
+bottom: -130px;
+border: 1px solid rgba(255,255,255,.13);
+border-radius: 50%;
+box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 70px rgba(255,255,255,.025);
+}
+.balance-main {
+position: relative;
+z-index: 1;
+}
+.balance-main .label,
+.balance-main span,
+.balance-status {
+color: rgba(255,255,255,.74);
+}
+.balance-main strong {
+display: block;
+margin-top: 7px;
+color: #fff;
+font-size: clamp(31px, 4vw, 46px);
+letter-spacing: -.045em;
+line-height: 1;
+}
+.balance-status {
+margin-top: 14px;
+font-size: 12px;
+font-weight: 700;
+}
+.quick-action-grid {
+display: grid;
+grid-template-columns: repeat(4, minmax(0,1fr));
+gap: 13px;
+}
+.quick-action {
+min-height: 112px;
+padding: 18px;
+border: 1px solid #e0e7ef;
+border-radius: 16px;
+background: #fff;
+color: #1b2f4c;
+text-align: left;
+cursor: pointer;
+transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.quick-action:hover {
+transform: translateY(-3px);
+border-color: #bdd0e6;
+box-shadow: 0 13px 28px rgba(31, 57, 89, .09);
+}
+.action-icon {
+width: 38px;
+height: 38px;
+display: grid;
+place-items: center;
+margin-bottom: 13px;
+border-radius: 11px;
+background: #edf5fd;
+color: #18558e;
+font-weight: 900;
+}
+.quick-action strong {
+display: block;
+font-size: 13px;
+}
+.quick-action span:not(.action-icon) {
+display: block;
+margin-top: 5px;
+color: #77859a;
+font-size: 11px;
+line-height: 1.4;
+}
+.two-column {
+display: grid;
+grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+gap: 22px;
+}
+.transaction-list-professional {
+overflow: hidden;
+border: 1px solid #e4eaf2;
+border-radius: 15px;
+}
+.transaction-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 18px;
+padding: 16px 17px;
+background: #fff;
+border-bottom: 1px solid #edf1f5;
+}
+.transaction-row:last-child { border-bottom: 0; }
+.transaction-row:hover { background: #fbfcfe; }
+.transaction-row strong { color: #203550; font-size: 13px; }
+.transaction-row small,
+.detail-subtext { color: #8490a1; font-size: 11px; }
+.active-text { color: #168052 !important; font-weight: 800; }
+.status-badge {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+min-height: 27px;
+padding: 5px 9px;
+border-radius: 999px;
+background: #edf8f2;
+color: #18784e;
+font-size: 10px;
+font-weight: 900;
+text-transform: uppercase;
+letter-spacing: .04em;
+}
+.pending-card,
+.request-notice,
+.security-box,
+.success-notice,
+.error-notice {
+border-radius: 14px;
+}
+.security-box {
+padding: 17px;
+border: 1px solid #dbe8f5;
+background: #f5f9fe;
+color: #4b5e76;
+}
+.security-box strong { color: #173f72; }
+.portal-input,
+.portal-textarea,
+select.portal-input {
+width: 100%;
+min-height: 47px;
+margin-top: 7px;
+padding: 12px 14px;
+border: 1px solid #d7e0ea;
+border-radius: 11px;
+background: #fff;
+color: #172b46;
+font: inherit;
+outline: none;
+transition: .2s ease;
+}
+.portal-textarea { min-height: 105px; resize: vertical; }
+.portal-input:focus,
+.portal-textarea:focus {
+border-color: #2a6ca7;
+box-shadow: 0 0 0 4px rgba(42,108,167,.1);
+}
+.form-label {
+display: block;
+margin-bottom: 15px;
+color: #344861;
+font-size: 12px;
+font-weight: 800;
+}
+.portal-button,
+.secondary-portal-button,
+.secondary-action {
+min-height: 46px;
+border-radius: 11px;
+padding: 11px 17px;
+font-size: 12px;
+font-weight: 850;
+cursor: pointer;
+transition: .2s ease;
+}
+.portal-button {
+border: 1px solid #123e75;
+background: linear-gradient(135deg,#123b72,#1d619e);
+color: #fff;
+box-shadow: 0 8px 20px rgba(18,59,114,.16);
+}
+.portal-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 25px rgba(18,59,114,.21); }
+.portal-button:disabled { opacity: .55; cursor: not-allowed; }
+.secondary-portal-button,
+.secondary-action {
+border: 1px solid #d8e1eb;
+background: #fff;
+color: #30465f;
+}
+.secondary-portal-button:hover,
+.secondary-action:hover { background: #f7faff; border-color: #bfcfe0; }
+.account-number-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 15px;
+padding: 15px 0;
+border-bottom: 1px solid #edf1f5;
+}
+.account-number-value { color: #193657; font-weight: 850; letter-spacing: .05em; }
+.account-number-eye { border: 0; background: transparent; color: #2c6495; cursor: pointer; font-weight: 800; }
+.profile-header {
+display: flex;
+align-items: center;
+gap: 16px;
+padding-bottom: 22px;
+margin-bottom: 20px;
+border-bottom: 1px solid #e8edf3;
+}
+.profile-avatar,
+.profile-avatar-image {
+width: 76px !important;
+height: 76px !important;
+border: 4px solid #fff;
+box-shadow: 0 7px 22px rgba(31,56,85,.13);
+background: linear-gradient(135deg,#dcecff,#b9d6f1);
+color: #174e87;
+font-size: 25px;
+font-weight: 900;
+}
+.profile-header h2 { margin: 0; color: #172c48; letter-spacing: -.025em; }
+.profile-header p { margin: 4px 0 0; color: #7c8899; font-size: 12px; }
+.profile-section-title {
+margin: 25px 0 7px;
+color: #173f72;
+font-size: 11px;
+font-weight: 900;
+letter-spacing: .12em;
+text-transform: uppercase;
+}
+.detail-row,
+.settings-row {
+padding: 13px 0;
+border-bottom: 1px solid #edf1f5;
+}
+.card-service-header {
+display: flex;
+align-items: flex-start;
+justify-content: space-between;
+gap: 20px;
+margin-bottom: 20px;
+}
+.customer-bank-card {
+position: relative;
+overflow: hidden;
+min-height: 215px;
+padding: 25px;
+border-radius: 22px;
+background: linear-gradient(135deg,#172f53 0%,#123e75 48%,#1f669c 100%);
+color: #fff;
+box-shadow: 0 20px 40px rgba(18,62,117,.22);
+}
+.customer-bank-card::after {
+content: "";
+position: absolute;
+width: 250px;
+height: 250px;
+right: -100px;
+top: -120px;
+border: 1px solid rgba(255,255,255,.15);
+border-radius: 50%;
+}
+.bank-card-topline,
+.bank-card-bottom { position: relative; z-index: 1; display:flex; justify-content:space-between; gap:16px; }
+.bank-card-chip { width: 42px; height: 31px; border-radius: 7px; background: linear-gradient(135deg,#c9d1da,#f0f3f6); margin: 28px 0 20px; }
+.bank-card-number { font-size: 20px; letter-spacing: .16em; font-weight: 700; }
+.bank-card-bottom { margin-top: 24px; align-items: flex-end; font-size: 10px; text-transform: uppercase; letter-spacing:.08em; }
+.card-empty-panel,
+.card-order-panel {
+padding: 22px;
+}
+.card-orders-list { display: grid; gap: 10px; margin-top: 18px; }
+.chat-button-text { font-weight: 800; }
+.live-chat-button {
+position: fixed !important;
+right: 25px !important;
+bottom: 24px !important;
+z-index: 90 !important;
+display: inline-flex !important;
+align-items: center !important;
+gap: 9px !important;
+min-height: 52px !important;
+padding: 0 18px !important;
+border: 0 !important;
+border-radius: 999px !important;
+background: #123e75 !important;
+color: #fff !important;
+box-shadow: 0 14px 32px rgba(18,62,117,.27) !important;
+}
+.live-chat-window {
+border: 1px solid #dce4ed !important;
+border-radius: 20px !important;
+box-shadow: 0 25px 65px rgba(17,39,66,.2) !important;
+overflow: hidden;
+}
+.chat-header { background: linear-gradient(135deg,#123b72,#1b619c) !important; color:#fff !important; }
+.chat-body { background: #f7f9fc !important; }
+.chat-input-area { background:#fff !important; border-top:1px solid #e5eaf0 !important; }
+.transfer-modal,
+.transfer-receipt {
+border: 1px solid #e0e6ee;
+box-shadow: 0 35px 100px rgba(8,28,52,.34);
+}
+.transfer-modal-brand .transfer-receipt-logo,
+.receipt-top .transfer-receipt-logo { background: linear-gradient(135deg,#123b72,#1e649f); }
+.empty-state {
+padding: 32px 20px;
+border: 1px dashed #d8e1eb;
+border-radius: 15px;
+background: #fafcff;
+text-align: center;
+}
+.empty-icon { font-size: 26px; margin-bottom: 7px; }
+@media (max-width: 980px) {
+.page-body { width: min(100% - 32px, 900px); }
+.quick-action-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.two-column { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+.portal-header { min-height: 68px; padding: 0 15px; }
+.portal-brand-text span { display:none; }
+.portal-online { display:none; }
+.header-signout { padding:8px 10px; }
+.page-body { width: min(100% - 22px, 680px); padding-top: 22px; }
+.welcome-section { padding: 23px 20px; border-radius: 18px; }
+.portal-section, .portal-page-section, .portal-page, .support-grid-professional, .card-service-panel, .card-order-panel { padding: 17px; border-radius: 16px; }
+.quick-action-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+.quick-action { min-height: 102px; padding: 14px; }
+.transaction-row { align-items:flex-start; padding:14px 13px; }
+.transaction-row > :last-child { text-align:right; }
+.transfer-form-grid { grid-template-columns:1fr; }
+.live-chat-button { right:14px !important; bottom:14px !important; min-height:48px !important; padding:0 15px !important; }
 }
 @media (max-width: 700px) { .transfer-form-grid { grid-template-columns: 1fr; } }
 `}
