@@ -16,6 +16,11 @@ export default function Dashboard() {
   const [avatarStatus, setAvatarStatus] = useState("");
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [customerCard, setCustomerCard] = useState(null);
+  const [cardOrders, setCardOrders] = useState([]);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardOrderLoading, setCardOrderLoading] = useState(false);
+  const [cardStatus, setCardStatus] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,6 +63,7 @@ export default function Dashboard() {
   const [transferOtpOpen, setTransferOtpOpen] = useState(false);
   const [transferOtp, setTransferOtp] = useState("");
   const [transferId, setTransferId] = useState("");
+  const [transferPageType, setTransferPageType] = useState("transfer");
   const [transferOtpStatus, setTransferOtpStatus] = useState("");
   const [transferOtpLoading, setTransferOtpLoading] = useState(false);
   const [transferResendLoading, setTransferResendLoading] = useState(false);
@@ -203,7 +209,72 @@ export default function Dashboard() {
       }
     }
 
+    await loadCardData(user.id, accountData?.id);
+
     setLoading(false);
+  }
+
+  async function loadCardData(userId = user?.id, accountId = account?.id) {
+    if (!userId) return;
+
+    setCardLoading(true);
+
+    try {
+      const { data: cardData, error: cardError } = await supabase
+        .from("customer_cards")
+        .select("id, card_type, card_network, cardholder_name, last4, expiry_month, expiry_year, status, created_at, activated_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!cardError) {
+        setCustomerCard(cardData || null);
+      }
+
+      const { data: orders, error: ordersError } = await supabase
+        .from("customer_card_orders")
+        .select("id, card_type, reason, status, created_at, updated_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (!ordersError) {
+        setCardOrders(orders || []);
+      }
+    } catch (cardError) {
+      console.warn("Card information could not be loaded:", cardError);
+    } finally {
+      setCardLoading(false);
+    }
+  }
+
+  async function orderNewCard() {
+    if (cardOrderLoading || !user || !account) return;
+
+    setCardOrderLoading(true);
+    setCardStatus("");
+
+    try {
+      const { error } = await supabase
+        .from("customer_card_orders")
+        .insert({
+          user_id: user.id,
+          account_id: account.id,
+          card_type: "ATM / Debit Card",
+          reason: customerCard ? "Replacement card requested by customer" : "New card requested by customer",
+          status: "pending",
+        });
+
+      if (error) throw error;
+
+      setCardStatus("Your card request has been submitted. The bank will review it and update the status here.");
+      await loadCardData(user.id, account.id);
+    } catch (cardError) {
+      setCardStatus(cardError?.message || "Your card request could not be submitted. Please try again.");
+    } finally {
+      setCardOrderLoading(false);
+    }
   }
 
   /*
@@ -574,8 +645,8 @@ export default function Dashboard() {
       return;
     }
 
-    if (activePage === "transfer") {
-      await startCustomerTransfer();
+    if (["transfer", "wire", "local"].includes(activePage)) {
+      await startCustomerTransfer(activePage);
       return;
     }
 
@@ -704,7 +775,7 @@ export default function Dashboard() {
     return data;
   }
 
-  async function startCustomerTransfer() {
+  async function startCustomerTransfer(pageType = "transfer") {
     if (requestLoading || transferOtpLoading || !user) return;
 
     setRequestStatus("");
@@ -755,7 +826,12 @@ export default function Dashboard() {
         bankName: requestForm.bankName.trim(),
         bankCountry,
         transferCurrency,
-        transferMethod: requestForm.transferMethod,
+        transferMethod:
+          pageType === "wire"
+            ? "SWIFT"
+            : pageType === "local"
+            ? "LOCAL"
+            : requestForm.transferMethod,
         beneficiaryType: requestForm.beneficiaryType,
         accountName,
         routingType: requestForm.routingType.trim(),
@@ -770,6 +846,7 @@ export default function Dashboard() {
       });
 
       setTransferId(data.transferId);
+      setTransferPageType(pageType);
       setTransferOtp("");
       setTransferOtpStatus(
         `A 6-digit verification code has been sent to ${data.emailMasked || "your registered email address"}.`
@@ -815,6 +892,7 @@ export default function Dashboard() {
       setTransferOtpOpen(false);
       setTransferOtp("");
       setTransferId("");
+      setTransferPageType("transfer");
       resetRequestForm();
       setRequestStatus("");
       setTransferReceipt(data.receipt);
@@ -853,7 +931,12 @@ export default function Dashboard() {
         bankName: requestForm.bankName.trim(),
         bankCountry: requestForm.bankCountry.trim().toUpperCase(),
         transferCurrency: requestForm.transferCurrency.trim().toUpperCase(),
-        transferMethod: requestForm.transferMethod,
+        transferMethod:
+          transferPageType === "wire"
+            ? "SWIFT"
+            : transferPageType === "local"
+            ? "LOCAL"
+            : requestForm.transferMethod,
         beneficiaryType: requestForm.beneficiaryType,
         accountName: requestForm.accountName.trim() || requestForm.recipientName.trim(),
         routingType: requestForm.routingType.trim(),
@@ -888,6 +971,7 @@ export default function Dashboard() {
     setTransferOtpOpen(false);
     setTransferOtp("");
     setTransferId("");
+    setTransferPageType("transfer");
     setTransferOtpStatus("");
   }
 
@@ -1233,6 +1317,25 @@ export default function Dashboard() {
                   </small>
                 </button>
 
+                <button
+                  onClick={() =>
+                    openPage("card")
+                  }
+                  className="quick-action"
+                >
+                  <span className="action-icon">
+                    ▣
+                  </span>
+
+                  <strong>
+                    ATM / Debit Card
+                  </strong>
+
+                  <small>
+                    View your card or order a new one
+                  </small>
+                </button>
+
               </div>
 
             </section>
@@ -1454,82 +1557,134 @@ export default function Dashboard() {
 
             </section>
 
-            {/* NEWS & MARKET INSIGHTS */}
+            {/* NEWS LINK */}
 
-            <section className="portal-section news-section">
+            <section className="portal-section dashboard-news-link">
+              <div>
+                <span className="section-label">
+                  MARKET &amp; BANKING
+                </span>
+                <h2>News &amp; Banking Insights</h2>
+                <p className="news-subtitle">
+                  Read the latest banking and market information on the bank's public News page.
+                </p>
+              </div>
 
-              <div className="section-heading news-heading">
+              <button
+                className="portal-button secondary-portal-button"
+                type="button"
+                onClick={() => {
+                  window.location.href = "/news";
+                }}
+              >
+                View Bank News →
+              </button>
+            </section>
+
+          </>
+        )}
+
+        {/* =================================================
+            ATM / DEBIT CARD
+        ================================================= */}
+
+        {activePage === "card" && (
+          <PortalPage
+            title="ATM / Debit Card"
+            label="CARD SERVICES"
+          >
+            <section className="card-service-panel">
+              <div className="card-service-header">
                 <div>
                   <span className="section-label">
-                    MARKET & BANKING
+                    YOUR CARD
                   </span>
-                  <h2>News & Investment Insights</h2>
-                  <p className="news-subtitle">
-                    Banking, global markets and foreign investment highlights.
+                  <h2>ATM / Debit Card</h2>
+                  <p>
+                    View your issued card details securely or request a replacement/new card.
                   </p>
                 </div>
               </div>
 
-              <div className="news-grid">
-
-                <article className="news-card news-card-featured">
-                  <div className="news-image news-image-banking">
-                    <span className="news-image-tag">BANKING</span>
+              {cardLoading ? (
+                <div className="empty-state">Loading card information...</div>
+              ) : customerCard ? (
+                <div className="customer-bank-card">
+                  <div className="bank-card-topline">
+                    <span>MIDATLANTIC FEDERAL BANK</span>
+                    <span>{customerCard.card_network || "DEBIT"}</span>
+                  </div>
+                  <div className="bank-card-chip">▦</div>
+                  <div className="bank-card-number">
+                    •••• •••• •••• {customerCard.last4 || "----"}
+                  </div>
+                  <div className="bank-card-bottom">
                     <div>
-                      <strong>Modern Banking &amp; Digital Finance</strong>
-                      <small>Financial services continue to evolve around secure digital banking.</small>
+                      <small>CARDHOLDER</small>
+                      <strong>{customerCard.cardholder_name || profile?.full_name || "Customer"}</strong>
+                    </div>
+                    <div>
+                      <small>EXPIRES</small>
+                      <strong>{customerCard.expiry_month && customerCard.expiry_year ? `${String(customerCard.expiry_month).padStart(2, "0")}/${String(customerCard.expiry_year).slice(-2)}` : "--/--"}</strong>
+                    </div>
+                    <div>
+                      <small>STATUS</small>
+                      <strong>{customerCard.status || "Active"}</strong>
                     </div>
                   </div>
-                  <div className="news-content">
-                    <span>FINANCIAL SERVICES</span>
-                    <h3>Digital banking continues to reshape how customers manage money</h3>
-                    <p>Follow developments in payments, banking technology and the future of financial services.</p>
-                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
-                  </div>
-                </article>
+                </div>
+              ) : (
+                <div className="card-empty-panel">
+                  <div className="empty-icon">▣</div>
+                  <strong>No ATM / Debit Card Issued</strong>
+                  <p>
+                    You do not currently have a card recorded on your customer account. You can submit a card request below.
+                  </p>
+                </div>
+              )}
 
-                <article className="news-card">
-                  <div className="news-image news-image-investment">
-                    <span className="news-image-tag">FOREIGN INVESTMENT</span>
-                    <div>
-                      <strong>Global Capital &amp; Investment</strong>
-                      <small>International investors continue to watch emerging markets and infrastructure.</small>
-                    </div>
-                  </div>
-                  <div className="news-content">
-                    <span>GLOBAL MARKETS</span>
-                    <h3>Foreign investment remains a key focus for emerging economies</h3>
-                    <p>Explore the themes shaping cross-border investment, infrastructure and business growth.</p>
-                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
-                  </div>
-                </article>
-
-                <article className="news-card">
-                  <div className="news-image news-image-markets">
-                    <span className="news-image-tag">MARKETS</span>
-                    <div>
-                      <strong>Global Markets &amp; Economic Outlook</strong>
-                      <small>Interest rates, currencies and economic activity remain central market themes.</small>
-                    </div>
-                  </div>
-                  <div className="news-content">
-                    <span>ECONOMIC OUTLOOK</span>
-                    <h3>Markets continue to track rates, currencies and economic growth</h3>
-                    <p>Keep up with major financial themes that can influence businesses and international capital.</p>
-                    <button className="news-link" type="button" onClick={() => openPage("support")}>Read More →</button>
-                  </div>
-                </article>
-
+              <div className="card-order-panel">
+                <div>
+                  <span className="section-label">
+                    CARD REQUEST
+                  </span>
+                  <h3>{customerCard ? "Need a replacement card?" : "Order an ATM / Debit Card"}</h3>
+                  <p>
+                    Submit your request to the bank. Card issuance and delivery are subject to bank approval and processing.
+                  </p>
+                </div>
+                <button
+                  className="portal-button"
+                  type="button"
+                  onClick={orderNewCard}
+                  disabled={cardOrderLoading}
+                >
+                  {cardOrderLoading ? "Submitting..." : customerCard ? "Order Replacement Card" : "Order New Card"}
+                </button>
               </div>
 
-              <div className="news-disclaimer">
-                <span>MARKET INFORMATION</span>
-                <p>News and market content is provided for general information and is not investment advice.</p>
-              </div>
+              {cardStatus && (
+                <div className="request-notice success-notice">
+                  <p>{cardStatus}</p>
+                </div>
+              )}
 
+              {cardOrders.length > 0 && (
+                <div className="card-orders-list">
+                  <div className="profile-section-title">Recent Card Requests</div>
+                  {cardOrders.map((order) => (
+                    <div className="detail-row" key={order.id}>
+                      <span>
+                        {order.card_type || "ATM / Debit Card"}
+                        <small className="detail-subtext">{formatDate(order.created_at)}</small>
+                      </span>
+                      <strong className="card-order-status">{order.status || "Pending"}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
-
-          </>
+          </PortalPage>
         )}
 
         {/* =================================================
@@ -1789,11 +1944,11 @@ export default function Dashboard() {
             label="TRANSFERS & PAYMENTS"
           >
 
-            {activePage === "transfer" ? (
+            {activePage !== "withdraw" ? (
               <form onSubmit={submitRequest}>
 
                 <div className="request-notice transfer-security-notice">
-                  <strong>International &amp; Local Bank Transfer</strong>
+                  <strong>{activePage === "wire" ? "International Wire Transfer" : activePage === "local" ? "Local Bank Transfer" : "International &amp; Local Bank Transfer"}</strong>
                   <p>Enter the recipient's bank details. The transfer is verified by email OTP before it is sent through Airwallex.</p>
                 </div>
 
@@ -1812,7 +1967,18 @@ export default function Dashboard() {
 
                 <div className="transfer-form-grid">
                   <label className="form-label">Transfer Method
-                    <select className="portal-input" value={requestForm.transferMethod} onChange={(e) => updateRequestField("transferMethod", e.target.value)}>
+                    <select
+                      className="portal-input"
+                      value={
+                        activePage === "wire"
+                          ? "SWIFT"
+                          : activePage === "local"
+                          ? "LOCAL"
+                          : requestForm.transferMethod
+                      }
+                      onChange={(e) => updateRequestField("transferMethod", e.target.value)}
+                      disabled={activePage === "wire" || activePage === "local"}
+                    >
                       <option value="LOCAL">Local</option>
                       <option value="SWIFT">SWIFT / International</option>
                     </select>
