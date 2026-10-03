@@ -1811,7 +1811,8 @@ disabled={requestLoading}
 : "Submit Withdrawal Request"}
 </button>
 </form>
-  
+)}
+
 <section className="portal-section" style={{ marginTop: "24px" }}>
 <div className="section-heading">
 <div>
