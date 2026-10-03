@@ -46,6 +46,8 @@ export default function AdminDashboard() {
   const [messages, setMessages] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [cardOrders, setCardOrders] = useState([]);
+  const [cardAction, setCardAction] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
@@ -84,6 +86,7 @@ export default function AdminDashboard() {
         loadMessages(),
         loadTransactions(),
         loadWithdrawals(),
+        loadCardOrders(),
       ]);
     } catch (error) {
       console.error("Admin dashboard error:", error);
@@ -166,6 +169,168 @@ export default function AdminDashboard() {
       .order("transaction_date", { ascending: false });
     if (error) return setNotice(error.message);
     setTransactions(data || []);
+  }
+
+  async function loadCardOrders() {
+    const { data, error } = await supabase
+      .from("customer_card_orders")
+      .select("id, user_id, account_id, card_type, reason, status, created_at, updated_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("CARD ORDER LIST ERROR:", error);
+      setNotice(`Card requests could not be loaded: ${error.message}`);
+      setCardOrders([]);
+      return;
+    }
+
+    const rows = data || [];
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+    const accountIds = [...new Set(rows.map((r) => r.account_id).filter(Boolean))];
+
+    let profileMap = {};
+    let accountMap = {};
+
+    if (userIds.length) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      if (!profileError) {
+        (profiles || []).forEach((p) => {
+          profileMap[p.id] = p;
+        });
+      }
+    }
+
+    if (accountIds.length) {
+      const { data: accountRows, error: accountError } = await supabase
+        .from("customer_accounts")
+        .select("id, account_number, account_type")
+        .in("id", accountIds);
+
+      if (!accountError) {
+        (accountRows || []).forEach((a) => {
+          accountMap[a.id] = a;
+        });
+      }
+    }
+
+    setCardOrders(rows.map((r) => ({
+      ...r,
+      customerName: profileMap[r.user_id]?.full_name || "Customer",
+      customerEmail: profileMap[r.user_id]?.email || "",
+      accountNumber: accountMap[r.account_id]?.account_number || "Not available",
+      accountType: accountMap[r.account_id]?.account_type || "Checking",
+    })));
+  }
+
+  function generateCardLast4() {
+    return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  }
+
+  function generateCardExpiry() {
+    const now = new Date();
+    const expiry = new Date(now.getFullYear() + 4, now.getMonth(), 1);
+    return {
+      month: expiry.getMonth() + 1,
+      year: expiry.getFullYear(),
+    };
+  }
+
+  async function approveCardOrder(request) {
+    if (cardAction) return;
+    if (!window.confirm(`Approve the ATM / Debit Card request for ${request.customerName}?`)) return;
+
+    setCardAction({ id: request.id, type: "approve" });
+    setNotice("Approving card request...");
+
+    try {
+      const { data: existingCard, error: existingError } = await supabase
+        .from("customer_cards")
+        .select("id")
+        .eq("user_id", request.user_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError) throw new Error(existingError.message);
+
+      if (existingCard?.id) {
+        const { error: statusError } = await supabase
+          .from("customer_card_orders")
+          .update({ status: "approved", updated_at: new Date().toISOString() })
+          .eq("id", request.id);
+
+        if (statusError) throw new Error(statusError.message);
+        setNotice("Card request approved. The existing customer card remains on the account.");
+      } else {
+        const { month, year } = generateCardExpiry();
+        const profileName = request.customerName || "Customer";
+
+        const { error: cardError } = await supabase
+          .from("customer_cards")
+          .insert({
+            user_id: request.user_id,
+            account_id: request.account_id,
+            card_type: request.card_type || "ATM / Debit Card",
+            card_network: "VISA",
+            cardholder_name: profileName,
+            last4: generateCardLast4(),
+            expiry_month: month,
+            expiry_year: year,
+            status: "active",
+          });
+
+        if (cardError) throw new Error(cardError.message);
+
+        const { error: orderError } = await supabase
+          .from("customer_card_orders")
+          .update({ status: "approved", updated_at: new Date().toISOString() })
+          .eq("id", request.id);
+
+        if (orderError) throw new Error(orderError.message);
+
+        setNotice("Card request approved and card issued successfully.");
+      }
+
+      await loadCardOrders();
+    } catch (error) {
+      console.error("APPROVE CARD ERROR:", error);
+      setNotice(error?.message || "Unable to approve card request.");
+    } finally {
+      setCardAction(null);
+    }
+  }
+
+  async function rejectCardOrder(request) {
+    if (cardAction) return;
+    const reason = window.prompt("Optional rejection reason:", "Card request rejected by bank review.");
+    if (reason === null) return;
+
+    setCardAction({ id: request.id, type: "reject" });
+    setNotice("Rejecting card request...");
+
+    try {
+      const { error } = await supabase
+        .from("customer_card_orders")
+        .update({
+          status: "rejected",
+          reason: reason.trim() || request.reason || "Card request rejected by bank review.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", request.id);
+
+      if (error) throw new Error(error.message);
+
+      setNotice("Card request rejected. No card was issued.");
+      await loadCardOrders();
+    } catch (error) {
+      console.error("REJECT CARD ERROR:", error);
+      setNotice(error?.message || "Unable to reject card request.");
+    } finally {
+      setCardAction(null);
+    }
   }
 
   async function loadWithdrawals() {
@@ -384,6 +549,7 @@ export default function AdminDashboard() {
   const frozenAccounts = useMemo(() => accounts.filter((a) => a.status === "frozen"), [accounts]);
   const customerMessages = useMemo(() => messages.filter((m) => m.sender === "customer"), [messages]);
   const pendingWithdrawals = useMemo(() => withdrawals.filter((w) => String(w.status).toLowerCase() === "pending"), [withdrawals]);
+  const pendingCardOrders = useMemo(() => cardOrders.filter((c) => String(c.status).toLowerCase() === "pending"), [cardOrders]);
 
   if (loading) {
     return <main><span className="real-badge">ADMIN</span><h1>Administrator Dashboard</h1><p>Loading administration panel...</p></main>;
@@ -406,6 +572,7 @@ export default function AdminDashboard() {
         <button className="primary-button" onClick={() => setActiveSection("overview")}>Overview</button>
         <button className="primary-button" onClick={() => setActiveSection("pending")}>Pending ({pending.length})</button>
         <button className="primary-button" onClick={() => setActiveSection("withdrawals")}>Withdrawals ({pendingWithdrawals.length})</button>
+        <button className="primary-button" onClick={() => setActiveSection("cards")}>Card Requests ({pendingCardOrders.length})</button>
         <button className="primary-button" onClick={() => setActiveSection("accounts")}>Accounts ({accounts.length})</button>
         <button className="primary-button" onClick={() => setActiveSection("support")}>Support ({customerMessages.length})</button>
       </nav>
@@ -417,6 +584,7 @@ export default function AdminDashboard() {
             <div className="dashboard-grid">
               <div className="notification"><h3>Pending Customers</h3><h2>{pending.length}</h2></div>
               <div className="notification"><h3>Pending Withdrawals</h3><h2>{pendingWithdrawals.length}</h2></div>
+              <div className="notification"><h3>Pending Card Requests</h3><h2>{pendingCardOrders.length}</h2></div>
               <div className="notification"><h3>Active Accounts</h3><h2>{activeAccounts.length}</h2></div>
               <div className="notification"><h3>Frozen Accounts</h3><h2>{frozenAccounts.length}</h2></div>
               <div className="notification"><h3>Customer Messages</h3><h2>{customerMessages.length}</h2></div>
@@ -478,6 +646,57 @@ export default function AdminDashboard() {
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: "190px" }}>
                         <button className="primary-button" disabled={!!withdrawalAction} onClick={() => approveWithdrawal(request)}>{busy && withdrawalAction.type === "approve" ? "Approving..." : "Approve & Debit"}</button>
                         <button className="primary-button" disabled={!!withdrawalAction} onClick={() => rejectWithdrawal(request)}>{busy && withdrawalAction.type === "reject" ? "Rejecting..." : "Reject"}</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeSection === "cards" && (
+        <section>
+          <h2>ATM / Debit Card Requests</h2>
+          <p>Review customer card requests. Approval issues a card record; rejection does not issue a card.</p>
+          {!cardOrders.length ? (
+            <div className="notification"><p>No card requests found.</p></div>
+          ) : (
+            <div className="transaction-list">
+              {cardOrders.map((request) => {
+                const pendingRequest = String(request.status).toLowerCase() === "pending";
+                const busy = cardAction?.id === request.id;
+
+                return (
+                  <div className="transaction" key={request.id}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong>{request.customerName}</strong>
+                      <p>Email: {request.customerEmail || "Not available"}</p>
+                      <p>Account: {request.accountNumber}</p>
+                      <p>Card type: {request.card_type || "ATM / Debit Card"}</p>
+                      <p>Reason: {request.reason || "Card requested by customer"}</p>
+                      <p>Status: <span className={statusClass(request.status)}>{request.status}</span></p>
+                      <p>Requested: {formatDate(request.created_at)}</p>
+                      {request.updated_at && <p>Updated: {formatDate(request.updated_at)}</p>}
+                    </div>
+
+                    {pendingRequest && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: "190px" }}>
+                        <button
+                          className="primary-button"
+                          disabled={!!cardAction}
+                          onClick={() => approveCardOrder(request)}
+                        >
+                          {busy && cardAction.type === "approve" ? "Approving..." : "Approve & Issue Card"}
+                        </button>
+                        <button
+                          className="primary-button"
+                          disabled={!!cardAction}
+                          onClick={() => rejectCardOrder(request)}
+                        >
+                          {busy && cardAction.type === "reject" ? "Rejecting..." : "Reject"}
+                        </button>
                       </div>
                     )}
                   </div>
