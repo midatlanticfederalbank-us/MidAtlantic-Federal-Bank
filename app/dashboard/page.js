@@ -8,55 +8,57 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const EMPTY_FORM = {
-  recipientName: "",
-  recipientAccountNumber: "",
-  bankName: "",
-  bankCountry: "US",
-  transferCurrency: "USD",
-  transferMethod: "LOCAL",
-  beneficiaryType: "PERSONAL",
-  accountName: "",
-  routingType: "aba",
-  routingValue: "",
-  swiftBic: "",
-  streetAddress: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  amount: "",
-  description: "",
-};
-
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarStatus, setAvatarStatus] = useState("");
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [customerCard, setCustomerCard] = useState(null);
   const [cardOrders, setCardOrders] = useState([]);
-  const [withdrawalRequests, setWithdrawalRequests] = useState([]);
-
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [avatarLoading, setAvatarLoading] = useState(false);
-  const [avatarStatus, setAvatarStatus] = useState("");
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardOrderLoading, setCardOrderLoading] = useState(false);
+  const [cardStatus, setCardStatus] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [activePage, setActivePage] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activePage, setActivePage] = useState("dashboard");
+
   const [showAccountNumber, setShowAccountNumber] = useState(false);
 
-  const [requestForm, setRequestForm] = useState(EMPTY_FORM);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  const [requestForm, setRequestForm] = useState({
+    recipientName: "",
+    recipientAccountNumber: "",
+    bankName: "",
+    bankCountry: "US",
+    transferCurrency: "USD",
+    transferMethod: "LOCAL",
+    beneficiaryType: "PERSONAL",
+    accountName: "",
+    routingType: "aba",
+    routingValue: "",
+    swiftBic: "",
+    streetAddress: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    amount: "",
+    description: "",
+  });
+
   const [requestStatus, setRequestStatus] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
-
+  const [withdrawalRequests, setWithdrawalRequests] = useState([]);
   const [withdrawalLoading, setWithdrawalLoading] = useState(false);
-
-  const [cardLoading, setCardLoading] = useState(false);
-  const [cardOrderLoading, setCardOrderLoading] = useState(false);
-  const [cardStatus, setCardStatus] = useState("");
 
   const [transferOtpOpen, setTransferOtpOpen] = useState(false);
   const [transferOtp, setTransferOtp] = useState("");
@@ -65,7 +67,6 @@ export default function Dashboard() {
   const [transferOtpStatus, setTransferOtpStatus] = useState("");
   const [transferOtpLoading, setTransferOtpLoading] = useState(false);
   const [transferResendLoading, setTransferResendLoading] = useState(false);
-
   const [transferReceiptOpen, setTransferReceiptOpen] = useState(false);
   const [transferReceipt, setTransferReceipt] = useState(null);
 
@@ -75,168 +76,126 @@ export default function Dashboard() {
   const [passwordStatus, setPasswordStatus] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const formatMoney = (value) => {
+    const number = Number(value || 0);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(number);
+  };
 
-  async function loadDashboard() {
-    setLoading(true);
-    setError("");
+  const formatDate = (value) => {
+    if (!value) return "—";
 
-    try {
-      const {
-        data: { user: currentUser },
-        error: userError,
-      } = await supabase.auth.getUser();
+    const date = new Date(value);
 
-      if (userError || !currentUser) {
-        window.location.href = "/login";
-        return;
-      }
-
-      setUser(currentUser);
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select(`
-          id,
-          full_name,
-          date_of_birth,
-          phone_number,
-          address,
-          city,
-          state,
-          postal_code,
-          country,
-          role,
-          approval_status,
-          avatar_path
-        `)
-        .eq("id", currentUser.id)
-        .single();
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      setProfile(profileData);
-
-      if (profileData.avatar_path) {
-        const { data } = await supabase.storage
-          .from("profile-pictures")
-          .createSignedUrl(profileData.avatar_path, 3600);
-
-        setAvatarUrl(data?.signedUrl || "");
-      } else {
-        setAvatarUrl("");
-      }
-
-      if (profileData.approval_status !== "approved") {
-        setLoading(false);
-        return;
-      }
-
-      const { data: accountData, error: accountError } = await supabase
-        .from("customer_accounts")
-        .select(`
-          id,
-          user_id,
-          account_number,
-          balance,
-          status,
-          account_type,
-          created_at,
-          effective_created_at
-        `)
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
-
-      if (accountError) {
-        throw accountError;
-      }
-
-      setAccount(accountData);
-
-      if (accountData) {
-        const { data: transactionData } = await supabase
-          .from("transactions")
-          .select(`
-            id,
-            transaction_type,
-            amount,
-            description,
-            transaction_date,
-            created_at
-          `)
-          .eq("account_id", accountData.id)
-          .order("transaction_date", { ascending: false });
-
-        setTransactions(transactionData || []);
-      } else {
-        setTransactions([]);
-      }
-
-      await Promise.all([
-        loadCardData(currentUser.id, accountData?.id),
-        loadWithdrawalRequests(currentUser.id),
-      ]);
-    } catch (err) {
-      console.error(err);
-      setError(err?.message || "Unable to load your account.");
-    } finally {
-      setLoading(false);
+    if (Number.isNaN(date.getTime())) {
+      return "—";
     }
-  }
 
-  async function loadCardData(userId = user?.id) {
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const maskAccountNumber = (value) => {
+    if (!value) return "Not available";
+
+    const text = String(value);
+
+    if (text.length <= 4) {
+      return text;
+    }
+
+    return `••••••${text.slice(-4)}`;
+  };
+
+  const maskCardNumber = (last4) => {
+    if (!last4) return "•••• •••• •••• ••••";
+
+    return `•••• •••• •••• ${last4}`;
+  };
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+
+    return "Good evening";
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "C";
+
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  async function loadCardData(userId = user?.id, accountId = account?.id) {
     if (!userId) return;
 
     setCardLoading(true);
 
     try {
-      const { data: cardData } = await supabase
+      let cardQuery = supabase
         .from("customer_cards")
-        .select(`
-          id,
-          card_type,
-          card_network,
-          cardholder_name,
-          last4,
-          expiry_month,
-          expiry_year,
-          status,
-          created_at,
-          activated_at
-        `)
+        .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
-      setCustomerCard(cardData || null);
+      if (accountId) {
+        cardQuery = cardQuery.eq("account_id", accountId);
+      }
 
-      const { data: orders } = await supabase
+      const { data: cards, error: cardError } = await cardQuery;
+
+      if (cardError) {
+        console.error("Card load error:", cardError);
+      }
+
+      setCustomerCard(cards?.[0] || null);
+
+      const { data: orders, error: orderError } = await supabase
         .from("customer_card_orders")
-        .select(`
-          id,
-          card_type,
-          reason,
-          status,
-          created_at,
-          updated_at
-        `)
+        .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
+
+      if (orderError) {
+        console.error("Card order load error:", orderError);
+      }
 
       setCardOrders(orders || []);
     } catch (err) {
-      console.warn("Card data could not be loaded:", err);
+      console.error("Card loading failed:", err);
     } finally {
       setCardLoading(false);
     }
@@ -250,582 +209,265 @@ export default function Dashboard() {
     try {
       const { data, error: withdrawalError } = await supabase
         .from("withdrawal_requests")
-        .select(`
-          id,
-          account_id,
-          amount,
-          withdrawal_method,
-          status,
-          notes,
-          created_at,
-          updated_at
-        `)
+        .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (withdrawalError) {
-        console.warn(withdrawalError);
+        console.error("Withdrawal request error:", withdrawalError);
         return;
       }
 
       setWithdrawalRequests(data || []);
     } catch (err) {
-      console.warn(err);
+      console.error("Withdrawal loading failed:", err);
     } finally {
       setWithdrawalLoading(false);
     }
   }
 
+  async function loadDashboard() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const {
+        data: { user: currentUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!currentUser) {
+        window.location.href = "/login";
+        return;
+      }
+
+      setUser(currentUser);
+
+      const [
+        profileResult,
+        accountResult,
+        transactionsResult,
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .maybeSingle(),
+
+        supabase
+          .from("accounts")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+
+      if (profileResult.error) {
+        console.error("Profile error:", profileResult.error);
+      }
+
+      if (accountResult.error) {
+        console.error("Account error:", accountResult.error);
+      }
+
+      if (transactionsResult.error) {
+        console.error(
+          "Transaction error:",
+          transactionsResult.error
+        );
+      }
+
+      const loadedProfile = profileResult.data || null;
+      const loadedAccount = accountResult.data || null;
+
+      setProfile(loadedProfile);
+      setAccount(loadedAccount);
+      setTransactions(transactionsResult.data || []);
+
+      if (loadedProfile?.avatar_url) {
+        setAvatarUrl(loadedProfile.avatar_url);
+      }
+
+      await Promise.all([
+        loadCardData(
+          currentUser.id,
+          loadedAccount?.id || null
+        ),
+        loadWithdrawalRequests(currentUser.id),
+      ]);
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+
+      setError(
+        err?.message ||
+          "We could not load your dashboard. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        window.location.href = "/login";
+      }
+
+      if (session?.user && event === "SIGNED_IN") {
+        setUser(session.user);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function uploadAvatar(event) {
+    const file = event.target.files?.[0];
+
+    if (!file || !user) return;
+
+    if (!file.type.startsWith("image/")) {
+      setAvatarStatus("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarStatus("Please choose an image smaller than 5 MB.");
+      return;
+    }
+
+    setAvatarLoading(true);
+    setAvatarStatus("");
+
+    try {
+      const extension =
+        file.name.split(".").pop()?.toLowerCase() || "jpg";
+
+      const filePath = `${user.id}/profile-${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData?.publicUrl || "";
+
+      if (!publicUrl) {
+        throw new Error("Could not create the profile image URL.");
+      }
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          avatar_url: publicUrl,
+        })
+        .eq("id", user.id);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      setAvatarUrl(publicUrl);
+      setProfile((current) => ({
+        ...(current || {}),
+        avatar_url: publicUrl,
+      }));
+      setAvatarStatus("Profile picture updated successfully.");
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      setAvatarStatus(
+        err?.message || "Could not update your profile picture."
+      );
+    } finally {
+      setAvatarLoading(false);
+    }
+  }
+
   async function orderNewCard() {
-    if (cardOrderLoading || !user || !account) return;
+    if (cardOrderLoading || !user || !account) {
+      setCardStatus(
+        "Your account information is still loading. Please try again."
+      );
+      return;
+    }
 
     setCardOrderLoading(true);
     setCardStatus("");
 
     try {
-      const { error: insertError } = await supabase
+      const { error: orderError } = await supabase
         .from("customer_card_orders")
         .insert({
           user_id: user.id,
           account_id: account.id,
-          card_type: "ATM / Debit Card",
-          reason: customerCard
-            ? "Replacement card requested by customer"
-            : "New card requested by customer",
+          card_type: "debit",
+          reason: "Customer requested a new ATM / Debit Card",
           status: "pending",
         });
 
-      if (insertError) {
-        throw insertError;
+      if (orderError) {
+        throw orderError;
       }
 
       setCardStatus(
-        "Your card request has been submitted successfully. The bank will review it and update the status here."
+        "Your card request has been submitted successfully."
       );
 
-      await loadCardData(user.id);
+      await loadCardData(user.id, account?.id);
     } catch (err) {
+      console.error("Card request error:", err);
+
       setCardStatus(
         err?.message ||
-          "Your card request could not be submitted. Please try again."
+          "We could not submit your card request."
       );
     } finally {
       setCardOrderLoading(false);
     }
   }
 
-  function greeting() {
-    const hour = new Date().getHours();
-
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  }
-
-  function formatMoney(value) {
-    return Number(value || 0).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  function formatDate(value) {
-    if (!value) return "—";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
-
-  function formatDateOnly(value) {
-    if (!value) return "Not available";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-
-  function maskedAccountNumber(value) {
-    if (!value) return "Not available";
-
-    const number = String(value);
-
-    if (number.length <= 4) return number;
-
-    return `•••• ${number.slice(-4)}`;
-  }
-
-  function visibleAccountNumber(value) {
-    if (!value) return "Not available";
-    return String(value);
-  }
-
-  function openPage(page) {
-    setActivePage(page);
-    setMenuOpen(false);
-    setRequestStatus("");
-    setCardStatus("");
-
-    if (page !== "profile" && page !== "account") {
-      setShowAccountNumber(false);
-    }
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }
-
-  function updateRequestField(field, value) {
-    setRequestForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  function resetRequestForm() {
-    setRequestForm(EMPTY_FORM);
-  }
-
-  async function submitRequest(event) {
-    event.preventDefault();
-
-    if (!user || requestLoading) return;
-
-    setRequestStatus("");
-
-    if (activePage === "withdraw") {
-      await submitWithdrawal();
-      return;
-    }
-
-    await startCustomerTransfer(activePage);
-  }
-
-  async function submitWithdrawal() {
-    const amount = Number(requestForm.amount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setRequestStatus("Please enter a valid withdrawal amount.");
-      return;
-    }
-
-    if (!account) {
-      setRequestStatus("Your account information is unavailable.");
-      return;
-    }
-
-    if (account.status !== "active") {
-      setRequestStatus(
-        "Your account is not active and cannot submit a withdrawal."
-      );
-      return;
-    }
-
-    if (amount > Number(account.balance || 0)) {
-      setRequestStatus(
-        "The withdrawal amount is greater than your available balance."
-      );
-      return;
-    }
-
-    setRequestLoading(true);
-
-    try {
-      const { error: insertError } = await supabase
-        .from("withdrawal_requests")
-        .insert({
-          user_id: user.id,
-          account_id: account.id,
-          amount,
-          withdrawal_method: "cash",
-          status: "pending",
-          notes: requestForm.description.trim() || null,
-        });
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      resetRequestForm();
-
-      setRequestStatus(
-        "Withdrawal request submitted successfully. Your request is now pending bank review."
-      );
-
-      await loadWithdrawalRequests(user.id);
-    } catch (err) {
-      setRequestStatus(
-        err?.message ||
-          "Your withdrawal request could not be submitted. Please try again."
-      );
-    } finally {
-      setRequestLoading(false);
-    }
-  }
-
-  async function invokeCustomerTransfer(body) {
-    const { data, error: functionError } =
-      await supabase.functions.invoke("customer-transfer", {
-        body,
-      });
-
-    if (functionError) {
-      let message =
-        functionError.message ||
-        "The transfer service is unavailable.";
-
-      try {
-        if (
-          functionError.context &&
-          typeof functionError.context.json === "function"
-        ) {
-          const payload = await functionError.context.json();
-
-          if (payload?.message) {
-            message = payload.message;
-          }
-        }
-      } catch (_) {}
-
-      throw new Error(message);
-    }
-
-    if (!data) {
-      throw new Error("The transfer service returned no response.");
-    }
-
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    return data;
-  }
-
-  async function startCustomerTransfer(pageType = "transfer") {
-    if (requestLoading || !user) return;
-
-    setRequestStatus("");
-    setTransferOtpStatus("");
-
-    const amount = Number(requestForm.amount);
-    const recipientName = requestForm.recipientName.trim();
-    const recipientAccountNumber =
-      requestForm.recipientAccountNumber.trim();
-    const bankCountry =
-      requestForm.bankCountry.trim().toUpperCase();
-    const transferCurrency =
-      requestForm.transferCurrency.trim().toUpperCase();
-    const accountName =
-      requestForm.accountName.trim() || recipientName;
-
-    if (!recipientName) {
-      setRequestStatus("Please enter the recipient's full name.");
-      return;
-    }
-
-    if (!recipientAccountNumber) {
-      setRequestStatus(
-        "Please enter the recipient account number or IBAN."
-      );
-      return;
-    }
-
-    if (!/^[A-Z]{2}$/.test(bankCountry)) {
-      setRequestStatus(
-        "Enter a valid 2-letter bank country code, such as US, NG, or TR."
-      );
-      return;
-    }
-
-    if (!/^[A-Z]{3}$/.test(transferCurrency)) {
-      setRequestStatus(
-        "Enter a valid 3-letter transfer currency, such as USD, NGN, or TRY."
-      );
-      return;
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setRequestStatus("Please enter a valid transfer amount.");
-      return;
-    }
-
-    if (!account || account.status !== "active") {
-      setRequestStatus(
-        "Your account is not active and cannot send a transfer."
-      );
-      return;
-    }
-
-    if (amount > Number(account.balance || 0)) {
-      setRequestStatus(
-        "The transfer amount is greater than your available balance."
-      );
-      return;
-    }
-
-    setRequestLoading(true);
-
-    try {
-      const data = await invokeCustomerTransfer({
-        action: "send_otp",
-
-        recipientName,
-        recipientAccountNumber,
-        bankName: requestForm.bankName.trim(),
-
-        bankCountry,
-        transferCurrency,
-
-        transferMethod:
-          pageType === "wire"
-            ? "SWIFT"
-            : pageType === "local"
-            ? "LOCAL"
-            : requestForm.transferMethod,
-
-        beneficiaryType: requestForm.beneficiaryType,
-
-        accountName,
-
-        routingType: requestForm.routingType.trim(),
-        routingValue: requestForm.routingValue.trim(),
-
-        swiftBic: requestForm.swiftBic.trim(),
-
-        streetAddress:
-          requestForm.streetAddress.trim(),
-
-        city: requestForm.city.trim(),
-        state: requestForm.state.trim(),
-        postalCode: requestForm.postalCode.trim(),
-
-        amount,
-
-        description:
-          requestForm.description.trim() ||
-          "Customer Transfer",
-      });
-
-      setTransferId(data.transferId || "");
-      setTransferPageType(pageType);
-      setTransferOtp("");
-
-      setTransferOtpStatus(
-        `A 6-digit verification code has been sent to ${
-          data.emailMasked || "your registered email address"
-        }.`
-      );
-
-      setTransferOtpOpen(true);
-    } catch (err) {
-      setRequestStatus(
-        err?.message ||
-          "We could not start the transfer. Please check the bank details and try again."
-      );
-    } finally {
-      setRequestLoading(false);
-    }
-  }
-
-  async function verifyCustomerTransfer(event) {
-    event.preventDefault();
-
-    if (
-      transferOtpLoading ||
-      !transferId ||
-      !transferOtp.trim()
-    ) {
-      return;
-    }
-
-    if (!/^[0-9]{6}$/.test(transferOtp.trim())) {
-      setTransferOtpStatus(
-        "Enter the 6-digit verification code sent to your email."
-      );
-      return;
-    }
-
-    setTransferOtpLoading(true);
-    setTransferOtpStatus("");
-
-    try {
-      const data = await invokeCustomerTransfer({
-        action: "verify_otp",
-        transferId,
-        otp: transferOtp.trim(),
-      });
-
-      setTransferOtpOpen(false);
-      setTransferOtp("");
-      setTransferId("");
-      setTransferPageType("transfer");
-
-      resetRequestForm();
-      setRequestStatus("");
-
-      setTransferReceipt(data.receipt || data);
-      setTransferReceiptOpen(true);
-
-      await loadDashboard();
-    } catch (err) {
-      setTransferOtpStatus(
-        err?.message ||
-          "The verification code could not be accepted."
-      );
-    } finally {
-      setTransferOtpLoading(false);
-    }
-  }
-
-  async function resendCustomerTransferOtp() {
-    if (
-      transferResendLoading ||
-      requestLoading ||
-      !user
-    ) {
-      return;
-    }
-
-    setTransferResendLoading(true);
-    setTransferOtpStatus("");
-
-    try {
-      const amount = Number(requestForm.amount);
-
-      const data = await invokeCustomerTransfer({
-        action: "send_otp",
-
-        recipientName:
-          requestForm.recipientName.trim(),
-
-        recipientAccountNumber:
-          requestForm.recipientAccountNumber.trim(),
-
-        bankName:
-          requestForm.bankName.trim(),
-
-        bankCountry:
-          requestForm.bankCountry
-            .trim()
-            .toUpperCase(),
-
-        transferCurrency:
-          requestForm.transferCurrency
-            .trim()
-            .toUpperCase(),
-
-        transferMethod:
-          transferPageType === "wire"
-            ? "SWIFT"
-            : transferPageType === "local"
-            ? "LOCAL"
-            : requestForm.transferMethod,
-
-        beneficiaryType:
-          requestForm.beneficiaryType,
-
-        accountName:
-          requestForm.accountName.trim() ||
-          requestForm.recipientName.trim(),
-
-        routingType:
-          requestForm.routingType.trim(),
-
-        routingValue:
-          requestForm.routingValue.trim(),
-
-        swiftBic:
-          requestForm.swiftBic.trim(),
-
-        streetAddress:
-          requestForm.streetAddress.trim(),
-
-        city:
-          requestForm.city.trim(),
-
-        state:
-          requestForm.state.trim(),
-
-        postalCode:
-          requestForm.postalCode.trim(),
-
-        amount,
-
-        description:
-          requestForm.description.trim() ||
-          "Customer Transfer",
-      });
-
-      setTransferId(data.transferId || "");
-      setTransferOtp("");
-
-      setTransferOtpStatus(
-        `A new verification code has been sent to ${
-          data.emailMasked || "your registered email address"
-        }.`
-      );
-    } catch (err) {
-      setTransferOtpStatus(
-        err?.message ||
-          "We could not send a new verification code."
-      );
-    } finally {
-      setTransferResendLoading(false);
-    }
-  }
-
-  function closeTransferOtp() {
-    if (transferOtpLoading) return;
-
-    setTransferOtpOpen(false);
-    setTransferOtp("");
-    setTransferId("");
-    setTransferOtpStatus("");
-  }
-
-  function closeTransferReceipt() {
-    setTransferReceiptOpen(false);
-    setTransferReceipt(null);
-  }
-
   async function changePassword(event) {
     event.preventDefault();
 
-    if (passwordLoading) return;
-
     setPasswordStatus("");
 
-    if (newPassword.length < 8) {
+    if (!newPassword || newPassword.length < 8) {
       setPasswordStatus(
-        "Your new password must contain at least 8 characters."
+        "Password must be at least 8 characters."
       );
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordStatus(
-        "The new passwords do not match."
-      );
+      setPasswordStatus("Passwords do not match.");
       return;
     }
 
@@ -847,235 +489,456 @@ export default function Dashboard() {
 
       setNewPassword("");
       setConfirmPassword("");
-
-      setTimeout(() => {
-        setPasswordModalOpen(false);
-        setPasswordStatus("");
-      }, 1500);
     } catch (err) {
+      console.error("Password change error:", err);
+
       setPasswordStatus(
         err?.message ||
-          "Your password could not be changed."
+          "We could not change your password."
       );
     } finally {
       setPasswordLoading(false);
     }
   }
 
-  async function uploadProfilePicture(event) {
-    const file = event.target.files?.[0];
+  async function signOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
 
-    event.target.value = "";
+  async function submitWithdrawal(event) {
+    event.preventDefault();
 
-    if (!file || !user || avatarLoading) return;
+    if (!user) {
+      setRequestStatus("Please sign in again.");
+      return;
+    }
 
-    setAvatarStatus("");
-
-    if (!file.type.startsWith("image/")) {
-      setAvatarStatus(
-        "Please choose an image file."
+    if (!account?.id) {
+      setRequestStatus(
+        "Your bank account is not available yet. Please refresh and try again."
       );
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setAvatarStatus(
-        "Profile pictures must be 5 MB or smaller."
+    if (account?.status !== "active") {
+      setRequestStatus(
+        "Withdrawals are unavailable because your account is not active."
       );
       return;
     }
 
-    setAvatarLoading(true);
+    const amount = Number(requestForm.amount);
+
+    if (!amount || amount <= 0) {
+      setRequestStatus("Enter a valid withdrawal amount.");
+      return;
+    }
+
+    if (amount > Number(account?.balance || 0)) {
+      setRequestStatus(
+        "The withdrawal amount cannot exceed your available balance."
+      );
+      return;
+    }
+
+    setRequestLoading(true);
+    setRequestStatus("");
 
     try {
-      const extension =
-        (
-          file.name.split(".").pop() ||
-          "jpg"
-        )
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "") ||
-        "jpg";
+      const { error: insertError } = await supabase
+        .from("withdrawal_requests")
+        .insert({
+          user_id: user.id,
+          account_id: account?.id,
+          amount,
+          withdrawal_method: "cash",
+          status: "pending",
+          notes:
+            requestForm.description ||
+            "Customer withdrawal request",
+        });
 
-      const path =
-        `${user.id}/avatar.${extension}`;
-
-      const { error: uploadError } =
-        await supabase.storage
-          .from("profile-pictures")
-          .upload(path, file, {
-            cacheControl: "3600",
-            contentType: file.type,
-            upsert: true,
-          });
-
-      if (uploadError) {
-        throw uploadError;
+      if (insertError) {
+        throw insertError;
       }
 
-      const { error: profileError } =
-        await supabase.rpc(
-          "set_profile_avatar_path",
-          {
-            p_avatar_path: path,
-          }
-        );
+      setRequestForm((current) => ({
+        ...current,
+        amount: "",
+        description: "",
+      }));
 
-      if (profileError) {
-        throw profileError;
-      }
-
-      const { data: signedData } =
-        await supabase.storage
-          .from("profile-pictures")
-          .createSignedUrl(path, 3600);
-
-      if (!signedData?.signedUrl) {
-        throw new Error(
-          "The photo was uploaded but could not be displayed."
-        );
-      }
-
-      setAvatarUrl(signedData.signedUrl);
-
-      setProfile((current) =>
-        current
-          ? {
-              ...current,
-              avatar_path: path,
-            }
-          : current
+      setRequestStatus(
+        "Withdrawal request submitted successfully."
       );
 
-      setAvatarStatus(
-        "Profile picture updated successfully."
-      );
+      await loadWithdrawalRequests(user.id);
     } catch (err) {
-      setAvatarStatus(
+      console.error("Withdrawal error:", err);
+
+      setRequestStatus(
         err?.message ||
-          "Your profile picture could not be uploaded."
+          "We could not submit your withdrawal request."
       );
     } finally {
-      setAvatarLoading(false);
+      setRequestLoading(false);
     }
   }
 
-  async function loadChatMessages() {
-    if (!user) return;
-
-    const { data, error: chatError } =
-      await supabase
-        .from("support_messages")
-        .select(
-          "id, sender, message, created_at"
-        )
-        .eq("user_id", user.id)
-        .order("created_at", {
-          ascending: true,
-        });
-
-    if (chatError) {
-      setChatMessages([
+  async function invokeCustomerTransfer(body) {
+    const { data, error: functionError } =
+      await supabase.functions.invoke(
+        "customer-transfer",
         {
-          id: "welcome",
-          sender: "support",
-          message:
-            "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-          created_at:
-            new Date().toISOString(),
-        },
-      ]);
+          body,
+        }
+      );
 
+    if (functionError) {
+      throw functionError;
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data;
+  }
+
+  async function startCustomerTransfer(event) {
+    event.preventDefault();
+
+    if (!user) {
+      setTransferOtpStatus("Please sign in again.");
       return;
     }
 
-    setChatMessages(
-      data?.length
-        ? data
-        : [
-            {
-              id: "welcome",
-              sender: "support",
-              message:
-                "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-              created_at:
-                new Date().toISOString(),
-            },
-          ]
-    );
+    if (!account?.id) {
+      setTransferOtpStatus(
+        "Your bank account is not available yet. Please refresh and try again."
+      );
+      return;
+    }
+
+    if (account?.status !== "active") {
+      setTransferOtpStatus(
+        "Transfers are unavailable because your account is not active."
+      );
+      return;
+    }
+
+    const amount = Number(requestForm.amount);
+
+    if (!amount || amount <= 0) {
+      setTransferOtpStatus("Enter a valid transfer amount.");
+      return;
+    }
+
+    if (amount > Number(account?.balance || 0)) {
+      setTransferOtpStatus(
+        "The transfer amount cannot exceed your available balance."
+      );
+      return;
+    }
+
+    if (!requestForm.recipientName.trim()) {
+      setTransferOtpStatus("Enter the recipient name.");
+      return;
+    }
+
+    if (!requestForm.recipientAccountNumber.trim()) {
+      setTransferOtpStatus(
+        "Enter the recipient account number or IBAN."
+      );
+      return;
+    }
+
+    if (!requestForm.bankName.trim()) {
+      setTransferOtpStatus("Enter the recipient bank name.");
+      return;
+    }
+
+    setTransferOtpLoading(true);
+    setTransferOtpStatus("");
+
+    try {
+      const result = await invokeCustomerTransfer({
+        action: "send_otp",
+        recipientName:
+          requestForm.recipientName.trim(),
+        recipientAccountNumber:
+          requestForm.recipientAccountNumber.trim(),
+        bankName: requestForm.bankName.trim(),
+        bankCountry: requestForm.bankCountry,
+        transferCurrency:
+          requestForm.transferCurrency,
+        transferMethod:
+          requestForm.transferMethod,
+        beneficiaryType:
+          requestForm.beneficiaryType,
+        accountName:
+          requestForm.accountName.trim(),
+        routingType:
+          requestForm.routingType,
+        routingValue:
+          requestForm.routingValue.trim(),
+        swiftBic:
+          requestForm.swiftBic.trim(),
+        streetAddress:
+          requestForm.streetAddress.trim(),
+        city: requestForm.city.trim(),
+        state: requestForm.state.trim(),
+        postalCode:
+          requestForm.postalCode.trim(),
+        amount,
+        description:
+          requestForm.description.trim(),
+      });
+
+      setTransferId(result?.transfer_id || "");
+      setTransferOtp("");
+      setTransferOtpStatus(
+        result?.message ||
+          "A verification code has been sent to your email."
+      );
+      setTransferOtpOpen(true);
+    } catch (err) {
+      console.error("Transfer OTP error:", err);
+
+      setTransferOtpStatus(
+        err?.message ||
+          "We could not start this transfer."
+      );
+    } finally {
+      setTransferOtpLoading(false);
+    }
+  }
+
+  async function verifyCustomerTransfer(event) {
+    event.preventDefault();
+
+    if (!transferOtp.trim()) {
+      setTransferOtpStatus(
+        "Enter the verification code sent to your email."
+      );
+      return;
+    }
+
+    setTransferOtpLoading(true);
+    setTransferOtpStatus("");
+
+    try {
+      const result = await invokeCustomerTransfer({
+        action: "verify_otp",
+        transfer_id: transferId,
+        otp: transferOtp.trim(),
+      });
+
+      setTransferOtpOpen(false);
+      setTransferOtp("");
+      setTransferOtpStatus("");
+
+      setTransferReceipt(result?.receipt || result || null);
+      setTransferReceiptOpen(true);
+
+      setRequestForm({
+        recipientName: "",
+        recipientAccountNumber: "",
+        bankName: "",
+        bankCountry: "US",
+        transferCurrency: "USD",
+        transferMethod: "LOCAL",
+        beneficiaryType: "PERSONAL",
+        accountName: "",
+        routingType: "aba",
+        routingValue: "",
+        swiftBic: "",
+        streetAddress: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        amount: "",
+        description: "",
+      });
+
+      await loadDashboard();
+    } catch (err) {
+      console.error("Transfer verification error:", err);
+
+      setTransferOtpStatus(
+        err?.message ||
+          "The verification code could not be accepted."
+      );
+    } finally {
+      setTransferOtpLoading(false);
+    }
+  }
+
+  async function resendCustomerTransferOtp() {
+    if (!transferId) return;
+
+    setTransferResendLoading(true);
+    setTransferOtpStatus("");
+
+    try {
+      const result = await invokeCustomerTransfer({
+        action: "resend_otp",
+        transfer_id: transferId,
+      });
+
+      setTransferOtpStatus(
+        result?.message ||
+          "A new verification code has been sent."
+      );
+    } catch (err) {
+      console.error("OTP resend error:", err);
+
+      setTransferOtpStatus(
+        err?.message ||
+          "We could not resend the verification code."
+      );
+    } finally {
+      setTransferResendLoading(false);
+    }
   }
 
   async function sendChatMessage(event) {
-    event.preventDefault();
+    event?.preventDefault();
 
     const message = chatMessage.trim();
 
-    if (
-      !message ||
-      chatLoading ||
-      !user
-    ) {
-      return;
-    }
+    if (!message || chatLoading) return;
+
+    setChatMessage("");
+    setChatMessages((current) => [
+      ...current,
+      {
+        role: "user",
+        content: message,
+      },
+    ]);
 
     setChatLoading(true);
 
-    const localMessage = {
-      id: `local-${Date.now()}`,
-      sender: "customer",
-      message,
-      created_at:
-        new Date().toISOString(),
-    };
-
-    setChatMessages((current) => [
-      ...current,
-      localMessage,
-    ]);
-
-    setChatMessage("");
-
     try {
-      await supabase
-        .from("support_messages")
-        .insert({
-          user_id: user.id,
-          sender: "customer",
-          message,
-        });
+      const response =
+        await supabase.functions.invoke(
+          "customer-support",
+          {
+            body: {
+              message,
+            },
+          }
+        );
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      const answer =
+        response.data?.message ||
+        response.data?.reply ||
+        "Thank you. A bank representative will review your message.";
+
+      setChatMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: answer,
+        },
+      ]);
     } catch (err) {
-      console.warn(err);
+      console.error("Support chat error:", err);
+
+      setChatMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content:
+            "We could not process your message right now. Please try again later.",
+        },
+      ]);
     } finally {
       setChatLoading(false);
     }
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+  function setFormField(field, value) {
+    setRequestForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function navigate(page) {
+    setActivePage(page);
+    setMenuOpen(false);
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   }
 
   if (loading) {
     return (
       <>
-        <style>{styles}</style>
+        <style>{`
+          * {
+            box-sizing: border-box;
+          }
 
-        <main className="loading-screen">
-          <div className="loading-box">
-            <div className="loading-mark">
-              M
-            </div>
+          body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background: #f5f7fb;
+          }
 
-            <div className="spinner"></div>
+          .dashboard-loading {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+          }
 
-            <h2>
-              MIDATLANTIC FEDERAL BANK
-            </h2>
+          .loading-card {
+            width: min(430px, 100%);
+            background: white;
+            border-radius: 24px;
+            padding: 42px 30px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, .08);
+          }
 
+          .loading-spinner {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 20px;
+            border: 4px solid #e6edf5;
+            border-top-color: #123c69;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+
+        <main className="dashboard-loading">
+          <section className="loading-card">
+            <div className="loading-spinner" />
+            <h2>Loading your account</h2>
             <p>
-              Loading your secure banking portal...
+              Please wait while we securely load your banking dashboard.
             </p>
-          </div>
+          </section>
         </main>
       </>
     );
@@ -1084,1935 +947,3665 @@ export default function Dashboard() {
   if (error) {
     return (
       <>
-        <style>{styles}</style>
+        <style>{`
+          * {
+            box-sizing: border-box;
+          }
 
-        <main className="loading-screen">
-          <div className="loading-box error-box">
-            <div className="loading-mark">
-              !
+          body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background: #f5f7fb;
+          }
+
+          .error-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+          }
+
+          .error-card {
+            width: min(520px, 100%);
+            background: white;
+            border-radius: 24px;
+            padding: 42px 30px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, .08);
+          }
+
+          .error-icon {
+            width: 62px;
+            height: 62px;
+            margin: 0 auto 18px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff1f2;
+            color: #b42318;
+            font-size: 28px;
+          }
+
+          .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 24px;
+          }
+
+          .error-button {
+            border: 0;
+            border-radius: 12px;
+            padding: 12px 18px;
+            cursor: pointer;
+            font-weight: 700;
+            background: #123c69;
+            color: white;
+          }
+
+          .error-button.secondary {
+            background: #eef2f6;
+            color: #17324d;
+          }
+        `}</style>
+
+        <main className="error-page">
+          <section className="error-card">
+            <div className="error-icon">!</div>
+
+            <h1>We couldn't load your dashboard</h1>
+
+            <p>
+              {error}
+            </p>
+
+            <div className="error-actions">
+              <button
+                className="error-button"
+                onClick={loadDashboard}
+              >
+                Try Again
+              </button>
+
+              <button
+                className="error-button secondary"
+                onClick={() => {
+                  window.location.href = "/";
+                }}
+              >
+                Back Home
+              </button>
             </div>
-
-            <h2>
-              Unable to Load Account
-            </h2>
-
-            <p>{error}</p>
-
-            <button
-              className="primary-button"
-              onClick={logout}
-            >
-              Sign Out
-            </button>
-          </div>
+          </section>
         </main>
       </>
     );
   }
 
-  if (
-    profile &&
-    profile.approval_status !== "approved"
-  ) {
-    return (
-      <>
-        <style>{styles}</style>
+  const fullName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Customer";
 
-        <main className="app-shell">
-          <Header
-            menuOpen={false}
-            setMenuOpen={setMenuOpen}
-            openPage={openPage}
-            logout={logout}
-            showMenu={false}
-          />
+  const firstName =
+    fullName.split(" ").filter(Boolean)[0] ||
+    "Customer";
 
-          <div className="page-container">
-            <section className="approval-card">
-              <span className="status-pill pending">
-                PENDING APPROVAL
-              </span>
+  const accountBalance = Number(account?.balance || 0);
 
-              <div className="approval-icon">
-                ⏳
-              </div>
+  const recentTransactions = transactions || [];
 
-              <h1>
-                {greeting()},{" "}
-                {profile.full_name ||
-                  "Customer"}
-              </h1>
-
-              <h2>
-                Your account is awaiting approval
-              </h2>
-
-              <p>
-                Your registration has been
-                received successfully. A bank
-                administrator must approve your
-                customer account before banking
-                services become available.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={logout}
-              >
-                Sign Out
-              </button>
-            </section>
-          </div>
-        </main>
-      </>
-    );
-  }
-
-  if (!account) {
-    return (
-      <>
-        <style>{styles}</style>
-
-        <main className="app-shell">
-          <Header
-            menuOpen={false}
-            setMenuOpen={setMenuOpen}
-            openPage={openPage}
-            logout={logout}
-            showMenu={false}
-          />
-
-          <div className="page-container">
-            <section className="approval-card">
-              <div className="approval-icon">
-                ✓
-              </div>
-
-              <h1>
-                {greeting()},{" "}
-                {profile?.full_name ||
-                  "Customer"}
-              </h1>
-
-              <h2>
-                Account information unavailable
-              </h2>
-
-              <p>
-                Your customer profile has been
-                approved, but an account record
-                has not yet been assigned.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={logout}
-              >
-                Sign Out
-              </button>
-            </section>
-          </div>
-        </main>
-      </>
-    );
-  }
-
-  const activeTitle =
-    activePage === "withdraw"
-      ? "Withdraw"
-      : activePage === "transfer"
-      ? "Transfer"
-      : activePage === "wire"
-      ? "Wire Transfer"
-      : activePage === "local"
-      ? "Local Transfer"
-      : activePage === "card"
-      ? "ATM / Debit Card"
-      : activePage === "profile"
-      ? "My Profile"
-      : activePage === "account"
-      ? "Account Information"
-      : activePage === "transactions"
-      ? "Transaction History"
-      : activePage === "notifications"
-      ? "Notifications"
-      : activePage === "support"
-      ? "Customer Support"
-      : activePage === "security"
-      ? "Security Center"
-      : activePage === "settings"
-      ? "Account Settings"
-      : "";
+  const profileAccountNumber =
+    account?.account_number || "";
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
 
-      <main className="app-shell">
-        <Header
-          menuOpen={menuOpen}
-          setMenuOpen={setMenuOpen}
-          openPage={openPage}
-          logout={logout}
-          showMenu
-        />
+        html {
+          scroll-behavior: smooth;
+        }
 
-        <div className="page-container">
+        body {
+          margin: 0;
+          background: #f5f7fb;
+          color: #172b3a;
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+        }
 
-          {activePage === "dashboard" && (
-            <>
-              <section className="hero-row">
-                <div>
-                  <span className="eyebrow">
-                    CUSTOMER BANKING
-                  </span>
+        button,
+        input,
+        select,
+        textarea {
+          font: inherit;
+        }
 
-                  <h1>
-                    {greeting()},{" "}
-                    {profile?.full_name ||
-                      "Customer"}
-                  </h1>
+        button {
+          cursor: pointer;
+        }
 
-                  <p>
-                    Welcome back. Here's your
-                    secure account overview.
-                  </p>
+        .dashboard-shell {
+          min-height: 100vh;
+          background:
+            radial-gradient(
+              circle at top right,
+              rgba(30, 102, 172, .08),
+              transparent 34%
+            ),
+            #f5f7fb;
+        }
+
+        .dashboard-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: rgba(255,255,255,.94);
+          backdrop-filter: blur(18px);
+          border-bottom: 1px solid #e5eaf0;
+        }
+
+        .topbar-inner {
+          width: min(1400px, calc(100% - 40px));
+          margin: 0 auto;
+          min-height: 76px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+        }
+
+        .brand-area {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .brand-mark {
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          display: grid;
+          place-items: center;
+          background: linear-gradient(145deg, #123c69, #1b5d96);
+          color: white;
+          font-weight: 900;
+          box-shadow: 0 8px 20px rgba(18,60,105,.18);
+        }
+
+        .brand-copy {
+          min-width: 0;
+        }
+
+        .brand-name {
+          font-size: 15px;
+          font-weight: 900;
+          letter-spacing: .02em;
+          color: #123c69;
+          white-space: nowrap;
+        }
+
+        .brand-subtitle {
+          font-size: 11px;
+          color: #728093;
+          margin-top: 2px;
+        }
+
+        .topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .topbar-link {
+          border: 0;
+          background: transparent;
+          color: #526274;
+          font-weight: 700;
+          padding: 10px 12px;
+          border-radius: 10px;
+        }
+
+        .topbar-link:hover {
+          background: #f1f5f9;
+          color: #123c69;
+        }
+
+        .profile-chip {
+          border: 1px solid #e3e8ef;
+          background: #fff;
+          border-radius: 999px;
+          padding: 6px 12px 6px 6px;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          color: #263b50;
+          font-weight: 800;
+        }
+
+        .profile-chip-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          overflow: hidden;
+          background: #e8eef5;
+          color: #123c69;
+          display: grid;
+          place-items: center;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .profile-chip-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .mobile-menu-button {
+          display: none;
+          border: 1px solid #dce4ec;
+          background: white;
+          border-radius: 10px;
+          padding: 9px 11px;
+          font-size: 20px;
+        }
+
+        .dashboard-body {
+          width: min(1400px, calc(100% - 40px));
+          margin: 0 auto;
+          padding: 34px 0 70px;
+        }
+
+        .dashboard-layout {
+          display: grid;
+          grid-template-columns: 250px minmax(0, 1fr);
+          gap: 28px;
+          align-items: start;
+        }
+
+        .sidebar {
+          position: sticky;
+          top: 100px;
+          background: rgba(255,255,255,.92);
+          border: 1px solid #e3e8ef;
+          border-radius: 20px;
+          padding: 14px;
+          box-shadow: 0 10px 30px rgba(15,23,42,.04);
+        }
+
+        .sidebar-label {
+          padding: 10px 12px;
+          font-size: 10px;
+          letter-spacing: .12em;
+          font-weight: 900;
+          color: #8794a4;
+        }
+
+        .sidebar-button {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          border: 0;
+          background: transparent;
+          color: #556577;
+          text-align: left;
+          padding: 12px;
+          border-radius: 12px;
+          font-weight: 800;
+          margin-bottom: 4px;
+        }
+
+        .sidebar-button:hover {
+          background: #f1f5f9;
+          color: #123c69;
+        }
+
+        .sidebar-button.active {
+          background: #eaf2fa;
+          color: #123c69;
+        }
+
+        .sidebar-icon {
+          width: 26px;
+          text-align: center;
+          font-size: 17px;
+        }
+
+        .main-content {
+          min-width: 0;
+        }
+
+        .welcome-section {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .eyebrow {
+          font-size: 11px;
+          color: #55708c;
+          font-weight: 900;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+
+        .welcome-section h1 {
+          margin: 7px 0 8px;
+          color: #102f4f;
+          font-size: clamp(28px, 4vw, 40px);
+          line-height: 1.1;
+          letter-spacing: -.03em;
+        }
+
+        .welcome-section p {
+          margin: 0;
+          color: #6c7a89;
+          line-height: 1.6;
+        }
+
+        .security-pill {
+          flex-shrink: 0;
+          background: #effaf3;
+          color: #137333;
+          border: 1px solid #ccebd6;
+          border-radius: 999px;
+          padding: 9px 13px;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .balance-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.45fr) repeat(2, minmax(0, 1fr));
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+
+        .balance-card {
+          position: relative;
+          overflow: hidden;
+          min-height: 190px;
+          border-radius: 22px;
+          padding: 25px;
+          color: white;
+          background:
+            radial-gradient(
+              circle at 90% 10%,
+              rgba(255,255,255,.18),
+              transparent 35%
+            ),
+            linear-gradient(135deg, #123c69, #0c3157);
+          box-shadow: 0 18px 42px rgba(18,60,105,.17);
+        }
+
+        .balance-card::after {
+          content: "";
+          position: absolute;
+          width: 180px;
+          height: 180px;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 50%;
+          right: -75px;
+          bottom: -95px;
+        }
+
+        .balance-label {
+          position: relative;
+          z-index: 1;
+          color: rgba(255,255,255,.72);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .1em;
+          font-weight: 900;
+        }
+
+        .balance-value {
+          position: relative;
+          z-index: 1;
+          margin: 12px 0 20px;
+          font-size: clamp(30px, 4vw, 43px);
+          font-weight: 900;
+          letter-spacing: -.04em;
+        }
+
+        .balance-meta {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          justify-content: space-between;
+          gap: 14px;
+          font-size: 12px;
+          color: rgba(255,255,255,.74);
+        }
+
+        .summary-card {
+          min-height: 190px;
+          background: white;
+          border: 1px solid #e4e9ef;
+          border-radius: 22px;
+          padding: 23px;
+          box-shadow: 0 10px 28px rgba(15,23,42,.04);
+        }
+
+        .summary-label {
+          color: #718096;
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+        }
+
+        .summary-value {
+          margin-top: 12px;
+          font-size: 23px;
+          font-weight: 900;
+          color: #183653;
+          word-break: break-word;
+        }
+
+        .summary-small {
+          margin-top: 9px;
+          color: #8491a0;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .section-card {
+          background: white;
+          border: 1px solid #e4e9ef;
+          border-radius: 22px;
+          box-shadow: 0 10px 28px rgba(15,23,42,.04);
+          margin-bottom: 20px;
+          overflow: hidden;
+        }
+
+        .section-card-header {
+          padding: 21px 24px;
+          border-bottom: 1px solid #edf0f4;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .section-card-header h2 {
+          margin: 0;
+          font-size: 18px;
+          color: #173b5f;
+        }
+
+        .section-card-header p {
+          margin: 4px 0 0;
+          color: #7a8795;
+          font-size: 12px;
+        }
+
+        .section-card-body {
+          padding: 24px;
+        }
+
+        .quick-actions {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0,1fr));
+          gap: 12px;
+        }
+
+        .quick-action {
+          border: 1px solid #e1e8ef;
+          background: #fbfcfe;
+          border-radius: 16px;
+          padding: 17px 13px;
+          min-height: 110px;
+          text-align: left;
+          transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+
+        .quick-action:hover {
+          transform: translateY(-2px);
+          border-color: #bcd0e1;
+          box-shadow: 0 10px 24px rgba(15,23,42,.06);
+        }
+
+        .quick-action-icon {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 11px;
+          background: #eaf2fa;
+          color: #123c69;
+          font-size: 18px;
+          margin-bottom: 11px;
+        }
+
+        .quick-action strong {
+          display: block;
+          color: #173b5f;
+          font-size: 13px;
+        }
+
+        .quick-action span {
+          display: block;
+          color: #8793a0;
+          font-size: 11px;
+          margin-top: 5px;
+          line-height: 1.45;
+        }
+
+        .overview-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0,1fr));
+          gap: 14px;
+        }
+
+        .overview-item {
+          padding: 16px;
+          background: #f8fafc;
+          border-radius: 15px;
+          border: 1px solid #edf1f5;
+        }
+
+        .overview-item-label {
+          font-size: 10px;
+          color: #7d8998;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          font-weight: 900;
+        }
+
+        .overview-item-value {
+          margin-top: 8px;
+          color: #183653;
+          font-weight: 800;
+          word-break: break-word;
+        }
+
+        .notifications {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: 14px;
+        }
+
+        .notification {
+          border: 1px solid #e5ebf0;
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+        }
+
+        .notification-icon {
+          width: 38px;
+          height: 38px;
+          flex: 0 0 38px;
+          border-radius: 11px;
+          background: #eaf6ed;
+          color: #18804b;
+          display: grid;
+          place-items: center;
+          font-weight: 900;
+        }
+
+        .notification strong {
+          display: block;
+          color: #1c3953;
+          font-size: 13px;
+        }
+
+        .notification p {
+          margin: 4px 0 0;
+          color: #788695;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .transaction-list {
+          display: grid;
+        }
+
+        .transaction-row {
+          display: grid;
+          grid-template-columns: 46px minmax(0,1fr) auto;
+          gap: 13px;
+          align-items: center;
+          padding: 15px 0;
+          border-bottom: 1px solid #eef1f4;
+        }
+
+        .transaction-row:last-child {
+          border-bottom: 0;
+        }
+
+        .transaction-icon {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          border-radius: 13px;
+          background: #edf4fb;
+          color: #123c69;
+          font-weight: 900;
+        }
+
+        .transaction-title {
+          font-weight: 800;
+          color: #24415b;
+          font-size: 13px;
+        }
+
+        .transaction-meta {
+          margin-top: 4px;
+          color: #8a95a3;
+          font-size: 11px;
+        }
+
+        .transaction-amount {
+          font-weight: 900;
+          color: #183653;
+          white-space: nowrap;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 34px 15px;
+          color: #7c8896;
+        }
+
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: 17px;
+        }
+
+        .form-grid.three {
+          grid-template-columns: repeat(3, minmax(0,1fr));
+        }
+
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        .form-field.full {
+          grid-column: 1 / -1;
+        }
+
+        .form-label {
+          font-size: 11px;
+          font-weight: 900;
+          color: #526477;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+          width: 100%;
+          border: 1px solid #dbe3eb;
+          background: #fff;
+          border-radius: 12px;
+          padding: 12px 13px;
+          color: #213c56;
+          outline: none;
+          transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+          border-color: #6f9ac0;
+          box-shadow: 0 0 0 3px rgba(31,98,157,.10);
+        }
+
+        .form-textarea {
+          min-height: 110px;
+          resize: vertical;
+        }
+
+        .primary-button,
+        .secondary-button,
+        .danger-button {
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 17px;
+          font-weight: 900;
+          transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .primary-button {
+          color: white;
+          background: linear-gradient(135deg,#123c69,#1b5d96);
+          box-shadow: 0 8px 18px rgba(18,60,105,.15);
+        }
+
+        .secondary-button {
+          color: #173b5f;
+          background: #eef3f8;
+        }
+
+        .danger-button {
+          color: #9b1c1c;
+          background: #fff0f0;
+        }
+
+        .primary-button:hover,
+        .secondary-button:hover,
+        .danger-button:hover {
+          transform: translateY(-1px);
+        }
+
+        .button-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 18px;
+        }
+
+        .status-message {
+          margin-top: 14px;
+          border-radius: 12px;
+          padding: 12px 14px;
+          background: #f4f8fb;
+          color: #38536c;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .status-message.success {
+          background: #edf9f1;
+          color: #177245;
+        }
+
+        .status-message.error {
+          background: #fff1f2;
+          color: #a21c27;
+        }
+
+        .profile-layout {
+          display: grid;
+          grid-template-columns: 270px minmax(0,1fr);
+          gap: 24px;
+        }
+
+        .profile-avatar-card {
+          background: #f8fafc;
+          border: 1px solid #e7edf2;
+          border-radius: 18px;
+          padding: 22px;
+          text-align: center;
+        }
+
+        .profile-avatar-large {
+          width: 116px;
+          height: 116px;
+          border-radius: 50%;
+          margin: 0 auto 15px;
+          background: linear-gradient(135deg,#dce9f4,#eef3f7);
+          color: #123c69;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          font-size: 31px;
+          font-weight: 900;
+        }
+
+        .profile-avatar-large img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .upload-label {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          border-radius: 10px;
+          padding: 9px 12px;
+          background: white;
+          border: 1px solid #d9e1e9;
+          color: #23435f;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .upload-label input {
+          display: none;
+        }
+
+        .profile-section {
+          margin-bottom: 24px;
+        }
+
+        .profile-section:last-child {
+          margin-bottom: 0;
+        }
+
+        .profile-section-title {
+          font-size: 13px;
+          font-weight: 900;
+          color: #23435f;
+          margin-bottom: 12px;
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 12px;
+        }
+
+        .info-row {
+          padding: 13px 14px;
+          border-radius: 12px;
+          background: #f8fafc;
+          border: 1px solid #edf1f5;
+        }
+
+        .info-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: .07em;
+          font-weight: 900;
+          color: #8a96a4;
+        }
+
+        .info-value {
+          margin-top: 6px;
+          color: #213e59;
+          font-weight: 750;
+          word-break: break-word;
+        }
+
+        .account-number-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          background: #f8fafc;
+          border: 1px solid #edf1f5;
+          border-radius: 12px;
+          padding: 13px 14px;
+        }
+
+        .account-number-value {
+          font-weight: 900;
+          color: #1d3b58;
+          letter-spacing: .05em;
+          word-break: break-all;
+        }
+
+        .small-button {
+          border: 1px solid #dbe4ec;
+          background: white;
+          color: #2a4b68;
+          border-radius: 9px;
+          padding: 7px 10px;
+          font-size: 11px;
+          font-weight: 900;
+        }
+
+        .card-display {
+          max-width: 480px;
+          min-height: 270px;
+          border-radius: 23px;
+          padding: 25px;
+          color: white;
+          background:
+            radial-gradient(circle at 90% 10%, rgba(255,255,255,.20), transparent 32%),
+            linear-gradient(135deg,#172f4b,#0b2340);
+          box-shadow: 0 20px 45px rgba(11,35,64,.22);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .card-display::after {
+          content: "";
+          position: absolute;
+          width: 230px;
+          height: 230px;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 50%;
+          right: -90px;
+          bottom: -125px;
+        }
+
+        .card-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .card-brand {
+          font-weight: 900;
+          letter-spacing: .04em;
+          font-size: 13px;
+        }
+
+        .card-network {
+          font-weight: 900;
+          font-size: 14px;
+          opacity: .9;
+        }
+
+        .chip {
+          width: 46px;
+          height: 34px;
+          border-radius: 8px;
+          background: linear-gradient(135deg,#d7c28a,#f3e2a9);
+          margin-top: 44px;
+        }
+
+        .card-number {
+          margin-top: 27px;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: .11em;
+        }
+
+        .card-bottom {
+          margin-top: 25px;
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+        }
+
+        .card-caption {
+          color: rgba(255,255,255,.58);
+          font-size: 9px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+        }
+
+        .card-value {
+          margin-top: 4px;
+          font-size: 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+
+        .request-list {
+          display: grid;
+          gap: 10px;
+        }
+
+        .request-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: center;
+          padding: 14px;
+          border: 1px solid #e7edf2;
+          border-radius: 13px;
+          background: #fbfcfe;
+        }
+
+        .request-main strong {
+          display: block;
+          color: #27435c;
+          font-size: 13px;
+        }
+
+        .request-main small {
+          display: block;
+          color: #8995a2;
+          margin-top: 4px;
+        }
+
+        .request-status {
+          padding: 7px 10px;
+          border-radius: 999px;
+          background: #eef4fa;
+          color: #345a7b;
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+
+        .chat-button {
+          position: fixed;
+          right: 25px;
+          bottom: 25px;
+          z-index: 60;
+          width: 57px;
+          height: 57px;
+          border: 0;
+          border-radius: 50%;
+          color: white;
+          background: linear-gradient(135deg,#123c69,#1b5d96);
+          box-shadow: 0 15px 32px rgba(18,60,105,.28);
+          font-size: 22px;
+        }
+
+        .chat-panel {
+          position: fixed;
+          right: 25px;
+          bottom: 94px;
+          z-index: 60;
+          width: min(390px, calc(100vw - 30px));
+          height: 540px;
+          background: white;
+          border: 1px solid #dfe6ed;
+          border-radius: 20px;
+          overflow: hidden;
+          box-shadow: 0 25px 70px rgba(15,23,42,.18);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .chat-header {
+          padding: 17px 18px;
+          background: #123c69;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .chat-header strong {
+          display: block;
+        }
+
+        .chat-header small {
+          display: block;
+          margin-top: 3px;
+          opacity: .72;
+        }
+
+        .chat-close {
+          border: 0;
+          background: rgba(255,255,255,.12);
+          color: white;
+          border-radius: 8px;
+          width: 30px;
+          height: 30px;
+        }
+
+        .chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 15px;
+          background: #f7f9fb;
+        }
+
+        .chat-message {
+          max-width: 82%;
+          padding: 10px 12px;
+          border-radius: 13px;
+          margin-bottom: 9px;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .chat-message.user {
+          margin-left: auto;
+          background: #123c69;
+          color: white;
+          border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.assistant {
+          background: white;
+          color: #324a60;
+          border: 1px solid #e2e8ee;
+          border-bottom-left-radius: 4px;
+        }
+
+        .chat-form {
+          display: flex;
+          gap: 8px;
+          padding: 11px;
+          border-top: 1px solid #e6ebf0;
+          background: white;
+        }
+
+        .chat-form input {
+          min-width: 0;
+          flex: 1;
+          border: 1px solid #dbe3eb;
+          border-radius: 10px;
+          padding: 10px;
+          outline: none;
+        }
+
+        .chat-form button {
+          width: 42px;
+          border: 0;
+          border-radius: 10px;
+          background: #123c69;
+          color: white;
+          font-weight: 900;
+        }
+
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          background: rgba(8,22,38,.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+        }
+
+        .modal-card {
+          width: min(540px,100%);
+          max-height: calc(100vh - 36px);
+          overflow-y: auto;
+          background: white;
+          border-radius: 22px;
+          box-shadow: 0 30px 90px rgba(0,0,0,.25);
+        }
+
+        .modal-header {
+          padding: 20px 22px;
+          border-bottom: 1px solid #edf0f4;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 15px;
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          color: #173b5f;
+        }
+
+        .modal-close {
+          border: 0;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          background: #f1f4f7;
+          color: #506173;
+        }
+
+        .modal-body {
+          padding: 22px;
+        }
+
+        .otp-code {
+          letter-spacing: .35em;
+          text-align: center;
+          font-size: 24px;
+          font-weight: 900;
+        }
+
+        .receipt {
+          background: #f7fafc;
+          border: 1px solid #e3eaf0;
+          border-radius: 15px;
+          padding: 16px;
+        }
+
+        .receipt-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 9px 0;
+          border-bottom: 1px solid #e7edf2;
+          font-size: 13px;
+        }
+
+        .receipt-row:last-child {
+          border-bottom: 0;
+        }
+
+        .receipt-row span:first-child {
+          color: #7c8996;
+        }
+
+        .receipt-row span:last-child {
+          color: #1f3d58;
+          font-weight: 800;
+          text-align: right;
+        }
+
+        @media (max-width: 1150px) {
+          .dashboard-layout {
+            grid-template-columns: 210px minmax(0,1fr);
+          }
+
+          .balance-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+          }
+
+          .balance-card {
+            grid-column: 1 / -1;
+          }
+
+          .quick-actions {
+            grid-template-columns: repeat(3,minmax(0,1fr));
+          }
+        }
+
+        @media (max-width: 900px) {
+          .topbar-link {
+            display: none;
+          }
+
+          .mobile-menu-button {
+            display: block;
+          }
+
+          .dashboard-layout {
+            display: block;
+          }
+
+          .sidebar {
+            position: fixed;
+            z-index: 70;
+            top: 76px;
+            left: 20px;
+            width: min(280px,calc(100vw - 40px));
+            display: none;
+            box-shadow: 0 20px 60px rgba(15,23,42,.18);
+          }
+
+          .sidebar.open {
+            display: block;
+          }
+
+          .profile-layout {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .topbar-inner,
+          .dashboard-body {
+            width: min(100% - 24px, 1400px);
+          }
+
+          .topbar-inner {
+            min-height: 68px;
+          }
+
+          .dashboard-body {
+            padding-top: 24px;
+          }
+
+          .brand-subtitle {
+            display: none;
+          }
+
+          .profile-chip {
+            padding-right: 7px;
+          }
+
+          .profile-chip span {
+            display: none;
+          }
+
+          .welcome-section {
+            display: block;
+          }
+
+          .security-pill {
+            display: inline-flex;
+            margin-top: 14px;
+          }
+
+          .balance-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .balance-card {
+            grid-column: auto;
+          }
+
+          .quick-actions {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+          }
+
+          .overview-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+          }
+
+          .notifications {
+            grid-template-columns: 1fr;
+          }
+
+          .form-grid,
+          .form-grid.three,
+          .info-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .transaction-row {
+            grid-template-columns: 40px minmax(0,1fr);
+          }
+
+          .transaction-amount {
+            grid-column: 2;
+            text-align: left;
+          }
+
+          .section-card-header,
+          .section-card-body {
+            padding: 18px;
+          }
+
+          .profile-layout {
+            gap: 16px;
+          }
+
+          .card-display {
+            min-height: 250px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .brand-name {
+            font-size: 13px;
+          }
+
+          .quick-actions {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .quick-action {
+            min-height: 105px;
+          }
+
+          .overview-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .chat-panel {
+            right: 15px;
+            bottom: 82px;
+            width: calc(100vw - 30px);
+            height: 500px;
+          }
+
+          .chat-button {
+            right: 15px;
+            bottom: 15px;
+          }
+
+          .request-row {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+        }
+      `}</style>
+
+      <div className="dashboard-shell">
+        <header className="dashboard-topbar">
+          <div className="topbar-inner">
+            <div className="brand-area">
+              <div className="brand-mark">M</div>
+
+              <div className="brand-copy">
+                <div className="brand-name">
+                  MIDATLANTIC FEDERAL BANK
                 </div>
 
-                <div className="hero-security">
-                  <span className="secure-dot">
-                    ✓
-                  </span>
-                  <div>
-                    <strong>
-                      Secure session
-                    </strong>
-                    <small>
-                      Your connection is protected
-                    </small>
-                  </div>
+                <div className="brand-subtitle">
+                  Secure Online Banking
                 </div>
-              </section>
+              </div>
+            </div>
 
-              <section className="balance-card">
-                <div className="balance-card-glow"></div>
+            <div className="topbar-actions">
+              <button
+                className="topbar-link"
+                onClick={() => {
+                  window.location.href = "/";
+                }}
+              >
+                Home
+              </button>
 
-                <div className="balance-top">
-                  <span>
-                    AVAILABLE BALANCE
-                  </span>
+              <button
+                className="topbar-link"
+                onClick={() => {
+                  window.location.href = "/news";
+                }}
+              >
+                News
+              </button>
 
-                  <span className="active-badge">
-                    <i></i>
-                    {account.status ||
-                      "Active"}
-                  </span>
-                </div>
+              <button
+                className="mobile-menu-button"
+                onClick={() =>
+                  setMenuOpen((current) => !current)
+                }
+                aria-label="Open menu"
+              >
+                ☰
+              </button>
 
-                <div className="balance-amount">
-                  $
-                  {formatMoney(
-                    account.balance
+              <button
+                className="profile-chip"
+                onClick={() => navigate("profile")}
+              >
+                <div className="profile-chip-avatar">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Profile"
+                    />
+                  ) : (
+                    getInitials(fullName)
                   )}
                 </div>
 
-                <div className="balance-bottom">
-                  <span>
-                    Account ending in{" "}
-                    {String(
-                      account.account_number ||
-                        ""
-                    ).slice(-4)}
-                  </span>
+                <span>{firstName}</span>
+              </button>
+            </div>
+          </div>
+        </header>
 
-                  <button
-                    onClick={() =>
-                      openPage("account")
-                    }
-                  >
-                    View account →
-                  </button>
-                </div>
-              </section>
-
-              <section className="section-block">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">
-                      ACCOUNT SERVICES
-                    </span>
-                    <h2>
-                      What would you like to do?
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="action-grid">
-                  <ActionCard
-                    icon="↓"
-                    title="Withdraw"
-                    text="Submit a withdrawal request"
-                    onClick={() =>
-                      openPage("withdraw")
-                    }
-                  />
-
-                  <ActionCard
-                    icon="↗"
-                    title="Transfer"
-                    text="Send money to another bank"
-                    onClick={() =>
-                      openPage("transfer")
-                    }
-                  />
-
-                  <ActionCard
-                    icon="⇄"
-                    title="Wire Transfer"
-                    text="Send an international wire"
-                    onClick={() =>
-                      openPage("wire")
-                    }
-                  />
-
-                  <ActionCard
-                    icon="→"
-                    title="Local Transfer"
-                    text="Make a local bank transfer"
-                    onClick={() =>
-                      openPage("local")
-                    }
-                  />
-
-                  <ActionCard
-                    icon="▣"
-                    title="ATM / Debit Card"
-                    text="View or request a card"
-                    onClick={() =>
-                      openPage("card")
-                    }
-                  />
-                </div>
-              </section>
-
-              <div className="dashboard-grid">
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <span className="eyebrow">
-                        ACCOUNT
-                      </span>
-                      <h2>
-                        Account Overview
-                      </h2>
-                    </div>
-
-                    <button
-                      className="link-button"
-                      onClick={() =>
-                        openPage("account")
-                      }
-                    >
-                      Details →
-                    </button>
-                  </div>
-
-                  <InfoRow
-                    label="Account Holder"
-                    value={
-                      profile?.full_name
-                    }
-                  />
-
-                  <InfoRow
-                    label="Account Number"
-                    value={maskedAccountNumber(
-                      account.account_number
-                    )}
-                  />
-
-                  <InfoRow
-                    label="Account Type"
-                    value={
-                      account.account_type ||
-                      "Checking"
-                    }
-                  />
-
-                  <InfoRow
-                    label="Account Status"
-                    value={
-                      account.status ||
-                      "Active"
-                    }
-                    success
-                  />
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <span className="eyebrow">
-                        ACCOUNT ACTIVITY
-                      </span>
-                      <h2>
-                        Notifications
-                      </h2>
-                    </div>
-                  </div>
-
-                  <NoticeItem
-                    icon="✓"
-                    title="Account Active"
-                    text="Your customer account is currently available."
-                  />
-
-                  <NoticeItem
-                    icon="!"
-                    title="Security Reminder"
-                    text="Never share passwords or verification codes."
-                    warning
-                  />
-                </section>
+        <main className="dashboard-body">
+          <div className="dashboard-layout">
+            <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
+              <div className="sidebar-label">
+                BANKING
               </div>
 
-              <section className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <span className="eyebrow">
-                      ACCOUNT ACTIVITY
-                    </span>
+              <button
+                className={`sidebar-button ${
+                  activePage === "dashboard"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("dashboard")}
+              >
+                <span className="sidebar-icon">⌂</span>
+                Dashboard
+              </button>
 
-                    <h2>
-                      Recent Transactions
-                    </h2>
-                  </div>
+              <button
+                className={`sidebar-button ${
+                  activePage === "profile"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("profile")}
+              >
+                <span className="sidebar-icon">◎</span>
+                My Profile
+              </button>
 
-                  <button
-                    className="link-button"
-                    onClick={() =>
-                      openPage(
-                        "transactions"
-                      )
-                    }
-                  >
-                    View all →
-                  </button>
-                </div>
+              <button
+                className={`sidebar-button ${
+                  activePage === "account"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("account")}
+              >
+                <span className="sidebar-icon">▣</span>
+                Account
+              </button>
 
-                {transactions.length ===
-                0 ? (
-                  <EmptyState
-                    title="No Transactions Yet"
-                    text="Transactions associated with this account will appear here."
-                  />
-                ) : (
-                  <TransactionList
-                    transactions={transactions.slice(
-                      0,
-                      5
-                    )}
-                    formatMoney={
-                      formatMoney
-                    }
-                    formatDate={
-                      formatDate
-                    }
-                  />
-                )}
-              </section>
+              <button
+                className={`sidebar-button ${
+                  activePage === "transfer"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => {
+                  setTransferPageType("transfer");
+                  navigate("transfer");
+                }}
+              >
+                <span className="sidebar-icon">↗</span>
+                Transfer
+              </button>
 
-              <section className="news-banner">
-                <div>
-                  <span className="eyebrow">
-                    MARKET & BANKING
-                  </span>
+              <button
+                className={`sidebar-button ${
+                  activePage === "local"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => {
+                  setTransferPageType("local");
+                  setFormField("transferMethod", "LOCAL");
+                  navigate("local");
+                }}
+              >
+                <span className="sidebar-icon">⇄</span>
+                Local Transfer
+              </button>
 
-                  <h2>
-                    Banking news and insights
-                  </h2>
+              <button
+                className={`sidebar-button ${
+                  activePage === "wire"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => {
+                  setTransferPageType("wire");
+                  setFormField("transferMethod", "WIRE");
+                  navigate("wire");
+                }}
+              >
+                <span className="sidebar-icon">⌁</span>
+                Wire Transfer
+              </button>
 
-                  <p>
-                    Read the latest banking and
-                    market information from
-                    MIDATLANTIC FEDERAL BANK.
-                  </p>
-                </div>
+              <button
+                className={`sidebar-button ${
+                  activePage === "withdraw"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("withdraw")}
+              >
+                <span className="sidebar-icon">↓</span>
+                Withdraw
+              </button>
 
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    window.location.href =
-                      "/news";
-                  }}
-                >
-                  View Bank News →
-                </button>
-              </section>
-            </>
-          )}
+              <button
+                className={`sidebar-button ${
+                  activePage === "card"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("card")}
+              >
+                <span className="sidebar-icon">▤</span>
+                ATM / Debit Card
+              </button>
 
-          {activePage === "card" && (
-            <PageShell
-              title={activeTitle}
-              label="CARD SERVICES"
-            >
-              <section className="panel card-panel">
-                <div className="panel-heading">
-                  <div>
-                    <span className="eyebrow">
-                      YOUR CARD
-                    </span>
-                    <h2>
-                      ATM / Debit Card
-                    </h2>
-                    <p>
-                      View your issued card or
-                      submit a new card request.
-                    </p>
-                  </div>
-                </div>
+              <div className="sidebar-label">
+                SUPPORT
+              </div>
 
-                {cardLoading ? (
-                  <LoadingInline text="Loading card information..." />
-                ) : customerCard ? (
-                  <div className="bank-card">
-                    <div className="bank-card-shine"></div>
+              <button
+                className={`sidebar-button ${
+                  activePage === "support"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => navigate("support")}
+              >
+                <span className="sidebar-icon">?</span>
+                Support
+              </button>
 
-                    <div className="bank-card-top">
-                      <strong>
-                        MIDATLANTIC
-                      </strong>
+              <button
+                className="sidebar-button"
+                onClick={signOut}
+              >
+                <span className="sidebar-icon">↪</span>
+                Sign Out
+              </button>
+            </aside>
 
-                      <span>
-                        {customerCard.card_network ||
-                          "DEBIT"}
-                      </span>
-                    </div>
-
-                    <div className="chip">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </div>
-
-                    <div className="card-number">
-                      •••• •••• ••••{" "}
-                      {customerCard.last4 ||
-                        "----"}
-                    </div>
-
-                    <div className="card-details">
-                      <div>
-                        <small>
-                          CARDHOLDER
-                        </small>
-                        <strong>
-                          {customerCard.cardholder_name ||
-                            profile?.full_name ||
-                            "Customer"}
-                        </strong>
+            <section className="main-content">
+              {activePage === "dashboard" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Personal Banking
                       </div>
 
-                      <div>
-                        <small>
-                          EXPIRES
-                        </small>
-                        <strong>
-                          {customerCard.expiry_month &&
-                          customerCard.expiry_year
-                            ? `${String(
-                                customerCard.expiry_month
-                              ).padStart(
-                                2,
-                                "0"
-                              )}/${String(
-                                customerCard.expiry_year
-                              ).slice(-2)}`
-                            : "--/--"}
-                        </strong>
+                      <h1>
+                        {greeting()}, {firstName}.
+                      </h1>
+
+                      <p>
+                        Here's an overview of your
+                        customer account.
+                      </p>
+                    </div>
+
+                    <div className="security-pill">
+                      ● Secure session
+                    </div>
+                  </div>
+
+                  <div className="balance-grid">
+                    <div className="balance-card">
+                      <div className="balance-label">
+                        Available Balance
+                      </div>
+
+                      <div className="balance-value">
+                        ${formatMoney(accountBalance)}
+                      </div>
+
+                      <div className="balance-meta">
+                        <span>
+                          Checking Account
+                        </span>
+
+                        <span>
+                          {maskAccountNumber(
+                            account?.account_number
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="summary-card">
+                      <div className="summary-label">
+                        Account Holder
+                      </div>
+
+                      <div className="summary-value">
+                        {fullName}
+                      </div>
+
+                      <div className="summary-small">
+                        Verified customer profile
+                      </div>
+                    </div>
+
+                    <div className="summary-card">
+                      <div className="summary-label">
+                        Account Status
+                      </div>
+
+                      <div className="summary-value">
+                        {account?.status || "Active"}
+                      </div>
+
+                      <div className="summary-small">
+                        Your online banking access is
+                        protected.
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <EmptyState
-                    title="No ATM / Debit Card Issued"
-                    text="You do not currently have a card recorded on your account."
-                  />
-                )}
 
-                <div className="card-request-box">
-                  <div>
-                    <span className="eyebrow">
-                      CARD REQUEST
-                    </span>
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>Quick Actions</h2>
+                        <p>
+                          Access your most-used banking
+                          services.
+                        </p>
+                      </div>
+                    </div>
 
-                    <h3>
-                      {customerCard
-                        ? "Need a replacement card?"
-                        : "Order an ATM / Debit Card"}
-                    </h3>
-
-                    <p>
-                      Card issuance and delivery
-                      are subject to bank review
-                      and approval.
-                    </p>
-                  </div>
-
-                  <button
-                    className="primary-button"
-                    onClick={orderNewCard}
-                    disabled={
-                      cardOrderLoading
-                    }
-                  >
-                    {cardOrderLoading
-                      ? "Submitting..."
-                      : customerCard
-                      ? "Order Replacement"
-                      : "Order New Card"}
-                  </button>
-                </div>
-
-                {cardStatus && (
-                  <div className="success-message">
-                    {cardStatus}
-                  </div>
-                )}
-
-                {cardOrders.length >
-                  0 && (
-                  <div className="request-history">
-                    <h3>
-                      Recent Card Requests
-                    </h3>
-
-                    {cardOrders.map(
-                      (order) => (
-                        <div
-                          className="history-row"
-                          key={order.id}
+                    <div className="section-card-body">
+                      <div className="quick-actions">
+                        <button
+                          className="quick-action"
+                          onClick={() =>
+                            navigate("withdraw")
+                          }
                         >
+                          <div className="quick-action-icon">
+                            ↓
+                          </div>
+
+                          <strong>
+                            Withdraw
+                          </strong>
+
+                          <span>
+                            Submit a withdrawal request
+                          </span>
+                        </button>
+
+                        <button
+                          className="quick-action"
+                          onClick={() => {
+                            setTransferPageType(
+                              "transfer"
+                            );
+                            navigate("transfer");
+                          }}
+                        >
+                          <div className="quick-action-icon">
+                            ↗
+                          </div>
+
+                          <strong>
+                            Transfer
+                          </strong>
+
+                          <span>
+                            Submit a transfer request
+                          </span>
+                        </button>
+
+                        <button
+                          className="quick-action"
+                          onClick={() => {
+                            setTransferPageType(
+                              "wire"
+                            );
+                            setFormField(
+                              "transferMethod",
+                              "WIRE"
+                            );
+                            navigate("wire");
+                          }}
+                        >
+                          <div className="quick-action-icon">
+                            ⌁
+                          </div>
+
+                          <strong>
+                            Wire Transfer
+                          </strong>
+
+                          <span>
+                            Enter recipient information
+                          </span>
+                        </button>
+
+                        <button
+                          className="quick-action"
+                          onClick={() => {
+                            setTransferPageType(
+                              "local"
+                            );
+                            setFormField(
+                              "transferMethod",
+                              "LOCAL"
+                            );
+                            navigate("local");
+                          }}
+                        >
+                          <div className="quick-action-icon">
+                            ⇄
+                          </div>
+
+                          <strong>
+                            Local Transfer
+                          </strong>
+
+                          <span>
+                            Submit a local transfer
+                            request
+                          </span>
+                        </button>
+
+                        <button
+                          className="quick-action"
+                          onClick={() =>
+                            navigate("card")
+                          }
+                        >
+                          <div className="quick-action-icon">
+                            ▤
+                          </div>
+
+                          <strong>
+                            ATM / Debit Card
+                          </strong>
+
+                          <span>
+                            View your card or order a
+                            new one
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>Account Overview</h2>
+                        <p>
+                          Key details associated with
+                          your account.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      <div className="overview-grid">
+                        <div className="overview-item">
+                          <div className="overview-item-label">
+                            Account Holder
+                          </div>
+
+                          <div className="overview-item-value">
+                            {fullName}
+                          </div>
+                        </div>
+
+                        <div className="overview-item">
+                          <div className="overview-item-label">
+                            Account Number
+                          </div>
+
+                          <div className="overview-item-value">
+                            {maskAccountNumber(
+                              account?.account_number
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="overview-item">
+                          <div className="overview-item-label">
+                            Account Type
+                          </div>
+
+                          <div className="overview-item-value">
+                            {account?.account_type ||
+                              "Checking"}
+                          </div>
+                        </div>
+
+                        <div className="overview-item">
+                          <div className="overview-item-label">
+                            Account Status
+                          </div>
+
+                          <div className="overview-item-value">
+                            {account?.status ||
+                              "Active"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>Notifications</h2>
+                        <p>
+                          Important account and security
+                          information.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      <div className="notifications">
+                        <div className="notification">
+                          <div className="notification-icon">
+                            ✓
+                          </div>
+
                           <div>
                             <strong>
-                              {order.card_type ||
-                                "ATM / Debit Card"}
+                              Account Active
                             </strong>
 
-                            <small>
-                              {formatDate(
-                                order.created_at
+                            <p>
+                              Your banking account is
+                              currently active and
+                              available for online
+                              banking.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="notification">
+                          <div className="notification-icon">
+                            !
+                          </div>
+
+                          <div>
+                            <strong>
+                              Security Reminder
+                            </strong>
+
+                            <p>
+                              Never share your password,
+                              OTP, card PIN, CVV, or
+                              full card number with
+                              anyone.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>Recent Transactions</h2>
+                        <p>
+                          Your latest account activity.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      {recentTransactions.length ===
+                      0 ? (
+                        <div className="empty-state">
+                          No recent transactions are
+                          available.
+                        </div>
+                      ) : (
+                        <div className="transaction-list">
+                          {recentTransactions.map(
+                            (transaction, index) => {
+                              const title =
+                                transaction.description ||
+                                transaction.title ||
+                                transaction.name ||
+                                "Account Transaction";
+
+                              const amount =
+                                Number(
+                                  transaction.amount || 0
+                                );
+
+                              return (
+                                <div
+                                  className="transaction-row"
+                                  key={
+                                    transaction.id ||
+                                    index
+                                  }
+                                >
+                                  <div className="transaction-icon">
+                                    {amount < 0
+                                      ? "↓"
+                                      : "↑"}
+                                  </div>
+
+                                  <div>
+                                    <div className="transaction-title">
+                                      {title}
+                                    </div>
+
+                                    <div className="transaction-meta">
+                                      {formatDateTime(
+                                        transaction.created_at
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="transaction-amount">
+                                    {amount < 0
+                                      ? "-"
+                                      : "+"}
+                                    $
+                                    {formatMoney(
+                                      Math.abs(amount)
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>Bank News</h2>
+                        <p>
+                          Read the latest updates from
+                          MIDATLANTIC FEDERAL BANK.
+                        </p>
+                      </div>
+
+                      <button
+                        className="secondary-button"
+                        onClick={() => {
+                          window.location.href =
+                            "/news";
+                        }}
+                      >
+                        View News
+                      </button>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {activePage === "profile" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Customer Profile
+                      </div>
+
+                      <h1>My Profile</h1>
+
+                      <p>
+                        Review your personal and account
+                        information.
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="section-card">
+                    <div className="section-card-body">
+                      <div className="profile-layout">
+                        <div className="profile-avatar-card">
+                          <div className="profile-avatar-large">
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt="Profile"
+                              />
+                            ) : (
+                              getInitials(fullName)
+                            )}
+                          </div>
+
+                          <strong>
+                            {fullName}
+                          </strong>
+
+                          <p
+                            style={{
+                              color: "#7c8996",
+                              fontSize: "12px",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {user?.email || ""}
+                          </p>
+
+                          <label className="upload-label">
+                            {avatarLoading
+                              ? "Uploading..."
+                              : "Change Picture"}
+
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={uploadAvatar}
+                              disabled={
+                                avatarLoading
+                              }
+                            />
+                          </label>
+
+                          {avatarStatus && (
+                            <div className="status-message">
+                              {avatarStatus}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="profile-section">
+                            <div className="profile-section-title">
+                              Personal Information
+                            </div>
+
+                            <div className="info-grid">
+                              <InfoRow
+                                label="Full Name"
+                                value={profile?.full_name}
+                              />
+
+                              <InfoRow
+                                label="Email"
+                                value={
+                                  profile?.email ||
+                                  user?.email
+                                }
+                              />
+
+                              <InfoRow
+                                label="Phone"
+                                value={
+                                  profile?.phone
+                                }
+                              />
+
+                              <InfoRow
+                                label="Date of Birth"
+                                value={
+                                  profile?.date_of_birth
+                                }
+                              />
+
+                              <InfoRow
+                                label="Address"
+                                value={
+                                  profile?.address
+                                }
+                              />
+
+                              <InfoRow
+                                label="City"
+                                value={profile?.city}
+                              />
+
+                              <InfoRow
+                                label="State"
+                                value={
+                                  profile?.state
+                                }
+                              />
+
+                              <InfoRow
+                                label="Postal Code"
+                                value={
+                                  profile?.postal_code
+                                }
+                              />
+
+                              <InfoRow
+                                label="Country"
+                                value={
+                                  profile?.country
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <div className="profile-section">
+                            <div className="profile-section-title">
+                              Account Information
+                            </div>
+
+                            <AccountNumberRow
+                              accountNumber={
+                                profileAccountNumber
+                              }
+                              visible={
+                                showAccountNumber
+                              }
+                              onToggle={() =>
+                                setShowAccountNumber(
+                                  (current) =>
+                                    !current
+                                )
+                              }
+                            />
+
+                            <div
+                              className="info-grid"
+                              style={{
+                                marginTop: 12,
+                              }}
+                            >
+                              <InfoRow
+                                label="Account Type"
+                                value={
+                                  account?.account_type ||
+                                  "Checking"
+                                }
+                              />
+
+                              <InfoRow
+                                label="Account Status"
+                                value={
+                                  account?.status ||
+                                  "Active"
+                                }
+                              />
+
+                              <InfoRow
+                                label="Account Created"
+                                value={formatDate(
+                                  account?.effective_created_at ||
+                                    account?.created_at
+                                )}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="profile-section">
+                            <div className="profile-section-title">
+                              Security
+                            </div>
+
+                            <button
+                              className="secondary-button"
+                              onClick={() => {
+                                setPasswordModalOpen(
+                                  true
+                                );
+                                setPasswordStatus(
+                                  ""
+                                );
+                              }}
+                            >
+                              Change Password
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {activePage === "account" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Account
+                      </div>
+
+                      <h1>Account Information</h1>
+
+                      <p>
+                        Your current account details and
+                        available balance.
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="section-card">
+                    <div className="section-card-body">
+                      <div className="balance-card">
+                        <div className="balance-label">
+                          Available Balance
+                        </div>
+
+                        <div className="balance-value">
+                          ${formatMoney(accountBalance)}
+                        </div>
+
+                        <div className="balance-meta">
+                          <span>
+                            {account?.account_type ||
+                              "Checking"}
+                          </span>
+
+                          <span>
+                            {maskAccountNumber(
+                              account?.account_number
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        className="info-grid"
+                        style={{ marginTop: 20 }}
+                      >
+                        <InfoRow
+                          label="Account Holder"
+                          value={fullName}
+                        />
+
+                        <InfoRow
+                          label="Account Number"
+                          value={maskAccountNumber(
+                            account?.account_number
+                          )}
+                        />
+
+                        <InfoRow
+                          label="Account Type"
+                          value={
+                            account?.account_type ||
+                            "Checking"
+                          }
+                        />
+
+                        <InfoRow
+                          label="Account Status"
+                          value={
+                            account?.status ||
+                            "Active"
+                          }
+                        />
+
+                        <InfoRow
+                          label="Account Created"
+                          value={formatDate(
+                            account?.effective_created_at ||
+                              account?.created_at
+                          )}
+                        />
+
+                        <InfoRow
+                          label="Email"
+                          value={
+                            profile?.email ||
+                            user?.email
+                          }
+                        />
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {(activePage === "transfer" ||
+                activePage === "local" ||
+                activePage === "wire") && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Money Movement
+                      </div>
+
+                      <h1>
+                        {activePage === "wire"
+                          ? "Wire Transfer"
+                          : activePage === "local"
+                          ? "Local Transfer"
+                          : "Transfer"}
+                      </h1>
+
+                      <p>
+                        Enter recipient details and
+                        submit your transfer securely.
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Recipient Information
+                        </h2>
+
+                        <p>
+                          An email verification code
+                          will be required before the
+                          transfer is submitted.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      <form
+                        onSubmit={
+                          startCustomerTransfer
+                        }
+                      >
+                        <div className="form-grid">
+                          <div className="form-field">
+                            <label className="form-label">
+                              Recipient Name
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.recipientName
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "recipientName",
+                                  event.target.value
+                                )
+                              }
+                              required
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Recipient Account / IBAN
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.recipientAccountNumber
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "recipientAccountNumber",
+                                  event.target.value
+                                )
+                              }
+                              required
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Bank Name
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.bankName
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "bankName",
+                                  event.target.value
+                                )
+                              }
+                              required
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Bank Country
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.bankCountry
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "bankCountry",
+                                  event.target.value.toUpperCase()
+                                )
+                              }
+                              required
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Currency
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.transferCurrency
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "transferCurrency",
+                                  event.target.value.toUpperCase()
+                                )
+                              }
+                              required
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Transfer Method
+                            </label>
+
+                            <select
+                              className="form-select"
+                              value={
+                                requestForm.transferMethod
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "transferMethod",
+                                  event.target.value
+                                )
+                              }
+                            >
+                              <option value="LOCAL">
+                                Local
+                              </option>
+
+                              <option value="WIRE">
+                                Wire
+                              </option>
+                            </select>
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Beneficiary Type
+                            </label>
+
+                            <select
+                              className="form-select"
+                              value={
+                                requestForm.beneficiaryType
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "beneficiaryType",
+                                  event.target.value
+                                )
+                              }
+                            >
+                              <option value="PERSONAL">
+                                Personal
+                              </option>
+
+                              <option value="BUSINESS">
+                                Business
+                              </option>
+                            </select>
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Account Name
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.accountName
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "accountName",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Routing Type
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.routingType
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "routingType",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Routing Value
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.routingValue
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "routingValue",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              SWIFT / BIC
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.swiftBic
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "swiftBic",
+                                  event.target.value.toUpperCase()
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Amount
+                            </label>
+
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={
+                                requestForm.amount
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "amount",
+                                  event.target.value
+                                )
+                              }
+                              required
+                            />
+
+                            <small className="summary-small">
+                              Available balance: $
+                              {formatMoney(
+                                account?.balance ?? 0
                               )}
                             </small>
                           </div>
 
-                          <StatusBadge
-                            status={
-                              order.status
-                            }
-                          />
+                          <div className="form-field full">
+                            <label className="form-label">
+                              Street Address
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.streetAddress
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "streetAddress",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              City
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.city
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "city",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              State / Province
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.state
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "state",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Postal Code
+                            </label>
+
+                            <input
+                              className="form-input"
+                              value={
+                                requestForm.postalCode
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "postalCode",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="form-field full">
+                            <label className="form-label">
+                              Description
+                            </label>
+
+                            <textarea
+                              className="form-textarea"
+                              value={
+                                requestForm.description
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "description",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="Optional transfer description"
+                            />
+                          </div>
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </section>
-            </PageShell>
-          )}
 
-          {activePage === "profile" && (
-            <PageShell
-              title="My Profile"
-              label="CUSTOMER"
-            >
-              <section className="panel">
-                <div className="profile-top">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      className="profile-avatar-image"
-                      alt="Profile"
-                    />
-                  ) : (
-                    <div className="profile-avatar">
-                      {(
-                        profile?.full_name ||
-                        "C"
-                      )
-                        .charAt(0)
-                        .toUpperCase()}
+                        <div className="button-row">
+                          <button
+                            className="primary-button"
+                            type="submit"
+                            disabled={
+                              transferOtpLoading
+                            }
+                          >
+                            {transferOtpLoading
+                              ? "Processing..."
+                              : "Continue Securely"}
+                          </button>
+                        </div>
+
+                        {transferOtpStatus && (
+                          <div className="status-message">
+                            {transferOtpStatus}
+                          </div>
+                        )}
+                      </form>
                     </div>
-                  )}
-
-                  <div>
-                    <h2>
-                      {profile?.full_name ||
-                        "Customer"}
-                    </h2>
-
-                    <p>
-                      Customer Account
-                    </p>
-
-                    <label className="upload-button">
-                      {avatarLoading
-                        ? "Uploading..."
-                        : avatarUrl
-                        ? "Change Photo"
-                        : "Upload Photo"}
-
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        onChange={
-                          uploadProfilePicture
-                        }
-                        disabled={
-                          avatarLoading
-                        }
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {avatarStatus && (
-                  <div
-                    className={
-                      avatarStatus
-                        .toLowerCase()
-                        .includes(
-                          "successfully"
-                        )
-                        ? "success-message"
-                        : "error-message"
-                    }
-                  >
-                    {avatarStatus}
-                  </div>
-                )}
-
-                <ProfileGroup title="Personal Information">
-                  <InfoRow
-                    label="Full Name"
-                    value={
-                      profile?.full_name
-                    }
-                  />
-
-                  <InfoRow
-                    label="Date of Birth"
-                    value={formatDateOnly(
-                      profile?.date_of_birth
-                    )}
-                  />
-
-                  <InfoRow
-                    label="Phone Number"
-                    value={
-                      profile?.phone_number
-                    }
-                  />
-
-                  <InfoRow
-                    label="Email Address"
-                    value={user?.email}
-                  />
-                </ProfileGroup>
-
-                <ProfileGroup title="Address Information">
-                  <InfoRow
-                    label="Address"
-                    value={
-                      profile?.address
-                    }
-                  />
-
-                  <InfoRow
-                    label="City"
-                    value={profile?.city}
-                  />
-
-                  <InfoRow
-                    label="State"
-                    value={
-                      profile?.state
-                    }
-                  />
-
-                  <InfoRow
-                    label="Postal Code"
-                    value={
-                      profile?.postal_code
-                    }
-                  />
-
-                  <InfoRow
-                    label="Country"
-                    value={
-                      profile?.country
-                    }
-                  />
-                </ProfileGroup>
-
-                <ProfileGroup title="Account Information">
-                  <AccountNumberRow
-                    accountNumber={
-                      account.account_number
-                    }
-                    visible={
-                      showAccountNumber
-                    }
-                    onToggle={() =>
-                      setShowAccountNumber(
-                        (value) => !value
-                      )
-                    }
-                  />
-
-                  <InfoRow
-                    label="Account Type"
-                    value={
-                      account.account_type ||
-                      "Checking"
-                    }
-                  />
-
-                  <InfoRow
-                    label="Account Status"
-                    value={
-                      account.status ||
-                      "Active"
-                    }
-                    success
-                  />
-
-                  <InfoRow
-                    label="Account Created"
-                    value={formatDate(
-                      account.effective_created_at ||
-                        account.created_at
-                    )}
-                  />
-                </ProfileGroup>
-              </section>
-            </PageShell>
-          )}
-
-          {activePage === "account" && (
-            <PageShell
-              title="Account Information"
-              label="ACCOUNT"
-            >
-              <section className="panel">
-                <InfoRow
-                  label="Account Holder"
-                  value={
-                    profile?.full_name
-                  }
-                />
-
-                <AccountNumberRow
-                  accountNumber={
-                    account.account_number
-                  }
-                  visible={
-                    showAccountNumber
-                  }
-                  onToggle={() =>
-                    setShowAccountNumber(
-                      (value) => !value
-                    )
-                  }
-                />
-
-                <InfoRow
-                  label="Account Type"
-                  value={
-                    account.account_type ||
-                    "Checking"
-                  }
-                />
-
-                <InfoRow
-                  label="Account Status"
-                  value={
-                    account.status ||
-                    "Active"
-                  }
-                  success
-                />
-
-                <InfoRow
-                  label="Available Balance"
-                  value={`$${formatMoney(
-                    account.balance
-                  )}`}
-                />
-
-                <InfoRow
-                  label="Account Created"
-                  value={formatDate(
-                    account.effective_created_at ||
-                      account.created_at
-                  )}
-                />
-              </section>
-            </PageShell>
-          )}
-
-          {[
-            "withdraw",
-            "transfer",
-            "wire",
-            "local",
-          ].includes(activePage) && (
-            <PageShell
-              title={activeTitle}
-              label="TRANSFERS & PAYMENTS"
-            >
-              {activePage ===
-              "withdraw" ? (
-                <WithdrawalPage
-                  account={account}
-                  form={requestForm}
-                  updateField={
-                    updateRequestField
-                  }
-                  submit={submitRequest}
-                  loading={
-                    requestLoading
-                  }
-                  status={
-                    requestStatus
-                  }
-                  requests={
-                    withdrawalRequests
-                  }
-                  withdrawalLoading={
-                    withdrawalLoading
-                  }
-                  formatMoney={
-                    formatMoney
-                  }
-                  formatDate={
-                    formatDate
-                  }
-                />
-              ) : (
-                <TransferPage
-                  type={activePage}
-                  form={requestForm}
-                  updateField={
-                    updateRequestField
-                  }
-                  submit={submitRequest}
-                  loading={
-                    requestLoading
-                  }
-                  status={
-                    requestStatus
-                  }
-                  account={account}
-                  formatMoney={
-                    formatMoney
-                  }
-                />
+                  </section>
+                </>
               )}
-            </PageShell>
-          )}
 
-          {activePage ===
-            "transactions" && (
-            <PageShell
-              title="Transaction History"
-              label="ACCOUNT ACTIVITY"
-            >
-              <section className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <span className="eyebrow">
-                      ACCOUNT ACTIVITY
-                    </span>
+              {activePage === "withdraw" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Cash Services
+                      </div>
 
-                    <h2>
-                      All Transactions
-                    </h2>
-                  </div>
-                </div>
+                      <h1>Withdraw</h1>
 
-                {transactions.length ===
-                0 ? (
-                  <EmptyState
-                    title="No Transactions Yet"
-                    text="There are no transactions associated with this account."
-                  />
-                ) : (
-                  <TransactionList
-                    transactions={
-                      transactions
-                    }
-                    formatMoney={
-                      formatMoney
-                    }
-                    formatDate={
-                      formatDate
-                    }
-                  />
-                )}
-              </section>
-            </PageShell>
-          )}
-
-          {activePage ===
-            "notifications" && (
-            <PageShell
-              title="Notifications"
-              label="ACCOUNT ACTIVITY"
-            >
-              <section className="panel">
-                <NoticeItem
-                  icon="✓"
-                  title="Account Active"
-                  text="Your customer account is currently available."
-                />
-
-                <NoticeItem
-                  icon="!"
-                  title="Security Reminder"
-                  text="Never share passwords or verification codes."
-                  warning
-                />
-
-                {withdrawalRequests
-                  .filter(
-                    (item) =>
-                      item.status ===
-                      "pending"
-                  )
-                  .map((item) => (
-                    <NoticeItem
-                      key={item.id}
-                      icon="↓"
-                      title="Withdrawal Pending"
-                      text={`Your $${formatMoney(
-                        item.amount
-                      )} withdrawal request is awaiting bank review.`}
-                    />
-                  ))}
-              </section>
-            </PageShell>
-          )}
-
-          {activePage === "support" && (
-            <PageShell
-              title="Customer Support"
-              label="SUPPORT"
-            >
-              <section className="panel support-panel">
-                <div className="support-header">
-                  <div className="support-icon">
-                    ?
+                      <p>
+                        Submit a withdrawal request from
+                        your customer account.
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <h2>
-                      Customer Support
-                    </h2>
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Withdrawal Request
+                        </h2>
 
-                    <p>
-                      Send a message to the bank
-                      support team.
-                    </p>
+                        <p>
+                          Requests are reviewed by the
+                          bank before any action is taken.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      <form
+                        onSubmit={submitWithdrawal}
+                      >
+                        <div className="form-grid">
+                          <div className="form-field">
+                            <label className="form-label">
+                              Amount
+                            </label>
+
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={
+                                requestForm.amount
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "amount",
+                                  event.target.value
+                                )
+                              }
+                              required
+                            />
+
+                            <small className="summary-small">
+                              Available balance: $
+                              {formatMoney(
+                                account?.balance ?? 0
+                              )}
+                            </small>
+                          </div>
+
+                          <div className="form-field">
+                            <label className="form-label">
+                              Method
+                            </label>
+
+                            <select
+                              className="form-select"
+                              value="cash"
+                              disabled
+                            >
+                              <option value="cash">
+                                Cash Withdrawal
+                              </option>
+                            </select>
+                          </div>
+
+                          <div className="form-field full">
+                            <label className="form-label">
+                              Notes
+                            </label>
+
+                            <textarea
+                              className="form-textarea"
+                              value={
+                                requestForm.description
+                              }
+                              onChange={(event) =>
+                                setFormField(
+                                  "description",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="Optional notes for the bank"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="button-row">
+                          <button
+                            className="primary-button"
+                            type="submit"
+                            disabled={
+                              requestLoading
+                            }
+                          >
+                            {requestLoading
+                              ? "Submitting..."
+                              : "Submit Withdrawal Request"}
+                          </button>
+                        </div>
+
+                        {requestStatus && (
+                          <div className="status-message">
+                            {requestStatus}
+                          </div>
+                        )}
+                      </form>
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Withdrawal History
+                        </h2>
+
+                        <p>
+                          Review your previous withdrawal
+                          requests.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      {withdrawalLoading ? (
+                        <div className="empty-state">
+                          Loading withdrawal requests...
+                        </div>
+                      ) : withdrawalRequests.length ===
+                        0 ? (
+                        <div className="empty-state">
+                          No withdrawal requests yet.
+                        </div>
+                      ) : (
+                        <div className="request-list">
+                          {withdrawalRequests.map(
+                            (request) => (
+                              <div
+                                className="request-row"
+                                key={request.id}
+                              >
+                                <div className="request-main">
+                                  <strong>
+                                    $
+                                    {formatMoney(
+                                      request.amount
+                                    )}
+                                  </strong>
+
+                                  <small>
+                                    {formatDateTime(
+                                      request.created_at
+                                    )}
+                                  </small>
+                                </div>
+
+                                <div className="request-status">
+                                  {request.status}
+                                </div>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {activePage === "card" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Card Services
+                      </div>
+
+                      <h1>
+                        ATM / Debit Card
+                      </h1>
+
+                      <p>
+                        View your issued card or submit a
+                        new card request.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <button
-                  className="primary-button"
-                  onClick={async () => {
-                    setChatOpen(true);
-                    await loadChatMessages();
-                  }}
-                >
-                  Open Support Chat
-                </button>
-              </section>
-            </PageShell>
-          )}
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Your Card
+                        </h2>
 
-          {activePage === "security" && (
-            <PageShell
-              title="Security Center"
-              label="SECURITY"
-            >
-              <section className="panel security-panel">
-                <div className="security-item">
-                  <div className="security-icon">
-                    ✓
+                        <p>
+                          Sensitive card information is
+                          never displayed in full.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      {cardLoading ? (
+                        <div className="empty-state">
+                          Loading card information...
+                        </div>
+                      ) : customerCard ? (
+                        <div>
+                          <div className="card-display">
+                            <div className="card-top">
+                              <div className="card-brand">
+                                MIDATLANTIC FEDERAL BANK
+                              </div>
+
+                              <div className="card-network">
+                                {customerCard.card_network ||
+                                  "DEBIT"}
+                              </div>
+                            </div>
+
+                            <div className="chip" />
+
+                            <div className="card-number">
+                              {maskCardNumber(
+                                customerCard.last4
+                              )}
+                            </div>
+
+                            <div className="card-bottom">
+                              <div>
+                                <div className="card-caption">
+                                  Cardholder
+                                </div>
+
+                                <div className="card-value">
+                                  {customerCard.cardholder_name ||
+                                    fullName}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="card-caption">
+                                  Expires
+                                </div>
+
+                                <div className="card-value">
+                                  {String(
+                                    customerCard.expiry_month ||
+                                      ""
+                                  ).padStart(2, "0")}
+                                  /
+                                  {String(
+                                    customerCard.expiry_year ||
+                                      ""
+                                  ).slice(-2)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            className="status-message success"
+                            style={{
+                              maxWidth: 480,
+                            }}
+                          >
+                            Card status:{" "}
+                            {customerCard.status ||
+                              "active"}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="empty-state">
+                          <div
+                            style={{
+                              fontSize: 36,
+                              marginBottom: 12,
+                            }}
+                          >
+                            ▣
+                          </div>
+
+                          <strong
+                            style={{
+                              color: "#28445e",
+                            }}
+                          >
+                            No ATM / Debit Card Issued
+                          </strong>
+
+                          <p>
+                            You do not currently have a
+                            card recorded on your
+                            customer account. You can
+                            submit a card request below.
+                          </p>
+
+                          <button
+                            className="primary-button"
+                            onClick={orderNewCard}
+                            disabled={
+                              cardOrderLoading
+                            }
+                          >
+                            {cardOrderLoading
+                              ? "Submitting..."
+                              : "Order New Card"}
+                          </button>
+                        </div>
+                      )}
+
+                      {cardStatus && (
+                        <div className="status-message">
+                          {cardStatus}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Card Requests
+                        </h2>
+
+                        <p>
+                          Track your card requests.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="section-card-body">
+                      {cardOrders.length === 0 ? (
+                        <div className="empty-state">
+                          No card requests yet.
+                        </div>
+                      ) : (
+                        <div className="request-list">
+                          {cardOrders.map(
+                            (order) => (
+                              <div
+                                className="request-row"
+                                key={order.id}
+                              >
+                                <div className="request-main">
+                                  <strong>
+                                    {order.card_type ||
+                                      "Debit"}{" "}
+                                    Card
+                                  </strong>
+
+                                  <small>
+                                    Requested{" "}
+                                    {formatDateTime(
+                                      order.created_at
+                                    )}
+                                  </small>
+                                </div>
+
+                                <div className="request-status">
+                                  {order.status}
+                                </div>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {activePage === "support" && (
+                <>
+                  <div className="welcome-section">
+                    <div>
+                      <div className="eyebrow">
+                        Customer Care
+                      </div>
+
+                      <h1>Support</h1>
+
+                      <p>
+                        Get help with your MIDATLANTIC
+                        FEDERAL BANK account.
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <h3>
-                      Secure Customer Session
-                    </h3>
+                  <section className="section-card">
+                    <div className="section-card-header">
+                      <div>
+                        <h2>
+                          Banking Support
+                        </h2>
 
-                    <p>
-                      Your banking session is
-                      protected by Supabase
-                      authentication.
-                    </p>
-                  </div>
-                </div>
+                        <p>
+                          Use the secure support assistant
+                          for general account questions.
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="security-item">
-                  <div className="security-icon">
-                    ✉
-                  </div>
+                    <div className="section-card-body">
+                      <div
+                        style={{
+                          padding: 22,
+                          background: "#f7fafc",
+                          borderRadius: 17,
+                          border: "1px solid #e7edf2",
+                        }}
+                      >
+                        <h3
+                          style={{
+                            marginTop: 0,
+                            color: "#193a57",
+                          }}
+                        >
+                          Need assistance?
+                        </h3>
 
-                  <div>
-                    <h3>
-                      Transfer Verification
-                    </h3>
+                        <p
+                          style={{
+                            color: "#718092",
+                            lineHeight: 1.7,
+                          }}
+                        >
+                          Ask about navigating your
+                          dashboard, transfers, cards,
+                          withdrawals, or other banking
+                          services.
+                        </p>
 
-                    <p>
-                      Bank transfers require
-                      email verification before
-                      they are submitted.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="security-item warning-security">
-                  <div className="security-icon">
-                    !
-                  </div>
-
-                  <div>
-                    <h3>
-                      Protect Your Verification Code
-                    </h3>
-
-                    <p>
-                      Bank staff should never ask
-                      you to disclose a one-time
-                      verification code over the
-                      phone or chat.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            </PageShell>
-          )}
-
-          {activePage === "settings" && (
-            <PageShell
-              title="Account Settings"
-              label="SECURITY"
-            >
-              <section className="panel settings-panel">
-                <div className="settings-item">
-                  <div>
-                    <span className="eyebrow">
-                      PASSWORD
-                    </span>
-
-                    <h3>
-                      Change Password
-                    </h3>
-
-                    <p>
-                      Update your customer login
-                      password.
-                    </p>
-                  </div>
-
-                  <button
-                    className="secondary-button"
-                    onClick={() => {
-                      setPasswordStatus("");
-                      setPasswordModalOpen(
-                        true
-                      );
-                    }}
-                  >
-                    Change Password
-                  </button>
-                </div>
-
-                <div className="settings-item">
-                  <div>
-                    <span className="eyebrow">
-                      SESSION
-                    </span>
-
-                    <h3>
-                      Sign Out
-                    </h3>
-
-                    <p>
-                      Securely end your current
-                      customer session.
-                    </p>
-                  </div>
-
-                  <button
-                    className="danger-button"
-                    onClick={logout}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </section>
-            </PageShell>
-          )}
-        </div>
-
-        <footer className="portal-footer">
-          <div>
-            <strong>
-              MIDATLANTIC FEDERAL BANK
-            </strong>
-
-            <span>
-              Secure Customer Banking Portal
-            </span>
+                        <button
+                          className="primary-button"
+                          onClick={() =>
+                            setChatOpen(true)
+                          }
+                        >
+                          Open Secure Support
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+            </section>
           </div>
-
-          <span>
-            © {new Date().getFullYear()} MIDATLANTIC FEDERAL BANK
-          </span>
-        </footer>
+        </main>
 
         <button
-          className="floating-support"
-          onClick={async () => {
-            setChatOpen(true);
-            await loadChatMessages();
-          }}
+          className="chat-button"
+          onClick={() =>
+            setChatOpen((current) => !current)
+          }
           aria-label="Open support chat"
         >
           ?
         </button>
 
         {chatOpen && (
-          <div className="chat-overlay">
-            <div className="chat-window">
-              <div className="chat-header">
-                <div>
-                  <strong>
-                    Customer Support
-                  </strong>
+          <div className="chat-panel">
+            <div className="chat-header">
+              <div>
+                <strong>
+                  MIDATLANTIC Support
+                </strong>
 
-                  <small>
-                    MIDATLANTIC FEDERAL BANK
-                  </small>
+                <small>
+                  Secure customer assistance
+                </small>
+              </div>
+
+              <button
+                className="chat-close"
+                onClick={() =>
+                  setChatOpen(false)
+                }
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="chat-messages">
+              {chatMessages.length === 0 && (
+                <div className="chat-message assistant">
+                  Hello {firstName}. How can we help
+                  you today?
+                </div>
+              )}
+
+              {chatMessages.map(
+                (message, index) => (
+                  <div
+                    key={index}
+                    className={`chat-message ${
+                      message.role === "user"
+                        ? "user"
+                        : "assistant"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                )
+              )}
+
+              {chatLoading && (
+                <div className="chat-message assistant">
+                  Thinking...
+                </div>
+              )}
+            </div>
+
+            <form
+              className="chat-form"
+              onSubmit={sendChatMessage}
+            >
+              <input
+                value={chatMessage}
+                onChange={(event) =>
+                  setChatMessage(
+                    event.target.value
+                  )
+                }
+                placeholder="Type your question..."
+              />
+
+              <button
+                type="submit"
+                disabled={chatLoading}
+              >
+                ↑
+              </button>
+            </form>
+          </div>
+        )}
+
+        {transferOtpOpen && (
+          <div className="modal-backdrop">
+            <div className="modal-card">
+              <div className="modal-header">
+                <div>
+                  <h3>
+                    Verify Transfer
+                  </h3>
+
+                  <div
+                    style={{
+                      color: "#7a8795",
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}
+                  >
+                    Enter the one-time verification
+                    code sent to your email.
+                  </div>
                 </div>
 
                 <button
+                  className="modal-close"
                   onClick={() =>
-                    setChatOpen(false)
+                    setTransferOtpOpen(false)
                   }
                 >
                   ×
                 </button>
               </div>
 
-              <div className="chat-messages">
-                {chatMessages.map(
-                  (message) => (
-                    <div
-                      key={message.id}
-                      className={`chat-message ${
-                        message.sender ===
-                        "customer"
-                          ? "customer-message"
-                          : "support-message"
-                      }`}
-                    >
-                      {message.message}
+              <div className="modal-body">
+                <form
+                  onSubmit={
+                    verifyCustomerTransfer
+                  }
+                >
+                  <div className="form-field">
+                    <label className="form-label">
+                      Verification Code
+                    </label>
 
-                      <small>
-                        {formatDate(
-                          message.created_at
-                        )}
-                      </small>
+                    <input
+                      className="form-input otp-code"
+                      value={transferOtp}
+                      onChange={(event) =>
+                        setTransferOtp(
+                          event.target.value
+                        )
+                      }
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={8}
+                      required
+                    />
+                  </div>
+
+                  {transferOtpStatus && (
+                    <div className="status-message">
+                      {transferOtpStatus}
                     </div>
-                  )
-                )}
-              </div>
+                  )}
 
-              <form
-                className="chat-input"
-                onSubmit={
-                  sendChatMessage
-                }
-              >
-                <input
-                  value={chatMessage}
-                  onChange={(event) =>
-                    setChatMessage(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Type your message..."
-                  disabled={chatLoading}
-                />
+                  <div className="button-row">
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={
+                        transferOtpLoading
+                      }
+                    >
+                      {transferOtpLoading
+                        ? "Verifying..."
+                        : "Verify & Submit"}
+                    </button>
 
-                <button
-                  type="submit"
-                  disabled={chatLoading}
-                >
-                  {chatLoading
-                    ? "..."
-                    : "Send"}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {transferOtpOpen && (
-          <div className="modal-overlay">
-            <div className="modal-card">
-              <button
-                className="modal-close"
-                onClick={
-                  closeTransferOtp
-                }
-              >
-                ×
-              </button>
-
-              <div className="modal-icon">
-                ✉
-              </div>
-
-              <span className="eyebrow">
-                SECURITY VERIFICATION
-              </span>
-
-              <h2>
-                Verify Your Transfer
-              </h2>
-
-              <p>
-                Enter the 6-digit verification
-                code sent to your registered
-                email address.
-              </p>
-
-              {transferOtpStatus && (
-                <div
-                  className={
-                    transferOtpStatus
-                      .toLowerCase()
-                      .includes("could")
-                      ? "error-message"
-                      : "success-message"
-                  }
-                >
-                  {transferOtpStatus}
-                </div>
-              )}
-
-              <form
-                onSubmit={
-                  verifyCustomerTransfer
-                }
-              >
-                <label className="field">
-                  Verification Code
-
-                  <input
-                    className="otp-input"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={transferOtp}
-                    onChange={(event) =>
-                      setTransferOtp(
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 6)
-                      )
-                    }
-                    placeholder="000000"
-                    autoFocus
-                  />
-                </label>
-
-                <button
-                  className="primary-button full"
-                  type="submit"
-                  disabled={
-                    transferOtpLoading
-                  }
-                >
-                  {transferOtpLoading
-                    ? "Verifying..."
-                    : "Verify & Send Transfer"}
-                </button>
-              </form>
-
-              <button
-                className="modal-link"
-                onClick={
-                  resendCustomerTransferOtp
-                }
-                disabled={
-                  transferResendLoading
-                }
-              >
-                {transferResendLoading
-                  ? "Sending new code..."
-                  : "Didn't receive the code? Send again"}
-              </button>
-
-              <div className="security-note">
-                Never share this verification
-                code with anyone.
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={
+                        resendCustomerTransferOtp
+                      }
+                      disabled={
+                        transferResendLoading
+                      }
+                    >
+                      {transferResendLoading
+                        ? "Sending..."
+                        : "Resend Code"}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
         )}
 
         {transferReceiptOpen && (
-          <div className="modal-overlay">
-            <div className="modal-card receipt-card">
-              <button
-                className="modal-close"
-                onClick={
-                  closeTransferReceipt
-                }
-              >
-                ×
-              </button>
+          <div className="modal-backdrop">
+            <div className="modal-card">
+              <div className="modal-header">
+                <div>
+                  <h3>
+                    Transfer Successful
+                  </h3>
 
-              <div className="receipt-success">
-                ✓
+                  <div
+                    style={{
+                      color: "#7a8795",
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}
+                  >
+                    Your transfer request was
+                    submitted successfully.
+                  </div>
+                </div>
+
+                <button
+                  className="modal-close"
+                  onClick={() =>
+                    setTransferReceiptOpen(
+                      false
+                    )
+                  }
+                >
+                  ×
+                </button>
               </div>
 
-              <span className="eyebrow">
-                TRANSFER COMPLETE
-              </span>
+              <div className="modal-body">
+                <div className="receipt">
+                  <div className="receipt-row">
+                    <span>Status</span>
 
-              <h2>
-                Transfer Successful
-              </h2>
+                    <span>
+                      {transferReceipt?.status ||
+                        "Submitted"}
+                    </span>
+                  </div>
 
-              <p>
-                Your transfer was submitted
-                successfully.
-              </p>
+                  <div className="receipt-row">
+                    <span>Amount</span>
 
-              <div className="receipt">
-                <ReceiptRow
-                  label="Recipient"
-                  value={
-                    transferReceipt?.recipientName ||
-                    transferReceipt?.recipient_name ||
-                    "Recipient"
-                  }
-                />
+                    <span>
+                      {transferReceipt?.currency ||
+                        requestForm.transferCurrency ||
+                        "USD"}{" "}
+                      {formatMoney(
+                        transferReceipt?.amount ||
+                          requestForm.amount
+                      )}
+                    </span>
+                  </div>
 
-                <ReceiptRow
-                  label="Amount"
-                  value={
-                    transferReceipt?.amount
-                      ? `${transferReceipt.currency || ""} ${transferReceipt.amount}`
-                      : "Transfer submitted"
-                  }
-                />
+                  <div className="receipt-row">
+                    <span>Recipient</span>
 
-                <ReceiptRow
-                  label="Status"
-                  value={
-                    transferReceipt?.status ||
-                    "Submitted"
-                  }
-                />
+                    <span>
+                      {transferReceipt?.recipient_name ||
+                        "Recipient"}
+                    </span>
+                  </div>
 
-                <ReceiptRow
-                  label="Date"
-                  value={formatDate(
-                    transferReceipt?.createdAt ||
-                      transferReceipt?.created_at ||
-                      new Date()
+                  {transferReceipt?.transfer_id && (
+                    <div className="receipt-row">
+                      <span>Transfer ID</span>
+
+                      <span>
+                        {transferReceipt.transfer_id}
+                      </span>
+                    </div>
                   )}
-                />
 
-                {(transferReceipt?.recipientAccountNumber ||
-                  transferReceipt?.recipient_account_number) && (
-                  <ReceiptRow
-                    label="Recipient Account"
-                    value={maskSensitiveAccount(
-                      transferReceipt?.recipientAccountNumber ||
-                        transferReceipt?.recipient_account_number
-                    )}
-                  />
-                )}
+                  {transferReceipt?.created_at && (
+                    <div className="receipt-row">
+                      <span>Date</span>
+
+                      <span>
+                        {formatDateTime(
+                          transferReceipt.created_at
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="button-row">
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      setTransferReceiptOpen(
+                        false
+                      )
+                    }
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
-
-              <button
-                className="primary-button full"
-                onClick={
-                  closeTransferReceipt
-                }
-              >
-                Done
-              </button>
             </div>
           </div>
         )}
 
         {passwordModalOpen && (
-          <div className="modal-overlay">
+          <div className="modal-backdrop">
             <div className="modal-card">
-              <button
-                className="modal-close"
-                onClick={() =>
-                  setPasswordModalOpen(
-                    false
-                  )
-                }
-              >
-                ×
-              </button>
+              <div className="modal-header">
+                <div>
+                  <h3>
+                    Change Password
+                  </h3>
 
-              <div className="modal-icon">
-                🔒
-              </div>
-
-              <span className="eyebrow">
-                SECURITY
-              </span>
-
-              <h2>
-                Change Password
-              </h2>
-
-              <p>
-                Choose a strong password that
-                you do not use elsewhere.
-              </p>
-
-              <form
-                onSubmit={
-                  changePassword
-                }
-              >
-                <label className="field">
-                  New Password
-
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(event) =>
-                      setNewPassword(
-                        event.target.value
-                      )
-                    }
-                    minLength={8}
-                    required
-                  />
-                </label>
-
-                <label className="field">
-                  Confirm New Password
-
-                  <input
-                    type="password"
-                    value={
-                      confirmPassword
-                    }
-                    onChange={(event) =>
-                      setConfirmPassword(
-                        event.target.value
-                      )
-                    }
-                    minLength={8}
-                    required
-                  />
-                </label>
-
-                {passwordStatus && (
                   <div
-                    className={
-                      passwordStatus
-                        .includes(
-                          "successfully"
-                        )
-                        ? "success-message"
-                        : "error-message"
-                    }
+                    style={{
+                      color: "#7a8795",
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}
                   >
-                    {passwordStatus}
+                    Choose a new password for your
+                    MIDATLANTIC FEDERAL BANK account.
                   </div>
-                )}
+                </div>
 
                 <button
-                  className="primary-button full"
-                  type="submit"
-                  disabled={
-                    passwordLoading
+                  className="modal-close"
+                  onClick={() =>
+                    setPasswordModalOpen(false)
                   }
                 >
-                  {passwordLoading
-                    ? "Updating..."
-                    : "Update Password"}
+                  ×
                 </button>
-              </form>
+              </div>
+
+              <div className="modal-body">
+                <form onSubmit={changePassword}>
+                  <div className="form-field">
+                    <label className="form-label">
+                      New Password
+                    </label>
+
+                    <input
+                      className="form-input"
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) =>
+                        setNewPassword(
+                          event.target.value
+                        )
+                      }
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                    />
+                  </div>
+
+                  <div
+                    className="form-field"
+                    style={{ marginTop: 15 }}
+                  >
+                    <label className="form-label">
+                      Confirm Password
+                    </label>
+
+                    <input
+                      className="form-input"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(event) =>
+                        setConfirmPassword(
+                          event.target.value
+                        )
+                      }
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                    />
+                  </div>
+
+                  {passwordStatus && (
+                    <div className="status-message">
+                      {passwordStatus}
+                    </div>
+                  )}
+
+                  <div className="button-row">
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={
+                        passwordLoading
+                      }
+                    >
+                      {passwordLoading
+                        ? "Changing..."
+                        : "Change Password"}
+                    </button>
+
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() =>
+                        setPasswordModalOpen(
+                          false
+                        )
+                      }
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
-      </main>
+      </div>
     </>
   );
 }
 
-function Header({
-  menuOpen,
-  setMenuOpen,
-  openPage,
-  logout,
-  showMenu,
-}) {
-  return (
-    <header className="topbar">
-      <div className="brand">
-        <div className="brand-mark">
-          M
-        </div>
-
-        <div className="brand-copy">
-          <strong>
-            MIDATLANTIC
-          </strong>
-
-          <span>
-            FEDERAL BANK
-          </span>
-
-          <small>
-            CUSTOMER BANKING
-          </small>
-        </div>
-      </div>
-
-      <div className="topbar-right">
-        <div className="online-status">
-          <i></i>
-          Online
-        </div>
-
-        {showMenu ? (
-          <button
-            className={`menu-button ${
-              menuOpen ? "open" : ""
-            }`}
-            onClick={() =>
-              setMenuOpen(
-                (value) => !value
-              )
-            }
-            aria-label="Open menu"
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        ) : (
-          <button
-            className="signout-button"
-            onClick={logout}
-          >
-            Sign Out
-          </button>
-        )}
-      </div>
-
-      {showMenu && menuOpen && (
-        <div className="side-menu">
-          <div className="menu-head">
-            <div>
-              <strong>
-                Customer Portal
-              </strong>
-
-              <span>
-                Account Menu
-              </span>
-            </div>
-
-            <button
-              onClick={() =>
-                setMenuOpen(false)
-              }
-            >
-              ×
-            </button>
-          </div>
-
-          <MenuGroup title="MAIN">
-            <MenuButton
-              icon="⌂"
-              text="Dashboard"
-              onClick={() =>
-                openPage(
-                  "dashboard"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="○"
-              text="My Profile"
-              onClick={() =>
-                openPage(
-                  "profile"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="▣"
-              text="Account Information"
-              onClick={() =>
-                openPage(
-                  "account"
-                )
-              }
-            />
-          </MenuGroup>
-
-          <MenuGroup title="TRANSFERS & PAYMENTS">
-            <MenuButton
-              icon="↓"
-              text="Withdraw"
-              onClick={() =>
-                openPage(
-                  "withdraw"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="↗"
-              text="Transfer"
-              onClick={() =>
-                openPage(
-                  "transfer"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="⇄"
-              text="Wire Transfer"
-              onClick={() =>
-                openPage(
-                  "wire"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="→"
-              text="Local Transfer"
-              onClick={() =>
-                openPage(
-                  "local"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="▣"
-              text="ATM / Debit Card"
-              onClick={() =>
-                openPage(
-                  "card"
-                )
-              }
-            />
-          </MenuGroup>
-
-          <MenuGroup title="ACTIVITY">
-            <MenuButton
-              icon="▤"
-              text="Transaction History"
-              onClick={() =>
-                openPage(
-                  "transactions"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="○"
-              text="Notifications"
-              onClick={() =>
-                openPage(
-                  "notifications"
-                )
-              }
-            />
-          </MenuGroup>
-
-          <MenuGroup title="SUPPORT">
-            <MenuButton
-              icon="?"
-              text="Customer Support"
-              onClick={() =>
-                openPage(
-                  "support"
-                )
-              }
-            />
-          </MenuGroup>
-
-          <MenuGroup title="SECURITY">
-            <MenuButton
-              icon="◇"
-              text="Security Center"
-              onClick={() =>
-                openPage(
-                  "security"
-                )
-              }
-            />
-
-            <MenuButton
-              icon="⚙"
-              text="Account Settings"
-              onClick={() =>
-                openPage(
-                  "settings"
-                )
-              }
-            />
-          </MenuGroup>
-
-          <button
-            className="menu-signout"
-            onClick={logout}
-          >
-            ↪
-            <span>
-              Sign Out
-            </span>
-          </button>
-        </div>
-      )}
-    </header>
-  );
-}
-
-function MenuGroup({
-  title,
-  children,
-}) {
-  return (
-    <div className="menu-group">
-      <div className="menu-label">
-        {title}
-      </div>
-
-      {children}
-    </div>
-  );
-}
-
-function MenuButton({
-  icon,
-  text,
-  onClick,
-}) {
-  return (
-    <button
-      className="menu-item"
-      onClick={onClick}
-    >
-      <span className="menu-item-icon">
-        {icon}
-      </span>
-
-      <span>{text}</span>
-    </button>
-  );
-}
-
-function ActionCard({
-  icon,
-  title,
-  text,
-  onClick,
-}) {
-  return (
-    <button
-      className="action-card"
-      onClick={onClick}
-    >
-      <span className="action-icon">
-        {icon}
-      </span>
-
-      <strong>
-        {title}
-      </strong>
-
-      <small>
-        {text}
-      </small>
-
-      <span className="action-arrow">
-        →
-      </span>
-    </button>
-  );
-}
-
-function PageShell({
-  title,
-  label,
-  children,
-}) {
-  return (
-    <section className="content-page">
-      <div className="page-title">
-        <span className="eyebrow">
-          {label}
-        </span>
-
-        <h1>{title}</h1>
-      </div>
-
-      {children}
-    </section>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  success = false,
-}) {
+function InfoRow({ label, value }) {
   return (
     <div className="info-row">
-      <span>{label}</span>
+      <div className="info-label">
+        {label}
+      </div>
 
-      <strong
-        className={
-          success ? "success-text" : ""
-        }
-      >
-        {value || "Not available"}
-      </strong>
+      <div className="info-value">
+        {value || "—"}
+      </div>
     </div>
   );
 }
@@ -3022,2791 +4615,33 @@ function AccountNumberRow({
   visible,
   onToggle,
 }) {
+  const value = accountNumber
+    ? visible
+      ? accountNumber
+      : `••••••${String(accountNumber).slice(-4)}`
+    : "Not available";
+
   return (
-    <div className="info-row">
-      <span>
-        Account Number
-      </span>
-
-      <div className="account-value">
-        <strong>
-          {visible
-            ? visibleAccountNumber(
-                accountNumber
-              )
-            : maskedAccountNumber(
-                accountNumber
-              )}
-        </strong>
-
-        {accountNumber && (
-          <button
-            className="eye-button"
-            onClick={onToggle}
-            type="button"
-            title={
-              visible
-                ? "Hide account number"
-                : "Show account number"
-            }
-          >
-            {visible ? "◉" : "◌"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProfileGroup({
-  title,
-  children,
-}) {
-  return (
-    <div className="profile-group">
-      <h3>{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function NoticeItem({
-  icon,
-  title,
-  text,
-  warning = false,
-}) {
-  return (
-    <div className="notice-item">
-      <div
-        className={`notice-icon ${
-          warning ? "warning" : ""
-        }`}
-      >
-        {icon}
-      </div>
-
+    <div className="account-number-row">
       <div>
-        <strong>{title}</strong>
-        <p>{text}</p>
-      </div>
-    </div>
-  );
-}
+        <div className="info-label">
+          Account Number
+        </div>
 
-function EmptyState({
-  title,
-  text,
-}) {
-  return (
-    <div className="empty-state">
-      <div className="empty-state-icon">
-        ▣
+        <div className="account-number-value">
+          {value}
+        </div>
       </div>
 
-      <strong>{title}</strong>
-
-      <p>{text}</p>
-    </div>
-  );
-}
-
-function LoadingInline({ text }) {
-  return (
-    <div className="loading-inline">
-      <div className="small-spinner"></div>
-      {text}
-    </div>
-  );
-}
-
-function TransactionList({
-  transactions,
-  formatMoney,
-  formatDate,
-}) {
-  return (
-    <div className="transaction-list">
-      {transactions.map(
-        (transaction) => (
-          <div
-            className="transaction"
-            key={transaction.id}
-          >
-            <div className="transaction-icon">
-              {Number(
-                transaction.amount
-              ) >= 0
-                ? "↓"
-                : "↑"}
-            </div>
-
-            <div className="transaction-main">
-              <strong>
-                {transaction.description ||
-                  "Account Transaction"}
-              </strong>
-
-              <small>
-                {formatDate(
-                  transaction.transaction_date
-                )}
-              </small>
-            </div>
-
-            <strong
-              className={
-                Number(
-                  transaction.amount
-                ) >= 0
-                  ? "amount-positive"
-                  : "amount-negative"
-              }
-            >
-              {Number(
-                transaction.amount
-              ) >= 0
-                ? "+"
-                : "-"}
-              $
-              {formatMoney(
-                Math.abs(
-                  Number(
-                    transaction.amount
-                  )
-                )
-              )}
-            </strong>
-          </div>
-        )
+      {accountNumber && (
+        <button
+          className="small-button"
+          type="button"
+          onClick={onToggle}
+        >
+          {visible ? "Hide" : "Show"}
+        </button>
       )}
     </div>
   );
 }
-
-function StatusBadge({
-  status,
-}) {
-  const normalized =
-    String(
-      status || "pending"
-    ).toLowerCase();
-
-  return (
-    <span
-      className={`status-pill ${normalized}`}
-    >
-      {status || "Pending"}
-    </span>
-  );
-}
-
-function WithdrawalPage({
-  account,
-  form,
-  updateField,
-  submit,
-  loading,
-  status,
-  requests,
-  withdrawalLoading,
-  formatMoney,
-  formatDate,
-}) {
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">
-            WITHDRAWAL REQUEST
-          </span>
-
-          <h2>
-            Request a Withdrawal
-          </h2>
-
-          <p>
-            Submit a withdrawal request for
-            bank review. Your balance is not
-            changed until the request is
-            approved and processed.
-          </p>
-        </div>
-      </div>
-
-      <div className="security-banner">
-        <span>✓</span>
-
-        <div>
-          <strong>
-            Secure withdrawal request
-          </strong>
-
-          <p>
-            Requests are reviewed before
-            funds are released.
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={submit}>
-        <div className="form-grid">
-          <label className="field">
-            Withdrawal Method
-
-            <select
-              className="input"
-              value="cash"
-              disabled
-            >
-              <option value="cash">
-                Cash Withdrawal
-              </option>
-            </select>
-          </label>
-
-          <label className="field">
-            Amount
-
-            <input
-              className="input"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={form.amount}
-              onChange={(event) =>
-                updateField(
-                  "amount",
-                  event.target.value
-                )
-              }
-              placeholder="0.00"
-              required
-            />
-
-            <small>
-              Available balance: $
-              {formatMoney(
-                account?.balance
-              )}
-            </small>
-          </label>
-        </div>
-
-        <label className="field">
-          Notes / Withdrawal Reason
-
-          <textarea
-            className="textarea"
-            rows={4}
-            value={
-              form.description
-            }
-            onChange={(event) =>
-              updateField(
-                "description",
-                event.target.value
-              )
-            }
-            placeholder="Optional notes for the bank"
-          />
-        </label>
-
-        {status && (
-          <div
-            className={
-              status
-                .toLowerCase()
-                .includes(
-                  "successfully"
-                ) ||
-              status
-                .toLowerCase()
-                .includes("pending")
-                ? "success-message"
-                : "error-message"
-            }
-          >
-            {status}
-          </div>
-        )}
-
-        <button
-          className="primary-button"
-          type="submit"
-          disabled={loading}
-        >
-          {loading
-            ? "Submitting..."
-            : "Submit Withdrawal Request"}
-        </button>
-      </form>
-
-      <div className="request-history">
-        <div className="panel-heading compact">
-          <div>
-            <span className="eyebrow">
-              REQUEST HISTORY
-            </span>
-
-            <h3>
-              Recent Withdrawal Requests
-            </h3>
-          </div>
-        </div>
-
-        {withdrawalLoading ? (
-          <LoadingInline text="Loading withdrawal requests..." />
-        ) : requests.length === 0 ? (
-          <EmptyState
-            title="No Withdrawal Requests"
-            text="Your withdrawal requests will appear here."
-          />
-        ) : (
-          requests.map(
-            (request) => (
-              <div
-                className="history-row"
-                key={request.id}
-              >
-                <div>
-                  <strong>
-                    $
-                    {formatMoney(
-                      request.amount
-                    )}
-                  </strong>
-
-                  <small>
-                    {formatDate(
-                      request.created_at
-                    )}
-                  </small>
-                </div>
-
-                <StatusBadge
-                  status={
-                    request.status
-                  }
-                />
-              </div>
-            )
-          )
-        )}
-      </div>
-    </section>
-  );
-}
-
-function TransferPage({
-  type,
-  form,
-  updateField,
-  submit,
-  loading,
-  status,
-  account,
-  formatMoney,
-}) {
-  const isWire = type === "wire";
-  const isLocal = type === "local";
-
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">
-            {isWire
-              ? "INTERNATIONAL TRANSFER"
-              : isLocal
-              ? "LOCAL TRANSFER"
-              : "BANK TRANSFER"}
-          </span>
-
-          <h2>
-            {isWire
-              ? "Wire Transfer"
-              : isLocal
-              ? "Local Transfer"
-              : "Transfer Money"}
-          </h2>
-
-          <p>
-            Enter the recipient bank
-            information. A verification code
-            will be sent to your registered
-            email before the transfer is
-            submitted.
-          </p>
-        </div>
-      </div>
-
-      <div className="security-banner">
-        <span>✉</span>
-
-        <div>
-          <strong>
-            Email verification required
-          </strong>
-
-          <p>
-            Your transfer cannot be submitted
-            until the verification code is
-            confirmed.
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={submit}>
-        <div className="form-grid">
-          <label className="field">
-            Recipient Full Name
-
-            <input
-              className="input"
-              value={
-                form.recipientName
-              }
-              onChange={(event) =>
-                updateField(
-                  "recipientName",
-                  event.target.value
-                )
-              }
-              placeholder="Full name of recipient"
-              required
-            />
-          </label>
-
-          <label className="field">
-            Bank Name
-
-            <input
-              className="input"
-              value={form.bankName}
-              onChange={(event) =>
-                updateField(
-                  "bankName",
-                  event.target.value
-                )
-              }
-              placeholder="Recipient's bank"
-              required
-            />
-          </label>
-        </div>
-
-        <div className="form-grid">
-          <label className="field">
-            Bank Country
-
-            <input
-              className="input"
-              value={
-                form.bankCountry
-              }
-              maxLength={2}
-              onChange={(event) =>
-                updateField(
-                  "bankCountry",
-                  event.target.value
-                    .toUpperCase()
-                    .slice(0, 2)
-                )
-              }
-              placeholder="US"
-              required
-            />
-
-            <small>
-              Use a 2-letter country code.
-            </small>
-          </label>
-
-          <label className="field">
-            Transfer Currency
-
-            <input
-              className="input"
-              value={
-                form.transferCurrency
-              }
-              maxLength={3}
-              onChange={(event) =>
-                updateField(
-                  "transferCurrency",
-                  event.target.value
-                    .toUpperCase()
-                    .slice(0, 3)
-                )
-              }
-              placeholder="USD"
-              required
-            />
-
-            <small>
-              Example: USD, NGN, TRY.
-            </small>
-          </label>
-        </div>
-
-        <div className="form-grid">
-          <label className="field">
-            Recipient Type
-
-            <select
-              className="input"
-              value={
-                form.beneficiaryType
-              }
-              onChange={(event) =>
-                updateField(
-                  "beneficiaryType",
-                  event.target.value
-                )
-              }
-            >
-              <option value="PERSONAL">
-                Individual
-              </option>
-
-              <option value="COMPANY">
-                Business
-              </option>
-            </select>
-          </label>
-
-          <label className="field">
-            Bank Account Name
-
-            <input
-              className="input"
-              value={
-                form.accountName
-              }
-              onChange={(event) =>
-                updateField(
-                  "accountName",
-                  event.target.value
-                )
-              }
-              placeholder="Name on bank account"
-              required
-            />
-          </label>
-        </div>
-
-        <label className="field">
-          Account Number / IBAN
-
-          <input
-            className="input"
-            value={
-              form.recipientAccountNumber
-            }
-            onChange={(event) =>
-              updateField(
-                "recipientAccountNumber",
-                event.target.value
-              )
-            }
-            placeholder="Account number or IBAN"
-            autoComplete="off"
-            required
-          />
-        </label>
-
-        <div className="form-grid">
-          <label className="field">
-            SWIFT / BIC
-
-            <input
-              className="input"
-              value={form.swiftBic}
-              onChange={(event) =>
-                updateField(
-                  "swiftBic",
-                  event.target.value
-                    .toUpperCase()
-                )
-              }
-              placeholder={
-                isWire
-                  ? "Required for many international wires"
-                  : "Optional where applicable"
-              }
-            />
-          </label>
-
-          <label className="field">
-            Routing Type
-
-            <select
-              className="input"
-              value={
-                form.routingType
-              }
-              onChange={(event) =>
-                updateField(
-                  "routingType",
-                  event.target.value
-                )
-              }
-            >
-              <option value="aba">
-                ABA / Routing
-              </option>
-
-              <option value="sort_code">
-                Sort Code
-              </option>
-
-              <option value="bsb">
-                BSB
-              </option>
-
-              <option value="ifsc">
-                IFSC
-              </option>
-
-              <option value="branch_code">
-                Branch Code
-              </option>
-            </select>
-          </label>
-        </div>
-
-        <label className="field">
-          Routing Value
-
-          <input
-            className="input"
-            value={
-              form.routingValue
-            }
-            onChange={(event) =>
-              updateField(
-                "routingValue",
-                event.target.value
-              )
-            }
-            placeholder="Routing / clearing code"
-          />
-        </label>
-
-        <div className="form-grid">
-          <label className="field">
-            City
-
-            <input
-              className="input"
-              value={form.city}
-              onChange={(event) =>
-                updateField(
-                  "city",
-                  event.target.value
-                )
-              }
-              placeholder="Recipient city"
-            />
-          </label>
-
-          <label className="field">
-            State / Province
-
-            <input
-              className="input"
-              value={form.state}
-              onChange={(event) =>
-                updateField(
-                  "state",
-                  event.target.value
-                )
-              }
-              placeholder="State or province"
-            />
-          </label>
-        </div>
-
-        <div className="form-grid">
-          <label className="field">
-            Street Address
-
-            <input
-              className="input"
-              value={
-                form.streetAddress
-              }
-              onChange={(event) =>
-                updateField(
-                  "streetAddress",
-                  event.target.value
-                )
-              }
-              placeholder="Recipient address"
-            />
-          </label>
-
-          <label className="field">
-            Postal Code
-
-            <input
-              className="input"
-              value={
-                form.postalCode
-              }
-              onChange={(event) =>
-                updateField(
-                  "postalCode",
-                  event.target.value
-                )
-              }
-              placeholder="Postal code"
-            />
-          </label>
-        </div>
-
-        <div className="form-grid">
-          <label className="field">
-            Amount
-
-            <input
-              className="input amount-input"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={form.amount}
-              onChange={(event) =>
-                updateField(
-                  "amount",
-                  event.target.value
-                )
-              }
-              placeholder="0.00"
-              required
-            />
-
-            <small>
-              Available balance: $
-              {formatMoney(
-                account?.balance
-              )}
-            </small>
-          </label>
-
-          <label className="field">
-            Transfer Method
-
-            <select
-              className="input"
-              value={
-                isWire
-                  ? "SWIFT"
-                  : isLocal
-                  ? "LOCAL"
-                  : form.transferMethod
-              }
-              disabled={
-                isWire || isLocal
-              }
-              onChange={(event) =>
-                updateField(
-                  "transferMethod",
-                  event.target.value
-                )
-              }
-            >
-              <option value="LOCAL">
-                Local
-              </option>
-
-              <option value="SWIFT">
-                SWIFT / International
-              </option>
-            </select>
-          </label>
-        </div>
-
-        <label className="field">
-          Transfer Description
-
-          <textarea
-            className="textarea"
-            rows={4}
-            value={
-              form.description
-            }
-            onChange={(event) =>
-              updateField(
-                "description",
-                event.target.value
-              )
-            }
-            placeholder="What is this transfer for?"
-          />
-        </label>
-
-        {status && (
-          <div className="error-message">
-            {status}
-          </div>
-        )}
-
-        <button
-          className="primary-button"
-          type="submit"
-          disabled={loading}
-        >
-          {loading
-            ? "Starting Verification..."
-            : "Continue to Email Verification"}
-        </button>
-      </form>
-    </section>
-  );
-}
-
-function ReceiptRow({
-  label,
-  value,
-}) {
-  return (
-    <div className="receipt-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function maskSensitiveAccount(value) {
-  if (!value) return "—";
-
-  const stringValue =
-    String(value);
-
-  if (stringValue.length <= 4) {
-    return `•••• ${stringValue}`;
-  }
-
-  return `•••• ${stringValue.slice(
-    -4
-  )}`;
-}
-
-const styles = `
-* {
-  box-sizing: border-box;
-}
-
-:root {
-  --navy: #071a35;
-  --navy-2: #0b2345;
-  --blue: #155eef;
-  --blue-dark: #1049bd;
-  --blue-soft: #edf4ff;
-  --gold: #d9ad4d;
-  --green: #138a55;
-  --green-soft: #eaf8f1;
-  --red: #c93636;
-  --red-soft: #fff0f0;
-  --orange: #c77712;
-  --orange-soft: #fff6e7;
-  --text: #152238;
-  --muted: #68778e;
-  --border: #e4e9f1;
-  --surface: #ffffff;
-  --background: #f5f7fb;
-  --shadow: 0 18px 55px rgba(10, 34, 68, 0.08);
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--background);
-  color: var(--text);
-}
-
-body {
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.app-shell {
-  min-height: 100vh;
-  background:
-    radial-gradient(
-      circle at 80% 0%,
-      rgba(21, 94, 239, 0.08),
-      transparent 28%
-    ),
-    var(--background);
-}
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  min-height: 78px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 5%;
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(18px);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-
-.brand-mark {
-  width: 43px;
-  height: 43px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  color: white;
-  font-size: 21px;
-  font-weight: 900;
-  background:
-    linear-gradient(
-      145deg,
-      var(--blue),
-      var(--navy)
-    );
-  box-shadow:
-    0 10px 25px rgba(21, 94, 239, 0.25);
-}
-
-.brand-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.05;
-}
-
-.brand-copy strong {
-  color: var(--navy);
-  font-size: 14px;
-  letter-spacing: 0.08em;
-}
-
-.brand-copy span {
-  color: var(--navy);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.brand-copy small {
-  color: var(--muted);
-  margin-top: 4px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.online-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--green);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.online-status i,
-.active-badge i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22ad6e;
-  display: inline-block;
-  box-shadow: 0 0 0 4px rgba(34, 173, 110, 0.1);
-}
-
-.menu-button {
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-}
-
-.menu-button span {
-  width: 18px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--navy);
-  transition: 0.2s;
-}
-
-.menu-button.open span:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
-}
-
-.menu-button.open span:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-button.open span:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
-}
-
-.signout-button,
-.danger-button {
-  border: 0;
-  border-radius: 10px;
-  padding: 11px 17px;
-  font-weight: 800;
-  color: white;
-  background: var(--red);
-}
-
-.side-menu {
-  position: absolute;
-  right: 5%;
-  top: 70px;
-  width: 330px;
-  max-height: calc(100vh - 90px);
-  overflow-y: auto;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: white;
-  box-shadow: 0 25px 70px rgba(10, 28, 55, 0.18);
-}
-
-.menu-head {
-  display: flex;
-  justify-content: space-between;
-  padding: 14px 12px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.menu-head div {
-  display: flex;
-  flex-direction: column;
-}
-
-.menu-head strong {
-  color: var(--navy);
-}
-
-.menu-head span {
-  color: var(--muted);
-  margin-top: 3px;
-  font-size: 12px;
-}
-
-.menu-head button {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: #f2f5f9;
-  font-size: 22px;
-}
-
-.menu-group {
-  padding: 14px 0 4px;
-}
-
-.menu-label {
-  padding: 0 12px 7px;
-  color: #8995a8;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.13em;
-}
-
-.menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 0;
-  border-radius: 11px;
-  padding: 12px;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  font-weight: 650;
-}
-
-.menu-item:hover {
-  color: var(--blue);
-  background: var(--blue-soft);
-}
-
-.menu-item-icon {
-  width: 29px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-weight: 900;
-}
-
-.menu-signout {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 14px 12px;
-  border: 0;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  color: var(--red);
-  text-align: left;
-  font-weight: 800;
-}
-
-.page-container {
-  width: min(1180px, 90%);
-  margin: 0 auto;
-  padding: 46px 0 70px;
-}
-
-.hero-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 30px;
-  margin-bottom: 25px;
-}
-
-.eyebrow {
-  display: block;
-  color: var(--blue);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-}
-
-.hero-row h1 {
-  margin: 7px 0 7px;
-  color: var(--navy);
-  font-size: clamp(30px, 4vw, 46px);
-  line-height: 1.05;
-  letter-spacing: -0.035em;
-}
-
-.hero-row p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-.hero-security {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: white;
-  box-shadow: var(--shadow);
-}
-
-.secure-dot {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--green);
-  background: var(--green-soft);
-  font-weight: 900;
-}
-
-.hero-security div {
-  display: flex;
-  flex-direction: column;
-}
-
-.hero-security strong {
-  color: var(--navy);
-  font-size: 13px;
-}
-
-.hero-security small {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.balance-card {
-  position: relative;
-  overflow: hidden;
-  padding: 32px;
-  min-height: 245px;
-  border-radius: 25px;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      #061a35 0%,
-      #0c2b57 55%,
-      #155eef 130%
-    );
-  box-shadow:
-    0 25px 60px rgba(7, 26, 53, 0.2);
-}
-
-.balance-card-glow {
-  position: absolute;
-  right: -80px;
-  top: -100px;
-  width: 330px;
-  height: 330px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.07);
-}
-
-.balance-top,
-.balance-bottom {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.balance-top span:first-child {
-  color: rgba(255,255,255,0.68);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.13em;
-}
-
-.active-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 11px;
-  border: 1px solid rgba(255,255,255,0.16);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.active-badge i {
-  background: #54db99;
-}
-
-.balance-amount {
-  position: relative;
-  margin-top: 18px;
-  font-size: clamp(36px, 6vw, 58px);
-  line-height: 1;
-  font-weight: 850;
-  letter-spacing: -0.04em;
-}
-
-.balance-bottom {
-  position: absolute;
-  left: 32px;
-  right: 32px;
-  bottom: 27px;
-  color: rgba(255,255,255,0.65);
-  font-size: 12px;
-}
-
-.balance-bottom button {
-  border: 0;
-  color: white;
-  background: transparent;
-  font-weight: 800;
-}
-
-.section-block {
-  margin-top: 34px;
-}
-
-.section-heading,
-.panel-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 20px;
-  margin-bottom: 17px;
-}
-
-.section-heading h2,
-.panel-heading h2,
-.page-title h1 {
-  margin: 5px 0 0;
-  color: var(--navy);
-  letter-spacing: -0.025em;
-}
-
-.section-heading h2,
-.panel-heading h2 {
-  font-size: 21px;
-}
-
-.panel-heading p {
-  max-width: 720px;
-  margin: 8px 0 0;
-  color: var(--muted);
-  line-height: 1.65;
-}
-
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 13px;
-}
-
-.action-card {
-  position: relative;
-  min-height: 168px;
-  padding: 19px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 17px;
-  background: white;
-  box-shadow: 0 8px 28px rgba(10, 30, 60, 0.04);
-  transition: 0.2s ease;
-}
-
-.action-card:hover {
-  transform: translateY(-4px);
-  border-color: #cddcff;
-  box-shadow: 0 18px 38px rgba(10, 30, 60, 0.1);
-}
-
-.action-icon {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 21px;
-  border-radius: 12px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 21px;
-  font-weight: 900;
-}
-
-.action-card strong {
-  color: var(--navy);
-  font-size: 14px;
-}
-
-.action-card small {
-  max-width: 150px;
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.action-arrow {
-  position: absolute;
-  right: 16px;
-  bottom: 17px;
-  color: #aab6c8;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 22px;
-}
-
-.panel {
-  padding: 27px;
-  margin-top: 18px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.dashboard-grid .panel {
-  margin-top: 0;
-}
-
-.panel-heading.compact {
-  margin-bottom: 10px;
-}
-
-.panel-heading.compact h3 {
-  margin: 5px 0 0;
-  color: var(--navy);
-}
-
-.link-button {
-  border: 0;
-  padding: 0;
-  color: var(--blue);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.info-row {
-  min-height: 57px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 25px;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.info-row:last-child {
-  border-bottom: 0;
-}
-
-.info-row > span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.info-row strong {
-  color: var(--navy);
-  font-size: 13px;
-  text-align: right;
-}
-
-.success-text {
-  color: var(--green) !important;
-}
-
-.notice-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 14px 0;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.notice-item:last-child {
-  border-bottom: 0;
-}
-
-.notice-icon {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  color: var(--green);
-  background: var(--green-soft);
-  font-weight: 900;
-}
-
-.notice-icon.warning {
-  color: var(--orange);
-  background: var(--orange-soft);
-}
-
-.notice-item strong {
-  color: var(--navy);
-  font-size: 13px;
-}
-
-.notice-item p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.transaction-list {
-  overflow: hidden;
-}
-
-.transaction {
-  min-height: 70px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.transaction:last-child {
-  border-bottom: 0;
-}
-
-.transaction-icon {
-  width: 37px;
-  height: 37px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-weight: 900;
-}
-
-.transaction-main {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.transaction-main strong {
-  overflow: hidden;
-  color: var(--navy);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.transaction-main small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.transaction > strong {
-  font-size: 13px;
-}
-
-.amount-positive {
-  color: var(--green);
-}
-
-.amount-negative {
-  color: var(--red);
-}
-
-.news-banner {
-  margin-top: 18px;
-  padding: 25px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 25px;
-  border-radius: 20px;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      var(--navy),
-      #124183
-    );
-  box-shadow: var(--shadow);
-}
-
-.news-banner .eyebrow {
-  color: #9ec0ff;
-}
-
-.news-banner h2 {
-  margin: 5px 0;
-  font-size: 21px;
-}
-
-.news-banner p {
-  margin: 0;
-  max-width: 650px;
-  color: rgba(255,255,255,0.7);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.primary-button,
-.secondary-button,
-.danger-button {
-  min-height: 45px;
-  border: 0;
-  border-radius: 11px;
-  padding: 0 18px;
-  font-weight: 800;
-  transition: 0.2s;
-}
-
-.primary-button {
-  color: white;
-  background: linear-gradient(
-    135deg,
-    var(--blue),
-    var(--blue-dark)
-  );
-  box-shadow:
-    0 9px 22px rgba(21, 94, 239, 0.2);
-}
-
-.primary-button:hover {
-  transform: translateY(-1px);
-}
-
-.primary-button.full {
-  width: 100%;
-}
-
-.secondary-button {
-  color: var(--navy);
-  background: white;
-  border: 1px solid var(--border);
-}
-
-.content-page {
-  animation: fadeIn 0.25s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-title {
-  margin-bottom: 26px;
-}
-
-.page-title h1 {
-  font-size: clamp(29px, 4vw, 39px);
-}
-
-.bank-card {
-  position: relative;
-  overflow: hidden;
-  max-width: 600px;
-  min-height: 330px;
-  margin: 20px 0 28px;
-  padding: 28px;
-  border-radius: 24px;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      #06182f,
-      #0d376e 60%,
-      #185fee
-    );
-  box-shadow:
-    0 25px 55px rgba(7, 26, 53, 0.25);
-}
-
-.bank-card-shine {
-  position: absolute;
-  width: 270px;
-  height: 270px;
-  right: -80px;
-  top: -80px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.07);
-}
-
-.bank-card-top {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  letter-spacing: 0.1em;
-  font-size: 12px;
-}
-
-.bank-card-top span {
-  opacity: 0.7;
-}
-
-.chip {
-  position: relative;
-  width: 49px;
-  height: 39px;
-  margin-top: 45px;
-  border-radius: 8px;
-  background:
-    linear-gradient(
-      135deg,
-      #d8bd73,
-      #9b7c37
-    );
-}
-
-.chip span {
-  position: absolute;
-  border: 1px solid rgba(40, 30, 10, 0.35);
-}
-
-.chip span:nth-child(1) {
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  border-width: 0 1px;
-}
-
-.chip span:nth-child(2) {
-  left: 0;
-  right: 0;
-  top: 50%;
-  border-width: 1px 0 0;
-}
-
-.chip span:nth-child(3) {
-  left: 10px;
-  right: 10px;
-  top: 10px;
-  bottom: 10px;
-  border-radius: 4px;
-}
-
-.chip span:nth-child(4) {
-  left: 25%;
-  right: 25%;
-  top: 0;
-  bottom: 0;
-  border-width: 0 1px;
-}
-
-.card-number {
-  position: relative;
-  margin-top: 36px;
-  font-size: clamp(20px, 4vw, 29px);
-  letter-spacing: 0.13em;
-}
-
-.card-details {
-  position: absolute;
-  left: 28px;
-  right: 28px;
-  bottom: 28px;
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.card-details div {
-  display: flex;
-  flex-direction: column;
-}
-
-.card-details small {
-  color: rgba(255,255,255,0.55);
-  font-size: 8px;
-  letter-spacing: 0.14em;
-}
-
-.card-details strong {
-  margin-top: 5px;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-
-.card-request-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 30px;
-  margin-top: 20px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #f9fbfe;
-}
-
-.card-request-box h3 {
-  margin: 5px 0;
-  color: var(--navy);
-}
-
-.card-request-box p {
-  margin: 0;
-  max-width: 650px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.request-history {
-  margin-top: 30px;
-}
-
-.request-history h3 {
-  color: var(--navy);
-}
-
-.history-row {
-  min-height: 67px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.history-row:last-child {
-  border-bottom: 0;
-}
-
-.history-row > div {
-  display: flex;
-  flex-direction: column;
-}
-
-.history-row strong {
-  color: var(--navy);
-  font-size: 13px;
-}
-
-.history-row small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #eef2f7;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.status-pill.pending {
-  color: var(--orange);
-  background: var(--orange-soft);
-}
-
-.status-pill.approved,
-.status-pill.active,
-.status-pill.completed {
-  color: var(--green);
-  background: var(--green-soft);
-}
-
-.status-pill.rejected {
-  color: var(--red);
-  background: var(--red-soft);
-}
-
-.profile-top {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--border);
-}
-
-.profile-avatar,
-.profile-avatar-image {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-}
-
-.profile-avatar {
-  display: grid;
-  place-items: center;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      var(--blue),
-      var(--navy)
-    );
-  font-size: 32px;
-  font-weight: 900;
-}
-
-.profile-avatar-image {
-  object-fit: cover;
-}
-
-.profile-top h2 {
-  margin: 0;
-  color: var(--navy);
-}
-
-.profile-top p {
-  margin: 5px 0 12px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.upload-button {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 13px;
-  border-radius: 9px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.profile-group {
-  margin-top: 28px;
-}
-
-.profile-group h3 {
-  margin: 0 0 4px;
-  color: var(--navy);
-  font-size: 15px;
-}
-
-.account-value {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.eye-button {
-  width: 29px;
-  height: 29px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--blue);
-  background: white;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.field {
-  display: block;
-  margin-bottom: 18px;
-  color: var(--navy);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.field small {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.input,
-.textarea {
-  width: 100%;
-  margin-top: 8px;
-  border: 1px solid #dbe2ec;
-  border-radius: 11px;
-  padding: 12px 13px;
-  color: var(--text);
-  background: white;
-  outline: none;
-  transition: 0.2s;
-}
-
-.input {
-  min-height: 45px;
-}
-
-.textarea {
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.input:focus,
-.textarea:focus {
-  border-color: var(--blue);
-  box-shadow:
-    0 0 0 3px rgba(21,94,239,0.09);
-}
-
-.security-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 14px;
-  border: 1px solid #dce8ff;
-  border-radius: 13px;
-  background: #f4f8ff;
-}
-
-.security-banner > span {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--blue);
-  background: white;
-  font-weight: 900;
-}
-
-.security-banner strong {
-  color: var(--navy);
-  font-size: 12px;
-}
-
-.security-banner p {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.success-message,
-.error-message {
-  margin: 14px 0;
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.success-message {
-  color: var(--green);
-  background: var(--green-soft);
-  border: 1px solid #c9eddc;
-}
-
-.error-message {
-  color: var(--red);
-  background: var(--red-soft);
-  border: 1px solid #f3cccc;
-}
-
-.empty-state {
-  padding: 42px 20px;
-  text-align: center;
-  border: 1px dashed #dce3ec;
-  border-radius: 15px;
-  background: #fafbfd;
-}
-
-.empty-state-icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  margin: 0 auto 12px;
-  border-radius: 14px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 21px;
-}
-
-.empty-state strong {
-  color: var(--navy);
-}
-
-.empty-state p {
-  max-width: 500px;
-  margin: 7px auto 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.loading-inline {
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.small-spinner,
-.spinner {
-  border: 3px solid #dfe7f2;
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.small-spinner {
-  width: 18px;
-  height: 18px;
-}
-
-.spinner {
-  width: 34px;
-  height: 34px;
-  margin: 20px auto;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.support-header,
-.security-item,
-.settings-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.support-header {
-  margin-bottom: 25px;
-}
-
-.support-icon,
-.security-icon {
-  width: 45px;
-  height: 45px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 13px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 19px;
-  font-weight: 900;
-}
-
-.support-header h2,
-.security-item h3,
-.settings-item h3 {
-  margin: 0;
-  color: var(--navy);
-}
-
-.support-header p,
-.security-item p,
-.settings-item p {
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.warning-security .security-icon {
-  color: var(--orange);
-  background: var(--orange-soft);
-}
-
-.settings-item {
-  justify-content: space-between;
-}
-
-.settings-item:last-child {
-  border-bottom: 0;
-}
-
-.loading-screen {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 30px;
-  background:
-    radial-gradient(
-      circle at 50% 0%,
-      rgba(21,94,239,0.12),
-      transparent 35%
-    ),
-    #f5f7fb;
-}
-
-.loading-box {
-  width: min(430px, 100%);
-  padding: 45px 35px;
-  text-align: center;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: white;
-  box-shadow: var(--shadow);
-}
-
-.loading-mark {
-  width: 62px;
-  height: 62px;
-  display: grid;
-  place-items: center;
-  margin: 0 auto;
-  border-radius: 18px;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      var(--blue),
-      var(--navy)
-    );
-  font-size: 28px;
-  font-weight: 900;
-}
-
-.loading-box h2 {
-  color: var(--navy);
-  font-size: 18px;
-}
-
-.loading-box p {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.approval-card {
-  max-width: 700px;
-  margin: 50px auto;
-  padding: 55px 45px;
-  text-align: center;
-  border: 1px solid var(--border);
-  border-radius: 25px;
-  background: white;
-  box-shadow: var(--shadow);
-}
-
-.approval-icon {
-  width: 70px;
-  height: 70px;
-  display: grid;
-  place-items: center;
-  margin: 25px auto;
-  border-radius: 50%;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 29px;
-}
-
-.approval-card h1 {
-  color: var(--navy);
-}
-
-.approval-card h2 {
-  color: var(--navy);
-  font-size: 20px;
-}
-
-.approval-card p {
-  max-width: 540px;
-  margin: 0 auto 25px;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.modal-overlay,
-.chat-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(3, 15, 31, 0.62);
-  backdrop-filter: blur(7px);
-}
-
-.modal-card {
-  position: relative;
-  width: min(480px, 100%);
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 34px;
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 30px 100px rgba(0,0,0,0.25);
-}
-
-.modal-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--muted);
-  background: #f3f5f8;
-  font-size: 22px;
-}
-
-.modal-icon,
-.receipt-success {
-  width: 54px;
-  height: 54px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 17px;
-  border-radius: 15px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 22px;
-}
-
-.receipt-success {
-  color: var(--green);
-  background: var(--green-soft);
-}
-
-.modal-card h2 {
-  margin: 5px 0 8px;
-  color: var(--navy);
-}
-
-.modal-card > p {
-  margin: 0 0 20px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.otp-input {
-  width: 100%;
-  margin-top: 8px;
-  padding: 14px;
-  border: 1px solid #dbe2ec;
-  border-radius: 12px;
-  outline: none;
-  text-align: center;
-  font-size: 27px;
-  font-weight: 800;
-  letter-spacing: 0.35em;
-}
-
-.otp-input:focus {
-  border-color: var(--blue);
-  box-shadow:
-    0 0 0 3px rgba(21,94,239,0.1);
-}
-
-.modal-link {
-  display: block;
-  margin: 17px auto 0;
-  border: 0;
-  color: var(--blue);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.security-note {
-  margin-top: 18px;
-  padding: 11px;
-  border-radius: 9px;
-  color: var(--orange);
-  background: var(--orange-soft);
-  font-size: 10px;
-  text-align: center;
-}
-
-.receipt {
-  margin: 20px 0;
-  padding: 10px 15px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: #fafbfd;
-}
-
-.receipt-row {
-  min-height: 47px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 15px;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.receipt-row:last-child {
-  border-bottom: 0;
-}
-
-.receipt-row span {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.receipt-row strong {
-  color: var(--navy);
-  font-size: 11px;
-  text-align: right;
-}
-
-.chat-overlay {
-  place-items: end end;
-  padding: 25px;
-}
-
-.chat-window {
-  width: min(410px, calc(100vw - 30px));
-  height: min(650px, calc(100vh - 50px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 20px;
-  background: white;
-  box-shadow: 0 30px 100px rgba(0,0,0,0.25);
-}
-
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  padding: 17px 18px;
-  color: white;
-  background: var(--navy);
-}
-
-.chat-header div {
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-header strong {
-  font-size: 13px;
-}
-
-.chat-header small {
-  margin-top: 4px;
-  color: rgba(255,255,255,0.55);
-  font-size: 9px;
-}
-
-.chat-header button {
-  width: 31px;
-  height: 31px;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: rgba(255,255,255,0.1);
-  font-size: 20px;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 18px;
-  background: #f5f7fb;
-}
-
-.chat-message {
-  max-width: 82%;
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border-radius: 13px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.chat-message small {
-  display: block;
-  margin-top: 5px;
-  opacity: 0.55;
-  font-size: 8px;
-}
-
-.support-message {
-  margin-right: auto;
-  background: white;
-  border: 1px solid var(--border);
-}
-
-.customer-message {
-  margin-left: auto;
-  color: white;
-  background: var(--blue);
-}
-
-.chat-input {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.chat-input input {
-  min-width: 0;
-  flex: 1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 11px;
-  outline: none;
-}
-
-.chat-input button {
-  border: 0;
-  border-radius: 10px;
-  padding: 0 14px;
-  color: white;
-  background: var(--blue);
-  font-weight: 800;
-}
-
-.floating-support {
-  position: fixed;
-  right: 25px;
-  bottom: 25px;
-  z-index: 90;
-  width: 52px;
-  height: 52px;
-  border: 0;
-  border-radius: 50%;
-  color: white;
-  background:
-    linear-gradient(
-      135deg,
-      var(--blue),
-      var(--navy)
-    );
-  box-shadow:
-    0 15px 35px rgba(21,94,239,0.3);
-  font-size: 21px;
-  font-weight: 900;
-}
-
-.portal-footer {
-  width: min(1180px, 90%);
-  margin: 0 auto;
-  padding: 25px 0 40px;
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.portal-footer div {
-  display: flex;
-  flex-direction: column;
-}
-
-.portal-footer strong {
-  color: var(--navy);
-  font-size: 11px;
-}
-
-.portal-footer span {
-  margin-top: 3px;
-}
-
-@media (max-width: 1050px) {
-  .action-grid {
-    grid-template-columns:
-      repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 780px) {
-  .topbar {
-    padding: 0 4%;
-  }
-
-  .online-status {
-    display: none;
-  }
-
-  .page-container {
-    width: 92%;
-    padding-top: 32px;
-  }
-
-  .hero-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .hero-security {
-    width: 100%;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .action-grid {
-    grid-template-columns:
-      repeat(2, 1fr);
-  }
-
-  .news-banner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .card-request-box,
-  .settings-item {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .side-menu {
-    right: 3%;
-    left: 3%;
-    width: auto;
-  }
-
-  .portal-footer {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 520px) {
-  .brand-copy small {
-    display: none;
-  }
-
-  .brand-copy strong {
-    font-size: 12px;
-  }
-
-  .brand-copy span {
-    font-size: 10px;
-  }
-
-  .brand-mark {
-    width: 38px;
-    height: 38px;
-  }
-
-  .page-container {
-    width: 94%;
-  }
-
-  .balance-card {
-    min-height: 220px;
-    padding: 23px;
-  }
-
-  .balance-bottom {
-    left: 23px;
-    right: 23px;
-    bottom: 22px;
-  }
-
-  .action-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .action-card {
-    min-height: 125px;
-  }
-
-  .action-icon {
-    margin-bottom: 13px;
-  }
-
-  .panel {
-    padding: 20px;
-    border-radius: 16px;
-  }
-
-  .hero-row h1 {
-    font-size: 32px;
-  }
-
-  .info-row {
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    padding: 13px 0;
-  }
-
-  .info-row strong {
-    text-align: left;
-  }
-
-  .profile-top {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .bank-card {
-    min-height: 275px;
-    padding: 21px;
-  }
-
-  .chip {
-    margin-top: 28px;
-  }
-
-  .card-number {
-    margin-top: 25px;
-    font-size: 17px;
-  }
-
-  .card-details {
-    left: 21px;
-    right: 21px;
-    bottom: 21px;
-  }
-
-  .card-details strong {
-    font-size: 9px;
-  }
-
-  .modal-card {
-    padding: 27px 20px;
-  }
-
-  .chat-overlay {
-    padding: 10px;
-  }
-
-  .chat-window {
-    width: calc(100vw - 20px);
-    height: calc(100vh - 20px);
-  }
-
-  .floating-support {
-    right: 17px;
-    bottom: 17px;
-  }
-}
-`;
