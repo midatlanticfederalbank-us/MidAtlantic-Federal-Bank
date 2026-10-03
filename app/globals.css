@@ -9154,3 +9154,203 @@ textarea:focus-visible {
 .forgot-password-row a:hover {
   text-decoration: underline;
 }
+
+/* =========================================================
+   CUSTOMER CARD SERVICES + DASHBOARD NEWS LINK
+========================================================= */
+
+.dashboard-news-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.dashboard-news-link h2 {
+  margin: 8px 0 6px;
+}
+
+.secondary-portal-button {
+  white-space: nowrap;
+  background: #eef3f8;
+  color: #173b70;
+  border: 1px solid #d5dfeb;
+}
+
+.secondary-portal-button:hover {
+  background: #e3ebf4;
+}
+
+.card-service-panel {
+  padding: 4px 0;
+}
+
+.card-service-header {
+  margin-bottom: 24px;
+}
+
+.card-service-header h2 {
+  margin: 8px 0 8px;
+}
+
+.card-service-header p,
+.card-order-panel p,
+.card-empty-panel p {
+  max-width: 680px;
+  color: #6f7c8e;
+  line-height: 1.7;
+}
+
+.customer-bank-card {
+  width: min(100%, 560px);
+  min-height: 310px;
+  margin: 24px 0 30px;
+  padding: 30px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #102d50, #1d4b7c);
+  color: #fff;
+  box-shadow: 0 22px 42px rgba(15, 42, 68, .18);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bank-card-topline,
+.bank-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.bank-card-topline {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.bank-card-chip {
+  width: 50px;
+  height: 38px;
+  margin-top: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #d7c27d;
+  color: #26364a;
+  font-size: 20px;
+}
+
+.bank-card-number {
+  margin: 24px 0;
+  font-size: clamp(21px, 4vw, 29px);
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.bank-card-bottom {
+  align-items: flex-end;
+}
+
+.bank-card-bottom div {
+  display: grid;
+  gap: 5px;
+}
+
+.bank-card-bottom small {
+  font-size: 8px;
+  letter-spacing: 1px;
+  opacity: .7;
+}
+
+.bank-card-bottom strong {
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.card-empty-panel {
+  margin: 24px 0;
+  padding: 34px;
+  border: 1px dashed #cfd9e5;
+  border-radius: 14px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.card-empty-panel .empty-icon {
+  margin: 0 auto 12px;
+}
+
+.card-empty-panel strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #253044;
+}
+
+.card-empty-panel p {
+  margin: 0 auto;
+}
+
+.card-order-panel {
+  margin-top: 25px;
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  border: 1px solid #dfe6ee;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.card-order-panel h3 {
+  margin: 8px 0 6px;
+  color: #253044;
+}
+
+.card-order-panel p {
+  margin: 0;
+}
+
+.card-orders-list {
+  margin-top: 28px;
+}
+
+.card-order-status {
+  color: #173b70;
+  text-transform: capitalize;
+}
+
+.detail-subtext {
+  display: block;
+  margin-top: 4px;
+  color: #8a95a5;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+@media (max-width: 760px) {
+  .dashboard-news-link,
+  .card-order-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .secondary-portal-button {
+    width: 100%;
+  }
+
+  .customer-bank-card {
+    min-height: 275px;
+    padding: 24px;
+  }
+
+  .bank-card-number {
+    letter-spacing: 1px;
+  }
+
+  .bank-card-bottom {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
