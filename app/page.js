@@ -239,13 +239,10 @@ function CheckIcon() {
   );
 }
 
-function MenuDot() {
-  return <span className="home-menu-dot" aria-hidden="true" />;
-}
-
 export default function HomePage() {
   return (
     <main className="home-page">
+
       <style>{`
         .home-page {
           --navy: #071a33;
@@ -272,6 +269,10 @@ export default function HomePage() {
           color: inherit;
           text-decoration: none;
         }
+
+        /* ================================
+           TOP BAR
+        ================================= */
 
         .home-page .topbar {
           background: var(--navy);
@@ -309,8 +310,12 @@ export default function HomePage() {
           box-shadow: 0 0 0 4px rgba(69,211,155,.12);
         }
 
+        /* ================================
+           HEADER
+        ================================= */
+
         .home-page .header {
-          background: rgba(255,255,255,.96);
+          background: rgba(255,255,255,.97);
           border-bottom: 1px solid var(--line);
           position: sticky;
           top: 0;
@@ -407,6 +412,10 @@ export default function HomePage() {
           gap: 10px;
         }
 
+        /* ================================
+           BUTTONS
+        ================================= */
+
         .home-page .button {
           min-height: 43px;
           padding: 0 18px;
@@ -417,7 +426,10 @@ export default function HomePage() {
           gap: 9px;
           font-size: 13px;
           font-weight: 750;
-          transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+          transition:
+            transform .2s ease,
+            box-shadow .2s ease,
+            background .2s ease;
           cursor: pointer;
           border: 1px solid transparent;
         }
@@ -458,11 +470,24 @@ export default function HomePage() {
           background: #104f89;
         }
 
+        /* ================================
+           HERO
+        ================================= */
+
         .home-page .hero {
           position: relative;
           background:
-            radial-gradient(circle at 80% 20%, rgba(45,117,190,.14), transparent 33%),
-            linear-gradient(135deg, #f8fbff 0%, #eef5fb 55%, #f9fbfd 100%);
+            radial-gradient(
+              circle at 80% 20%,
+              rgba(45,117,190,.14),
+              transparent 33%
+            ),
+            linear-gradient(
+              135deg,
+              #f8fbff 0%,
+              #eef5fb 55%,
+              #f9fbfd 100%
+            );
           border-bottom: 1px solid var(--line);
         }
 
@@ -472,7 +497,9 @@ export default function HomePage() {
           min-height: 575px;
           padding: 76px 24px 70px;
           display: grid;
-          grid-template-columns: minmax(0, 1.08fr) minmax(390px, .92fr);
+          grid-template-columns:
+            minmax(0, 1.08fr)
+            minmax(390px, .92fr);
           gap: 70px;
           align-items: center;
         }
@@ -536,6 +563,10 @@ export default function HomePage() {
           color: var(--teal);
         }
 
+        /* ================================
+           HERO CARD
+        ================================= */
+
         .home-page .hero-visual {
           position: relative;
           min-height: 430px;
@@ -553,8 +584,17 @@ export default function HomePage() {
           position: relative;
           overflow: hidden;
           background:
-            radial-gradient(circle at 85% 18%, rgba(79,150,216,.4), transparent 27%),
-            linear-gradient(140deg, #0c2b50, #071a33 65%, #102f53);
+            radial-gradient(
+              circle at 85% 18%,
+              rgba(79,150,216,.4),
+              transparent 27%
+            ),
+            linear-gradient(
+              140deg,
+              #0c2b50,
+              #071a33 65%,
+              #102f53
+            );
           box-shadow: 0 28px 60px rgba(7,26,51,.23);
           transform: rotate(2deg);
         }
@@ -725,6 +765,10 @@ export default function HomePage() {
           color: #7d8998;
         }
 
+        /* ================================
+           TRUST STRIP
+        ================================= */
+
         .home-page .trust-strip {
           background: white;
           border-bottom: 1px solid var(--line);
@@ -767,6 +811,10 @@ export default function HomePage() {
           background: #eef5fb;
         }
 
+        /* ================================
+           GENERAL SECTIONS
+        ================================= */
+
         .home-page .section {
           padding: 92px 24px;
         }
@@ -804,6 +852,10 @@ export default function HomePage() {
           margin: 0;
         }
 
+        /* ================================
+           SERVICES
+        ================================= */
+
         .home-page .services {
           background: #fbfcfe;
         }
@@ -820,7 +872,10 @@ export default function HomePage() {
           border-radius: 15px;
           padding: 25px 23px;
           min-height: 235px;
-          transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+          transition:
+            transform .22s ease,
+            box-shadow .22s ease,
+            border-color .22s ease;
         }
 
         .home-page .service-card:hover {
@@ -863,6 +918,10 @@ export default function HomePage() {
           font-weight: 800;
         }
 
+        /* ================================
+           DIGITAL BANKING
+        ================================= */
+
         .home-page .split {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -874,7 +933,11 @@ export default function HomePage() {
           min-height: 440px;
           border-radius: 22px;
           background:
-            linear-gradient(135deg, rgba(7,26,51,.94), rgba(13,54,91,.96)),
+            linear-gradient(
+              135deg,
+              rgba(7,26,51,.94),
+              rgba(13,54,91,.96)
+            ),
             #071a33;
           color: white;
           padding: 40px;
@@ -992,6 +1055,10 @@ export default function HomePage() {
           font-size: 14px;
         }
 
+        /* ================================
+           SECURITY
+        ================================= */
+
         .home-page .security-section {
           background: #f6f9fc;
         }
@@ -1033,6 +1100,10 @@ export default function HomePage() {
           margin: 0;
         }
 
+        /* ================================
+           FINANCIAL GOALS
+        ================================= */
+
         .home-page .goals-section {
           padding-bottom: 100px;
         }
@@ -1041,8 +1112,16 @@ export default function HomePage() {
           border-radius: 22px;
           padding: 48px;
           background:
-            radial-gradient(circle at 85% 15%, rgba(66,134,194,.18), transparent 28%),
-            linear-gradient(120deg, #071a33, #0b2b4f);
+            radial-gradient(
+              circle at 85% 15%,
+              rgba(66,134,194,.18),
+              transparent 28%
+            ),
+            linear-gradient(
+              120deg,
+              #071a33,
+              #0b2b4f
+            );
           color: white;
           display: grid;
           grid-template-columns: 1fr auto;
@@ -1084,6 +1163,10 @@ export default function HomePage() {
           gap: 8px;
         }
 
+        /* ================================
+           NEWS
+        ================================= */
+
         .home-page .news {
           background: #fbfcfe;
         }
@@ -1099,50 +1182,58 @@ export default function HomePage() {
           border: 1px solid var(--line);
           border-radius: 15px;
           overflow: hidden;
-          transition: transform .2s ease, box-shadow .2s ease;
+          transition:
+            transform .2s ease,
+            box-shadow .2s ease;
         }
 
         .home-page .news-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 15px 32px rgba(7,26,51,.07);
+          transform: translateY(-4px);
+          box-shadow: 0 15px 32px rgba(7,26,51,.09);
         }
 
         .home-page .news-image {
-          height: 135px;
-          background:
-            linear-gradient(135deg, rgba(20,93,160,.92), rgba(7,26,51,.98)),
-            #0b2547;
+          height: 175px;
           position: relative;
           overflow: hidden;
+          background: #0b2547;
         }
 
-        .home-page .news-image:before,
-        .home-page .news-image:after {
-          content: "";
+        .home-page .news-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform .4s ease;
+        }
+
+        .home-page .news-card:hover .news-image img {
+          transform: scale(1.05);
+        }
+
+        .home-page .news-image-overlay {
           position: absolute;
-          border: 1px solid rgba(255,255,255,.12);
-          border-radius: 50%;
-        }
-
-        .home-page .news-image:before {
-          width: 230px;
-          height: 230px;
-          right: -60px;
-          top: -130px;
-        }
-
-        .home-page .news-image:after {
-          width: 160px;
-          height: 160px;
-          left: -70px;
-          bottom: -110px;
+          inset: 0;
+          background:
+            linear-gradient(
+              to bottom,
+              rgba(7,26,51,.02),
+              rgba(7,26,51,.5)
+            );
+          pointer-events: none;
         }
 
         .home-page .news-category {
           position: absolute;
           left: 17px;
           top: 17px;
-          color: #d8ebfa;
+          z-index: 2;
+          color: white;
+          background: rgba(7,26,51,.72);
+          border: 1px solid rgba(255,255,255,.18);
+          backdrop-filter: blur(6px);
+          border-radius: 999px;
+          padding: 6px 10px;
           font-size: 9px;
           font-weight: 800;
           letter-spacing: .1em;
@@ -1182,6 +1273,14 @@ export default function HomePage() {
           font-weight: 800;
           margin-top: 17px;
         }
+
+        .home-page .news-link:hover {
+          color: #0d4b7f;
+        }
+
+        /* ================================
+           FOOTER
+        ================================= */
 
         .home-page .footer {
           background: #06162b;
@@ -1255,9 +1354,9 @@ export default function HomePage() {
           color: white;
         }
 
-        .home-page .mobile-only {
-          display: none;
-        }
+        /* ================================
+           RESPONSIVE
+        ================================= */
 
         @media (max-width: 1050px) {
           .home-page .nav-links {
@@ -1296,10 +1395,6 @@ export default function HomePage() {
 
           .home-page .nav-actions .button-outline {
             display: none;
-          }
-
-          .home-page .mobile-only {
-            display: inline-flex;
           }
 
           .home-page .hero-inner {
@@ -1436,6 +1531,10 @@ export default function HomePage() {
             font-size: 27px;
           }
 
+          .home-page .news-image {
+            height: 190px;
+          }
+
           .home-page .footer {
             padding-left: 17px;
             padding-right: 17px;
@@ -1461,11 +1560,18 @@ export default function HomePage() {
         }
       `}</style>
 
+      {/* =====================================================
+          TOP BAR
+      ====================================================== */}
+
       <div className="topbar">
         <div className="topbar-inner">
+
           <div className="topbar-left">
             <span className="status-dot" />
-            <span>Secure online banking is available 24 hours a day.</span>
+            <span>
+              Secure online banking is available 24 hours a day.
+            </span>
           </div>
 
           <div className="topbar-right">
@@ -1473,59 +1579,96 @@ export default function HomePage() {
             <span>•</span>
             <span>Customer Support</span>
           </div>
+
         </div>
       </div>
 
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
       <header className="header">
         <nav className="nav">
-          <Link href="/" className="brand" aria-label="MidAtlantic Federal Bank home">
+
+          <Link
+            href="/"
+            className="brand"
+            aria-label="MidAtlantic Federal Bank home"
+          >
             <div className="brand-mark">
               <span>MF</span>
             </div>
 
             <div>
-              <div className="brand-name">MIDATLANTIC FEDERAL BANK</div>
-              <div className="brand-sub">Banking with confidence</div>
+              <div className="brand-name">
+                MIDATLANTIC FEDERAL BANK
+              </div>
+
+              <div className="brand-sub">
+                Banking with confidence
+              </div>
             </div>
           </Link>
 
           <div className="nav-links">
+
             <Link href="/" className="nav-link">
               Home
             </Link>
+
             <Link href="/about" className="nav-link">
               About
             </Link>
+
             <Link href="/services" className="nav-link">
               Services
             </Link>
+
             <Link href="/loans" className="nav-link">
               Loans
             </Link>
+
             <Link href="/news" className="nav-link">
               News
             </Link>
+
             <Link href="/contact" className="nav-link">
               Contact
             </Link>
+
           </div>
 
           <div className="nav-actions">
-            <Link href="/login" className="button button-outline">
+
+            <Link
+              href="/login"
+              className="button button-outline"
+            >
               Sign In
             </Link>
 
-            <Link href="/signup" className="button button-primary">
+            <Link
+              href="/signup"
+              className="button button-primary"
+            >
               Open Account
               <ArrowRight />
             </Link>
+
           </div>
+
         </nav>
       </header>
 
+      {/* =====================================================
+          HERO
+      ====================================================== */}
+
       <section className="hero">
         <div className="hero-inner">
+
           <div>
+
             <div className="eyebrow">
               <ShieldIcon />
               Banking built around you
@@ -1540,37 +1683,56 @@ export default function HomePage() {
             </h1>
 
             <p className="hero-copy">
-              A modern banking experience designed to make everyday money
-              management simple, secure, and accessible — wherever life takes
-              you.
+              A modern banking experience designed to make everyday
+              money management simple, secure, and accessible —
+              wherever life takes you.
             </p>
 
             <div className="hero-buttons">
-              <Link href="/signup" className="button button-blue">
+
+              <Link
+                href="/signup"
+                className="button button-blue"
+              >
                 Open an Account
                 <ArrowRight />
               </Link>
 
-              <Link href="/login" className="button button-outline">
+              <Link
+                href="/login"
+                className="button button-outline"
+              >
                 Access Online Banking
               </Link>
+
             </div>
 
             <div className="hero-note">
               <LockIcon />
               Secure access • Protected account information • 24/7 online access
             </div>
+
           </div>
 
-          <div className="hero-visual" aria-hidden="true">
+          {/* HERO BANK CARD */}
+
+          <div
+            className="hero-visual"
+            aria-hidden="true"
+          >
+
             <div className="hero-card">
+
               <div className="hero-card-top">
+
                 <div className="hero-card-bank">
                   MIDATLANTIC
                   <br />
                   FEDERAL BANK
                 </div>
+
                 <div className="hero-card-chip" />
+
               </div>
 
               <div className="hero-card-number">
@@ -1578,45 +1740,82 @@ export default function HomePage() {
               </div>
 
               <div className="hero-card-bottom">
+
                 <div>
-                  <div className="card-label">Cardholder</div>
-                  <div className="card-value">MIDATLANTIC CUSTOMER</div>
+                  <div className="card-label">
+                    Cardholder
+                  </div>
+
+                  <div className="card-value">
+                    MIDATLANTIC CUSTOMER
+                  </div>
                 </div>
 
                 <div>
-                  <div className="card-label">Valid thru</div>
-                  <div className="card-value">•• / ••</div>
+                  <div className="card-label">
+                    Valid thru
+                  </div>
+
+                  <div className="card-value">
+                    •• / ••
+                  </div>
                 </div>
 
-                <div className="card-mark">MF</div>
+                <div className="card-mark">
+                  MF
+                </div>
+
               </div>
+
             </div>
 
             <div className="floating-security">
+
               <div className="security-icon">
                 <ShieldIcon />
               </div>
 
               <div>
-                <strong>Secure banking</strong>
-                <span>Protection at every step</span>
+                <strong>
+                  Secure banking
+                </strong>
+
+                <span>
+                  Protection at every step
+                </span>
               </div>
+
             </div>
 
             <div className="floating-balance">
-              <div className="balance-label">Online banking</div>
-              <div className="balance-value">Ready when you are</div>
+
+              <div className="balance-label">
+                Online banking
+              </div>
+
+              <div className="balance-value">
+                Ready when you are
+              </div>
+
               <div className="balance-status">
                 <span className="mini-dot" />
                 Account access available
               </div>
+
             </div>
+
           </div>
+
         </div>
       </section>
 
+      {/* =====================================================
+          TRUST STRIP
+      ====================================================== */}
+
       <section className="trust-strip">
         <div className="trust-inner">
+
           <div className="trust-intro">
             Banking designed for confidence,
             <br />
@@ -1643,270 +1842,440 @@ export default function HomePage() {
             </div>
             Convenient transfers
           </div>
+
         </div>
       </section>
 
+      {/* =====================================================
+          BANKING SERVICES
+      ====================================================== */}
+
       <section className="section services">
+
         <div className="section-inner">
+
           <div className="section-heading">
-            <div className="section-kicker">Banking services</div>
-            <h2>Everything you need, in one place.</h2>
+
+            <div className="section-kicker">
+              Banking services
+            </div>
+
+            <h2>
+              Everything you need, in one place.
+            </h2>
+
             <p>
-              From everyday banking to cards, transfers, lending, and digital
-              account management, we make it easier to stay in control of your
-              finances.
+              From everyday banking to cards, transfers,
+              lending, and digital account management, we make
+              it easier to stay in control of your finances.
             </p>
+
           </div>
 
           <div className="service-grid">
+
             <div className="service-card">
+
               <div className="service-icon">
                 <BuildingIcon />
               </div>
 
-              <h3>Checking Accounts</h3>
+              <h3>
+                Checking Accounts
+              </h3>
 
               <p>
-                Manage everyday spending with convenient access to your account
-                and digital banking tools.
+                Manage everyday spending with convenient access
+                to your account and digital banking tools.
               </p>
 
-              <Link href="/services" className="service-link">
+              <Link
+                href="/services"
+                className="service-link"
+              >
                 Explore checking
                 <ArrowRight />
               </Link>
+
             </div>
 
             <div className="service-card">
+
               <div className="service-icon">
                 <CardIcon />
               </div>
 
-              <h3>Debit &amp; Cards</h3>
+              <h3>
+                Debit &amp; Cards
+              </h3>
 
               <p>
-                Access your card information securely and manage your banking
-                experience from your dashboard.
+                Access your card information securely and manage
+                your banking experience from your dashboard.
               </p>
 
-              <Link href="/services" className="service-link">
+              <Link
+                href="/services"
+                className="service-link"
+              >
                 View card services
                 <ArrowRight />
               </Link>
+
             </div>
 
             <div className="service-card">
+
               <div className="service-icon">
                 <TransferIcon />
               </div>
 
-              <h3>Transfers</h3>
+              <h3>
+                Transfers
+              </h3>
 
               <p>
-                Move money conveniently with supported local, wire, and external
-                bank transfer services.
+                Move money conveniently with supported local,
+                wire, and external bank transfer services.
               </p>
 
-              <Link href="/services" className="service-link">
+              <Link
+                href="/services"
+                className="service-link"
+              >
                 Explore transfers
                 <ArrowRight />
               </Link>
+
             </div>
 
             <div className="service-card">
+
               <div className="service-icon">
                 <ChartIcon />
               </div>
 
-              <h3>Loans &amp; Financing</h3>
+              <h3>
+                Loans &amp; Financing
+              </h3>
 
               <p>
-                Explore financing options designed to support important personal
-                and financial goals.
+                Explore financing options designed to support
+                important personal and financial goals.
               </p>
 
-              <Link href="/loans" className="service-link">
+              <Link
+                href="/loans"
+                className="service-link"
+              >
                 Explore lending
                 <ArrowRight />
               </Link>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
+      {/* =====================================================
+          DIGITAL BANKING
+      ====================================================== */}
+
       <section className="section">
+
         <div className="section-inner">
+
           <div className="split">
+
             <div className="feature-panel">
-              <div className="panel-label">Digital banking</div>
+
+              <div className="panel-label">
+                Digital banking
+              </div>
 
               <h3>
                 A clearer view of your money starts here.
               </h3>
 
               <p>
-                Sign in to manage your account, review activity, manage cards,
-                request services, and send supported transfers from one secure
-                dashboard.
+                Sign in to manage your account, review activity,
+                manage cards, request services, and send supported
+                transfers from one secure dashboard.
               </p>
 
               <div className="account-preview">
+
                 <div className="preview-top">
-                  <span>Account overview</span>
-                  <span>Active</span>
+                  <span>
+                    Account overview
+                  </span>
+
+                  <span>
+                    Active
+                  </span>
                 </div>
 
-                <div className="preview-balance">$ ————</div>
+                <div className="preview-balance">
+                  $ ————
+                </div>
 
                 <div className="preview-line" />
 
                 <div className="preview-bottom">
-                  <span>Available balance</span>
-                  <span>Online</span>
+                  <span>
+                    Available balance
+                  </span>
+
+                  <span>
+                    Online
+                  </span>
                 </div>
+
               </div>
+
             </div>
 
             <div>
-              <div className="section-kicker">Built for everyday banking</div>
 
-              <div className="section-heading" style={{ marginBottom: 0 }}>
-                <h2>Simple tools. Clear information. Secure access.</h2>
+              <div className="section-kicker">
+                Built for everyday banking
+              </div>
+
+              <div
+                className="section-heading"
+                style={{ marginBottom: 0 }}
+              >
+
+                <h2>
+                  Simple tools. Clear information.
+                  Secure access.
+                </h2>
+
                 <p>
-                  Your banking experience should not feel complicated. Our
-                  digital platform puts the tools you use most within easy
-                  reach.
+                  Your banking experience should not feel
+                  complicated. Our digital platform puts the
+                  tools you use most within easy reach.
                 </p>
+
               </div>
 
               <ul className="feature-list">
+
                 <li>
                   <CheckIcon />
+
                   <div>
-                    <strong>Account visibility</strong>
-                    Review your account information and recent activity from one
-                    dashboard.
+                    <strong>
+                      Account visibility
+                    </strong>
+
+                    Review your account information and recent
+                    activity from one dashboard.
                   </div>
                 </li>
 
                 <li>
                   <CheckIcon />
+
                   <div>
-                    <strong>Convenient money movement</strong>
-                    Access supported transfer and payment services without
-                    unnecessary steps.
+                    <strong>
+                      Convenient money movement
+                    </strong>
+
+                    Access supported transfer and payment
+                    services without unnecessary steps.
                   </div>
                 </li>
 
                 <li>
                   <CheckIcon />
+
                   <div>
-                    <strong>Card management</strong>
-                    View supported card information and submit card service
-                    requests securely.
+                    <strong>
+                      Card management
+                    </strong>
+
+                    View supported card information and submit
+                    card service requests securely.
                   </div>
                 </li>
 
                 <li>
                   <CheckIcon />
+
                   <div>
-                    <strong>Account security</strong>
-                    Built-in account protections help keep your banking
-                    information private and secure.
+                    <strong>
+                      Account security
+                    </strong>
+
+                    Built-in account protections help keep
+                    your banking information private and secure.
                   </div>
                 </li>
+
               </ul>
 
               <div style={{ marginTop: 29 }}>
-                <Link href="/login" className="button button-primary">
+
+                <Link
+                  href="/login"
+                  className="button button-primary"
+                >
                   Sign In to Online Banking
                   <ArrowRight />
                 </Link>
+
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
+      {/* =====================================================
+          SECURITY
+      ====================================================== */}
+
       <section className="section security-section">
+
         <div className="section-inner">
+
           <div className="section-heading">
-            <div className="section-kicker">Security first</div>
-            <h2>Your trust matters to us.</h2>
+
+            <div className="section-kicker">
+              Security first
+            </div>
+
+            <h2>
+              Your trust matters to us.
+            </h2>
+
             <p>
-              Banking is personal. We take account access and the protection of
-              your information seriously.
+              Banking is personal. We take account access and
+              the protection of your information seriously.
             </p>
+
           </div>
 
           <div className="security-grid">
+
             <div className="security-card">
+
               <div className="security-card-icon">
                 <ShieldIcon />
               </div>
 
-              <h3>Secure account access</h3>
+              <h3>
+                Secure account access
+              </h3>
 
               <p>
-                Access your banking dashboard through authenticated online
-                banking and protected account sessions.
+                Access your banking dashboard through authenticated
+                online banking and protected account sessions.
               </p>
+
             </div>
 
             <div className="security-card">
+
               <div className="security-card-icon">
                 <LockIcon />
               </div>
 
-              <h3>Privacy-focused design</h3>
+              <h3>
+                Privacy-focused design
+              </h3>
 
               <p>
-                Sensitive account and card information is handled with a focus
-                on limiting unnecessary exposure.
+                Sensitive account and card information is handled
+                with a focus on limiting unnecessary exposure.
               </p>
+
             </div>
 
             <div className="security-card">
+
               <div className="security-card-icon">
                 <TransferIcon />
               </div>
 
-              <h3>Protected transactions</h3>
+              <h3>
+                Protected transactions
+              </h3>
 
               <p>
-                Supported transfer services are processed through secure
-                transaction workflows designed to protect account activity.
+                Supported transfer services are processed through
+                secure transaction workflows designed to protect
+                account activity.
               </p>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
-      <section className="section goals-section">
-        <div className="section-inner">
-          <div className="goals-card">
-            <div>
-              <div className="section-kicker">Your financial journey</div>
+      {/* =====================================================
+          FINANCIAL GOALS
+      ====================================================== */}
 
-              <h2>Wherever you're headed, we're here to help.</h2>
+      <section className="section goals-section">
+
+        <div className="section-inner">
+
+          <div className="goals-card">
+
+            <div>
+
+              <div className="section-kicker">
+                Your financial journey
+              </div>
+
+              <h2>
+                Wherever you're headed,
+                we're here to help.
+              </h2>
 
               <p>
-                Whether you're managing everyday expenses, planning ahead, or
-                exploring financing, MidAtlantic Federal Bank gives you tools
+                Whether you're managing everyday expenses,
+                planning ahead, or exploring financing,
+                MidAtlantic Federal Bank gives you tools
                 to help manage your financial life with confidence.
               </p>
+
             </div>
 
-            <Link href="/signup" className="goals-button">
+            <Link
+              href="/signup"
+              className="goals-button"
+            >
               Get Started
               <ArrowRight />
             </Link>
+
           </div>
+
         </div>
+
       </section>
 
+      {/* =====================================================
+          NEWS
+          REAL IMAGES RESTORED
+      ====================================================== */}
+
       <section className="section news">
+
         <div className="section-inner">
+
           <div
             className="section-heading"
             style={{
@@ -1917,157 +2286,319 @@ export default function HomePage() {
               maxWidth: "none",
             }}
           >
+
             <div>
-              <div className="section-kicker">From the bank</div>
-              <h2 style={{ marginBottom: 0 }}>Latest updates</h2>
+
+              <div className="section-kicker">
+                From the bank
+              </div>
+
+              <h2 style={{ marginBottom: 0 }}>
+                Latest updates
+              </h2>
+
             </div>
 
-            <Link href="/news" className="news-link">
+            <Link
+              href="/news"
+              className="news-link"
+            >
               View all news
               <ArrowRight />
             </Link>
+
           </div>
 
           <div className="news-grid">
+
+            {/* ============================================
+                NEWS CARD 1
+            ============================================= */}
+
             <article className="news-card">
+
               <div className="news-image">
-                <div className="news-category">Banking</div>
+
+                <img
+                  src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1000&q=85"
+                  alt="Business professionals discussing financial information"
+                />
+
+                <div className="news-image-overlay" />
+
+                <div className="news-category">
+                  Banking
+                </div>
+
               </div>
 
               <div className="news-body">
-                <div className="news-date">Banking information</div>
 
-                <h3>Making digital banking easier to navigate</h3>
+                <div className="news-date">
+                  Banking information
+                </div>
+
+                <h3>
+                  Making digital banking easier to navigate
+                </h3>
 
                 <p>
-                  Discover the tools available through your online banking
-                  experience.
+                  Discover the tools available through your online
+                  banking experience and manage your accounts with
+                  greater convenience.
                 </p>
 
-                <Link href="/news" className="news-link">
+                <Link
+                  href="/news"
+                  className="news-link"
+                >
                   Read more
                   <ArrowRight />
                 </Link>
+
               </div>
+
             </article>
+
+            {/* ============================================
+                NEWS CARD 2
+            ============================================= */}
 
             <article className="news-card">
-              <div
-                className="news-image"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(15,118,110,.92), rgba(7,47,63,.98))",
-                }}
-              >
-                <div className="news-category">Security</div>
+
+              <div className="news-image">
+
+                <img
+                  src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=1000&q=85"
+                  alt="Financial markets and international business"
+                />
+
+                <div className="news-image-overlay" />
+
+                <div className="news-category">
+                  Markets
+                </div>
+
               </div>
 
               <div className="news-body">
-                <div className="news-date">Security information</div>
 
-                <h3>Keeping your online banking information protected</h3>
+                <div className="news-date">
+                  Market information
+                </div>
+
+                <h3>
+                  Understanding today's changing financial landscape
+                </h3>
 
                 <p>
-                  Learn practical ways to keep your account and login
-                  information secure.
+                  Stay informed about developments that can affect
+                  businesses, consumers, and the wider financial
+                  environment.
                 </p>
 
-                <Link href="/news" className="news-link">
+                <Link
+                  href="/news"
+                  className="news-link"
+                >
                   Read more
                   <ArrowRight />
                 </Link>
+
               </div>
+
             </article>
+
+            {/* ============================================
+                NEWS CARD 3
+            ============================================= */}
 
             <article className="news-card">
-              <div
-                className="news-image"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(154,113,35,.96), rgba(65,47,13,.98))",
-                }}
-              >
-                <div className="news-category">Financial planning</div>
+
+              <div className="news-image">
+
+                <img
+                  src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1000&q=85"
+                  alt="Secure digital banking on a mobile device"
+                />
+
+                <div className="news-image-overlay" />
+
+                <div className="news-category">
+                  Security
+                </div>
+
               </div>
 
               <div className="news-body">
-                <div className="news-date">Financial education</div>
 
-                <h3>Building stronger everyday money habits</h3>
+                <div className="news-date">
+                  Security information
+                </div>
+
+                <h3>
+                  Keeping your online banking information protected
+                </h3>
 
                 <p>
-                  Explore simple ideas for organizing your accounts and
-                  planning for future financial needs.
+                  Learn practical ways to protect your account,
+                  login information, and personal banking details
+                  when using digital services.
                 </p>
 
-                <Link href="/news" className="news-link">
+                <Link
+                  href="/news"
+                  className="news-link"
+                >
                   Read more
                   <ArrowRight />
                 </Link>
+
               </div>
+
             </article>
+
           </div>
+
         </div>
+
       </section>
 
+      {/* =====================================================
+          FOOTER
+      ====================================================== */}
+
       <footer className="footer">
+
         <div className="footer-inner">
+
           <div className="footer-top">
+
             <div className="footer-brand">
+
               <div className="brand">
+
                 <div className="brand-mark">
                   <span>MF</span>
                 </div>
 
                 <div>
-                  <div className="brand-name">MIDATLANTIC FEDERAL BANK</div>
-                  <div className="brand-sub">Banking with confidence</div>
+
+                  <div className="brand-name">
+                    MIDATLANTIC FEDERAL BANK
+                  </div>
+
+                  <div className="brand-sub">
+                    Banking with confidence
+                  </div>
+
                 </div>
+
               </div>
 
               <p>
-                Modern banking services built around secure access, convenient
-                tools, and a clear digital experience.
+                Modern banking services built around secure
+                access, convenient tools, and a clear digital
+                experience.
               </p>
+
             </div>
 
             <div className="footer-column">
-              <h4>Banking</h4>
-              <Link href="/services">Services</Link>
-              <Link href="/loans">Loans</Link>
-              <Link href="/news">News</Link>
-              <Link href="/contact">Contact</Link>
+
+              <h4>
+                Banking
+              </h4>
+
+              <Link href="/services">
+                Services
+              </Link>
+
+              <Link href="/loans">
+                Loans
+              </Link>
+
+              <Link href="/news">
+                News
+              </Link>
+
+              <Link href="/contact">
+                Contact
+              </Link>
+
             </div>
 
             <div className="footer-column">
-              <h4>Account</h4>
-              <Link href="/login">Sign In</Link>
-              <Link href="/signup">Open Account</Link>
-              <Link href="/dashboard">Online Banking</Link>
+
+              <h4>
+                Account
+              </h4>
+
+              <Link href="/login">
+                Sign In
+              </Link>
+
+              <Link href="/signup">
+                Open Account
+              </Link>
+
+              <Link href="/dashboard">
+                Online Banking
+              </Link>
+
             </div>
 
             <div className="footer-column">
-              <h4>Information</h4>
-              <Link href="/about">About Us</Link>
-              <Link href="/contact">Customer Support</Link>
-              <Link href="/news">Bank Updates</Link>
+
+              <h4>
+                Information
+              </h4>
+
+              <Link href="/about">
+                About Us
+              </Link>
+
+              <Link href="/contact">
+                Customer Support
+              </Link>
+
+              <Link href="/news">
+                Bank Updates
+              </Link>
+
             </div>
+
           </div>
 
           <div className="footer-bottom">
+
             <div>
-              © {new Date().getFullYear()} MidAtlantic Federal Bank. All rights
-              reserved.
+              © {new Date().getFullYear()} MidAtlantic Federal Bank.
+              All rights reserved.
             </div>
 
             <div className="footer-bottom-links">
-              <Link href="/contact">Privacy</Link>
-              <Link href="/contact">Security</Link>
-              <Link href="/contact">Terms</Link>
+
+              <Link href="/contact">
+                Privacy
+              </Link>
+
+              <Link href="/contact">
+                Security
+              </Link>
+
+              <Link href="/contact">
+                Terms
+              </Link>
+
             </div>
+
           </div>
+
         </div>
+
       </footer>
+
     </main>
   );
 }
