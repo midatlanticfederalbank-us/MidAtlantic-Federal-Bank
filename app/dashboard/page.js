@@ -1254,9 +1254,9 @@ export default function Dashboard() {
             />
 
             <InfoRow
-              label="Postal Code"
-              value={profile?.postal_code}
-            />
+  label="Postal Code"
+  value={profile ? profile.postal_code : null}
+/>
 
             <div className="profile-section-title">
               Account Information
