@@ -1287,11 +1287,14 @@ transaction.transaction_date
 )}
 </small>
 </div>
-<strong>
-$
-{formatMoney(
-transaction.amount
-)}
+<strong
+  style={{
+    color: transaction.transaction_type === "credit" ? "#15803d" : "#dc2626",
+    fontWeight: 700,
+  }}
+>
+  {transaction.transaction_type === "credit" ? "+" : "-"}$
+  {formatMoney(transaction.amount)}
 </strong>
 </div>
 ))}
@@ -1900,11 +1903,14 @@ transaction.transaction_date
 )}
 </small>
 </div>
-<strong>
-$
-{formatMoney(
-transaction.amount
-)}
+<strong
+  style={{
+    color: transaction.transaction_type === "credit" ? "#15803d" : "#dc2626",
+    fontWeight: 700,
+  }}
+>
+  {transaction.transaction_type === "credit" ? "+" : "-"}$
+  {formatMoney(transaction.amount)}
 </strong>
 </div>
 )
