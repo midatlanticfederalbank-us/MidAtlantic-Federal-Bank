@@ -261,85 +261,95 @@ SUPPORT CHAT
 =====================================================
 */
 async function loadChatMessages() {
-if (!user) return;
-const {
-data,
-error,
-} = await supabase
-.from("support_messages")
-.select("id, sender, message, created_at")
-.eq("user_id", user.id)
-.order("created_at", {
-ascending: true,
-});
-if (error) {
-console.warn(
-"Support messages could not be loaded:",
-error.message
-);
-setChatMessages([
-{
-id: "welcome",
-sender: "support",
-message:
-"Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-created_at: new Date().toISOString(),
-},
-]);
-return;
+  if (!user) return;
+
+  try {
+    const { data, error } = await supabase.rpc(
+      "customer_list_live_chat_messages"
+    );
+
+    if (error) throw error;
+
+    setChatMessages(
+      data && data.length > 0
+        ? data
+        : [
+            {
+              id: "welcome",
+              sender: "support",
+              message:
+                "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+              created_at: new Date().toISOString(),
+            },
+          ]
+    );
+  } catch (error) {
+    console.error("LIVE CHAT LOAD ERROR:", error);
+
+    setChatMessages([
+      {
+        id: "welcome",
+        sender: "support",
+        message:
+          "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+  }
 }
-setChatMessages(
-data && data.length > 0
-? data
-: [
-{
-id: "welcome",
-sender: "support",
-message:
-"Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-created_at: new Date().toISOString(),
-},
-]
-);
-}
+
 async function sendChatMessage(event) {
-event.preventDefault();
-const message = chatMessage.trim();
-if (!message || chatLoading || !user) return;
-setChatLoading(true);
-const localMessage = {
-id: `local-${Date.now()}`,
-sender: "customer",
-message,
-created_at: new Date().toISOString(),
-};
-setChatMessages((current) => [
-...current,
-localMessage,
-]);
-setChatMessage("");
-try {
-const { error } = await supabase
-.from("support_messages")
-.insert({
-user_id: user.id,
-sender: "customer",
-message,
-});
-if (error) {
-console.warn(
-"Chat database insert failed:",
-error.message
-);
+  event.preventDefault();
+
+  const message = chatMessage.trim();
+
+  if (!message || chatLoading || !user) return;
+
+  setChatLoading(true);
+
+  try {
+    const { data, error } = await supabase.rpc(
+      "customer_send_live_chat_message",
+      {
+        p_message: message,
+      }
+    );
+
+    if (error) throw error;
+
+    setChatMessage("");
+
+    if (data) {
+      const savedMessage = Array.isArray(data) ? data[0] : data;
+
+      if (savedMessage) {
+        setChatMessages((current) => [
+          ...current.filter((item) => item.id !== "welcome"),
+          savedMessage,
+        ]);
+      }
+    }
+
+    await loadChatMessages();
+  } catch (error) {
+    console.error("LIVE CHAT SEND ERROR:", error);
+
+    setChatMessages((current) => [
+      ...current,
+      {
+        id: `error-${Date.now()}`,
+        sender: "support",
+        message:
+          error?.message ||
+          "We could not send your message. Please try again.",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+  } finally {
+    setChatLoading(false);
+  }
 }
-} catch (err) {
-console.warn(
-"Chat connection error:",
-err
-);
-}
-setChatLoading(false);
-}
+
 /*
 =====================================================
 GENERAL FUNCTIONS
