@@ -1343,9 +1343,61 @@ export default function AdminDashboard() {
         );
       }
 
-      setNotice(
-        "Customer approved successfully."
-      );
+      /*
+        Send the account approval email through the Supabase Edge Function.
+
+        IMPORTANT:
+        The Resend API key is NOT placed in this browser/admin code.
+        The Edge Function keeps the Resend API key and service-role
+        credentials on the server side.
+      */
+      let approvalNotice =
+        "Customer approved successfully.";
+
+      try {
+        const {
+          data: emailData,
+          error: emailError,
+        } = await supabase.functions.invoke(
+          "send-account-approval-email",
+          {
+            body: {
+              customerId: customer.id,
+            },
+          }
+        );
+
+        if (emailError) {
+          console.error(
+            "ACCOUNT APPROVAL EMAIL ERROR:",
+            emailError
+          );
+
+          approvalNotice =
+            "Customer approved successfully, but the approval email could not be sent.";
+        } else if (emailData?.error) {
+          console.error(
+            "ACCOUNT APPROVAL EMAIL ERROR:",
+            emailData.error
+          );
+
+          approvalNotice =
+            "Customer approved successfully, but the approval email could not be sent.";
+        } else {
+          approvalNotice =
+            "Customer approved successfully. Approval email sent.";
+        }
+      } catch (emailError) {
+        console.error(
+          "ACCOUNT APPROVAL EMAIL ERROR:",
+          emailError
+        );
+
+        approvalNotice =
+          "Customer approved successfully, but the approval email could not be sent.";
+      }
+
+      setNotice(approvalNotice);
 
       await Promise.all([
         loadPending(),
