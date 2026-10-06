@@ -28,20 +28,6 @@ const [chatOpen, setChatOpen] = useState(false);
 const [chatMessage, setChatMessage] = useState("");
 const [chatLoading, setChatLoading] = useState(false);
 const [chatMessages, setChatMessages] = useState([]);
-const [supportTicketOpen, setSupportTicketOpen] = useState(false);
-const [supportTicketLoading, setSupportTicketLoading] = useState(false);
-const [supportTicketStatus, setSupportTicketStatus] = useState("");
-const [supportTicketForm, setSupportTicketForm] = useState({
-  subject: "",
-  category: "question",
-  description: "",
-});
-const [faqOpen, setFaqOpen] = useState(null);
-const [problemOpen, setProblemOpen] = useState(false);
-const [notifications, setNotifications] = useState([]);
-const [notificationLoading, setNotificationLoading] = useState(false);
-const [notificationError, setNotificationError] = useState("");
-const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 const [requestForm, setRequestForm] = useState({
 recipientName: "",
 recipientAccountNumber: "",
@@ -194,8 +180,6 @@ setTransactions(transactionData || []);
 }
 await loadCardData(user.id, accountData?.id);
 await loadWithdrawalRequests(user.id);
-await ensureDefaultNotifications(user.id);
-await loadNotifications(user.id);
 setLoading(false);
 }
 async function loadCardData(userId = user?.id, accountId = account?.id) {
@@ -277,310 +261,85 @@ SUPPORT CHAT
 =====================================================
 */
 async function loadChatMessages() {
-  if (!user) return;
-  const { data, error } = await supabase
-    .from("support_messages")
-    .select("id, sender, message, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.warn("Support messages could not be loaded:", error.message);
-    setChatMessages([
-      {
-        id: "welcome",
-        sender: "support",
-        message:
-          "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    return;
-  }
-
-  setChatMessages(
-    data && data.length > 0
-      ? data
-      : [
-          {
-            id: "welcome",
-            sender: "support",
-            message:
-              "Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
-            created_at: new Date().toISOString(),
-          },
-        ]
-  );
+if (!user) return;
+const {
+data,
+error,
+} = await supabase
+.from("support_messages")
+.select("id, sender, message, created_at")
+.eq("user_id", user.id)
+.order("created_at", {
+ascending: true,
+});
+if (error) {
+console.warn(
+"Support messages could not be loaded:",
+error.message
+);
+setChatMessages([
+{
+id: "welcome",
+sender: "support",
+message:
+"Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+created_at: new Date().toISOString(),
+},
+]);
+return;
 }
-
+setChatMessages(
+data && data.length > 0
+? data
+: [
+{
+id: "welcome",
+sender: "support",
+message:
+"Hello. Welcome to MIDATLANTIC FEDERAL BANK Customer Support. How can we help you today?",
+created_at: new Date().toISOString(),
+},
+]
+);
+}
 async function sendChatMessage(event) {
-  event.preventDefault();
-  const message = chatMessage.trim();
-  if (!message || chatLoading || !user) return;
-
-  setChatLoading(true);
-
-  try {
-    const { data, error } = await supabase
-      .from("support_messages")
-      .insert({
-        user_id: user.id,
-        sender: "customer",
-        message,
-      })
-      .select("id, sender, message, created_at")
-      .single();
-
-    if (error) throw error;
-
-    setChatMessages((current) => [...current, data]);
-    setChatMessage("");
-  } catch (err) {
-    console.error("Chat message insert failed:", err);
-    setChatMessages((current) => [
-      ...current,
-      {
-        id: `error-${Date.now()}`,
-        sender: "support",
-        message:
-          "We could not send your message. Please try again. If the problem continues, use Support Ticket.",
-        created_at: new Date().toISOString(),
-      },
-    ]);
-  } finally {
-    setChatLoading(false);
-  }
+event.preventDefault();
+const message = chatMessage.trim();
+if (!message || chatLoading || !user) return;
+setChatLoading(true);
+const localMessage = {
+id: `local-${Date.now()}`,
+sender: "customer",
+message,
+created_at: new Date().toISOString(),
+};
+setChatMessages((current) => [
+...current,
+localMessage,
+]);
+setChatMessage("");
+try {
+const { error } = await supabase
+.from("support_messages")
+.insert({
+user_id: user.id,
+sender: "customer",
+message,
+});
+if (error) {
+console.warn(
+"Chat database insert failed:",
+error.message
+);
 }
-
-async function ensureDefaultNotifications(userId = user?.id) {
-  if (!userId) return;
-
-  try {
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    if (error) throw error;
-
-    if (count === 0) {
-      const { error: insertError } = await supabase
-        .from("notifications")
-        .insert([
-          {
-            user_id: userId,
-            title: "Account Active",
-            message: "Your customer account is currently active.",
-            type: "success",
-            is_read: false,
-          },
-          {
-            user_id: userId,
-            title: "Security Reminder",
-            message:
-              "Never share your password, PIN, or verification codes.",
-            type: "security",
-            is_read: false,
-          },
-        ]);
-
-      if (insertError) throw insertError;
-    }
-  } catch (err) {
-    console.warn("Default notifications could not be created:", err.message);
-  }
+} catch (err) {
+console.warn(
+"Chat connection error:",
+err
+);
 }
-
-async function loadNotifications(userId = user?.id) {
-  if (!userId) return;
-  setNotificationLoading(true);
-  setNotificationError("");
-
-  try {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, title, message, type, is_read, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    const rows = data || [];
-    setNotifications(rows);
-    setUnreadNotificationCount(rows.filter((item) => !item.is_read).length);
-  } catch (err) {
-    console.warn("Notifications could not be loaded:", err.message);
-    setNotificationError(
-      "Notifications could not be loaded right now. Please try again."
-    );
-    setNotifications([]);
-    setUnreadNotificationCount(0);
-  } finally {
-    setNotificationLoading(false);
-  }
+setChatLoading(false);
 }
-
-async function markNotificationRead(notificationId) {
-  if (!notificationId) return;
-
-  const previous = notifications;
-  setNotifications((current) =>
-    current.map((item) =>
-      item.id === notificationId ? { ...item, is_read: true } : item
-    )
-  );
-  setUnreadNotificationCount((count) => Math.max(0, count - 1));
-
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("id", notificationId)
-    .eq("user_id", user?.id);
-
-  if (error) {
-    console.warn("Notification could not be marked read:", error.message);
-    setNotifications(previous);
-    setUnreadNotificationCount(
-      previous.filter((item) => !item.is_read).length
-    );
-  }
-}
-
-async function markAllNotificationsRead() {
-  if (!user || unreadNotificationCount === 0) return;
-
-  const previous = notifications;
-  setNotifications((current) =>
-    current.map((item) => ({ ...item, is_read: true }))
-  );
-  setUnreadNotificationCount(0);
-
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", user.id)
-    .eq("is_read", false);
-
-  if (error) {
-    console.warn("Notifications could not be marked read:", error.message);
-    setNotifications(previous);
-    setUnreadNotificationCount(
-      previous.filter((item) => !item.is_read).length
-    );
-  }
-}
-
-async function createCustomerNotification(title, message, type = "info") {
-  if (!user) return;
-
-  const { error } = await supabase.from("notifications").insert({
-    user_id: user.id,
-    title,
-    message,
-    type,
-    is_read: false,
-  });
-
-  if (error) {
-    console.warn("Customer notification could not be created:", error.message);
-    return;
-  }
-
-  await loadNotifications(user.id);
-}
-
-async function submitSupportTicket(event) {
-  event.preventDefault();
-  if (supportTicketLoading || !user) return;
-
-  const subject = supportTicketForm.subject.trim();
-  const description = supportTicketForm.description.trim();
-
-  if (!subject || !description) {
-    setSupportTicketStatus("Please enter a subject and describe your request.");
-    return;
-  }
-
-  setSupportTicketLoading(true);
-  setSupportTicketStatus("");
-
-  try {
-    const { data, error } = await supabase
-      .from("support_tickets")
-      .insert({
-        user_id: user.id,
-        subject,
-        category: supportTicketForm.category,
-        description,
-        status: "open",
-        priority: "normal",
-      })
-      .select("id")
-      .single();
-
-    if (error) throw error;
-
-    await createCustomerNotification(
-      "Support ticket submitted",
-      `Your support ticket "${subject}" has been received. Ticket ID: ${data.id.slice(0, 8).toUpperCase()}.`,
-      "support"
-    );
-
-    setSupportTicketForm({
-      subject: "",
-      category: "question",
-      description: "",
-    });
-    setSupportTicketStatus(
-      `Your support ticket has been submitted successfully. Ticket ID: ${data.id
-        .slice(0, 8)
-        .toUpperCase()}.`
-    );
-  } catch (err) {
-    console.error("Support ticket submission failed:", err);
-    setSupportTicketStatus(
-      err?.message ||
-        "Your support ticket could not be submitted. Please try again."
-    );
-  } finally {
-    setSupportTicketLoading(false);
-  }
-}
-
-function openSupportTicket(category = "question") {
-  setSupportTicketStatus("");
-  setSupportTicketForm((current) => ({
-    ...current,
-    category,
-  }));
-  setSupportTicketOpen(true);
-  setProblemOpen(false);
-}
-
-const faqItems = [
-  {
-    question: "How do I submit a transfer?",
-    answer:
-      "Open Transfer, Wire Transfer, or Local Transfer from the customer menu, enter the recipient and transfer details, then complete the email verification step.",
-  },
-  {
-    question: "How do I request a withdrawal?",
-    answer:
-      "Open Withdraw, enter an amount within your available balance, add any notes, and submit the withdrawal request for bank review.",
-  },
-  {
-    question: "How do I order a debit card?",
-    answer:
-      "Open ATM / Debit Card and select Order New Card or Order Replacement Card. Your request will appear in the card request history.",
-  },
-  {
-    question: "What should I do if I suspect an account security problem?",
-    answer:
-      "Do not share your password, PIN, or verification codes. Use Report a Problem to send the support team a security report.",
-  },
-];
-
 /*
 =====================================================
 GENERAL FUNCTIONS
@@ -1254,7 +1013,6 @@ setMenuOpen={setMenuOpen}
 logout={logout}
 openPage={openPage}
 showMenu={true}
-unreadNotificationCount={unreadNotificationCount}
 />
 <div className="portal-content">
 {/* =================================================
@@ -1440,60 +1198,40 @@ Account Status
 </div>
 </section>
 <section className="portal-section">
-<div className="section-heading notification-summary-heading">
-<div>
 <span className="section-label">
 ACCOUNT ACTIVITY
 </span>
 <h2>
 Notifications
 </h2>
+<div className="notification-item">
+<div className="notification-icon">
+✓
 </div>
-<button
-type="button"
-className="text-button"
-onClick={() => openPage("notifications")}
->
-{unreadNotificationCount > 0
-  ? `${unreadNotificationCount} unread`
-  : "View All"}
-</button>
+<div>
+<strong>
+Account Active
+</strong>
+<p>
+Your customer account is
+currently available.
+</p>
 </div>
-{notifications.slice(0, 2).length === 0 ? (
-<div className="empty-state compact-empty-state">
-<strong>No new notifications</strong>
-<p>Account and support updates will appear here.</p>
 </div>
-) : (
-<div className="notifications-list">
-{notifications.slice(0, 2).map((notification) => (
-<button
-type="button"
-key={notification.id}
-className={`notification-item notification-item-button ${
-notification.is_read ? "notification-read" : "notification-unread"
-}`}
-onClick={() => {
-markNotificationRead(notification.id);
-openPage("notifications");
-}}
->
-<div className={`notification-icon ${
-notification.type === "warning" || notification.type === "security"
-? "warning"
-: ""
-}`}>
-{notification.type === "warning" || notification.type === "security" ? "!" : "✓"}
+<div className="notification-item">
+<div className="notification-icon warning">
+!
 </div>
-<div className="notification-content">
-<strong>{notification.title}</strong>
-<p>{notification.message}</p>
-<small>{formatDate(notification.created_at)}</small>
+<div>
+<strong>
+Security Reminder
+</strong>
+<p>
+Never share passwords or
+verification codes.
+</p>
 </div>
-</button>
-))}
 </div>
-)}
 </section>
 </div>
 {/* TRANSACTIONS */}
@@ -2189,80 +1927,34 @@ NOTIFICATIONS
 title="Notifications"
 label="ACTIVITY"
 >
-<div className="notification-page-toolbar">
-  <div>
-    <strong>
-      {unreadNotificationCount > 0
-        ? `${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? "" : "s"}`
-        : "You're all caught up"}
-    </strong>
-    <p>Important account and support updates appear here.</p>
-  </div>
-  <button
-    className="secondary-action"
-    type="button"
-    onClick={markAllNotificationsRead}
-    disabled={unreadNotificationCount === 0}
-  >
-    Mark all read
-  </button>
+<div className="notification-item">
+<div className="notification-icon">
+✓
 </div>
-
-{notificationError && (
-  <div className="request-notice error-notice">
-    <p>{notificationError}</p>
-    <button
-      className="text-button"
-      type="button"
-      onClick={() => loadNotifications(user?.id)}
-    >
-      Try again
-    </button>
-  </div>
-)}
-
-{notificationLoading ? (
-  <div className="empty-state">Loading notifications...</div>
-) : notifications.length === 0 ? (
-  <div className="empty-state">
-    <div className="empty-icon">✓</div>
-    <strong>No Notifications</strong>
-    <p>New account and support updates will appear here.</p>
-  </div>
-) : (
-  <div className="notifications-list">
-    {notifications.map((notification) => (
-      <button
-        type="button"
-        key={notification.id}
-        className={`notification-item notification-item-button ${
-          notification.is_read ? "notification-read" : "notification-unread"
-        }`}
-        onClick={() => markNotificationRead(notification.id)}
-      >
-        <div
-          className={`notification-icon ${
-            notification.type === "warning" || notification.type === "security"
-              ? "warning"
-              : ""
-          }`}
-        >
-          {notification.type === "warning" || notification.type === "security"
-            ? "!"
-            : "✓"}
-        </div>
-        <div className="notification-content">
-          <div className="notification-title-row">
-            <strong>{notification.title}</strong>
-            {!notification.is_read && <span className="notification-new">NEW</span>}
-          </div>
-          <p>{notification.message}</p>
-          <small>{formatDate(notification.created_at)}</small>
-        </div>
-      </button>
-    ))}
-  </div>
-)}
+<div>
+<strong>
+Account Active
+</strong>
+<p>
+Your customer account is
+currently active.
+</p>
+</div>
+</div>
+<div className="notification-item">
+<div className="notification-icon warning">
+!
+</div>
+<div>
+<strong>
+Security Reminder
+</strong>
+<p>
+Never share your password,
+PIN, or verification codes.
+</p>
+</div>
+</div>
 </PortalPage>
 )}
 {/* =================================================
@@ -2274,90 +1966,66 @@ title="Customer Support"
 label="SUPPORT"
 >
 <div className="support-intro">
-  <h2>How can we help you today?</h2>
-  <p>
-    Choose a support option or use the live chat button in the bottom-right corner.
-  </p>
+<h2>
+How can we help you today?
+</h2>
+<p>
+Choose a support option or use
+the live chat button in the
+bottom-right corner.
+</p>
 </div>
-
 <div className="support-grid-professional">
-  <button
-    type="button"
-    onClick={async () => {
-      setChatOpen(true);
-      await loadChatMessages();
-    }}
-    className="support-option"
-  >
-    <span>●</span>
-    <strong>Live Chat</strong>
-    <small>Chat with customer support</small>
-  </button>
+<button
+onClick={async () => {
+setChatOpen(true);
+await loadChatMessages();
+}}
+className="support-option"
+>
+<span>
 
-  <button
-    type="button"
-    onClick={() => openSupportTicket("question")}
-    className="support-option"
-  >
-    <span>✉</span>
-    <strong>Support Ticket</strong>
-    <small>Submit a question or complaint</small>
-  </button>
+</span>
+<strong>
+Live Chat
+</strong>
+<small>
+Chat with customer support
+</small>
+</button>
+<button className="support-option">
+<span>
 
-  <button
-    type="button"
-    onClick={() => setFaqOpen(faqOpen === 0 ? null : 0)}
-    className="support-option"
-  >
-    <span>?</span>
-    <strong>Frequently Asked Questions</strong>
-    <small>Find answers to common questions</small>
-  </button>
-
-  <button
-    type="button"
-    onClick={() => openSupportTicket("problem")}
-    className="support-option"
-  >
-    <span>!</span>
-    <strong>Report a Problem</strong>
-    <small>Report an account or security issue</small>
-  </button>
-</div>
-
-<div className="support-faq-panel">
-  <div className="section-heading">
-    <div>
-      <span className="section-label">HELP CENTER</span>
-      <h2>Frequently Asked Questions</h2>
-    </div>
-  </div>
-
-  {faqItems.map((faq, index) => (
-    <div className="faq-item" key={faq.question}>
-      <button
-        type="button"
-        className="faq-question"
-        onClick={() => setFaqOpen(faqOpen === index ? null : index)}
-      >
-        <span>{faq.question}</span>
-        <strong>{faqOpen === index ? "−" : "+"}</strong>
-      </button>
-      {faqOpen === index && (
-        <div className="faq-answer">
-          <p>{faq.answer}</p>
-        </div>
-      )}
-    </div>
-  ))}
-</div>
-
-<div className="support-security-note">
-  <strong>Need urgent account help?</strong>
-  <p>
-    Do not include passwords, PINs, one-time verification codes, or complete card
-    numbers in a support request.
-  </p>
+</span>
+<strong>
+Support Ticket
+</strong>
+<small>
+Submit a question or complaint
+</small>
+</button>
+<button className="support-option">
+<span>
+?
+</span>
+<strong>
+Frequently Asked Questions
+</strong>
+<small>
+Find answers to common questions
+</small>
+</button>
+<button className="support-option">
+<span>
+!
+</span>
+<strong>
+Report a Problem
+</strong>
+<small>
+Report an account or security issue
+</small>
+</button>
 </div>
 </PortalPage>
 )}
@@ -2449,127 +2117,6 @@ Sign Out
 </PortalPage>
 )}
 </div>
-{supportTicketOpen && (
-<div
-  className="support-modal-backdrop"
-  role="presentation"
-  onMouseDown={(event) => {
-    if (
-      event.target === event.currentTarget &&
-      !supportTicketLoading
-    ) {
-      setSupportTicketOpen(false);
-    }
-  }}
->
-  <div className="support-ticket-modal" role="dialog" aria-modal="true">
-    <div className="support-ticket-header">
-      <div>
-        <span className="section-label">SUPPORT</span>
-        <h2>{supportTicketForm.category === "problem" ? "Report a Problem" : "Support Ticket"}</h2>
-        <p>Send your request securely to customer support.</p>
-      </div>
-      <button
-        type="button"
-        className="chat-close"
-        onClick={() => !supportTicketLoading && setSupportTicketOpen(false)}
-        aria-label="Close support ticket"
-      >
-        ×
-      </button>
-    </div>
-
-    <form onSubmit={submitSupportTicket}>
-      <label className="form-label">
-        Request Type
-        <select
-          className="portal-input"
-          value={supportTicketForm.category}
-          onChange={(event) =>
-            setSupportTicketForm((current) => ({
-              ...current,
-              category: event.target.value,
-            }))
-          }
-        >
-          <option value="question">Question</option>
-          <option value="complaint">Complaint</option>
-          <option value="problem">Account / Security Problem</option>
-          <option value="card">Card Problem</option>
-          <option value="transfer">Transfer Problem</option>
-        </select>
-      </label>
-
-      <label className="form-label">
-        Subject
-        <input
-          className="portal-input"
-          type="text"
-          maxLength={160}
-          value={supportTicketForm.subject}
-          onChange={(event) =>
-            setSupportTicketForm((current) => ({
-              ...current,
-              subject: event.target.value,
-            }))
-          }
-          placeholder="Briefly describe the issue"
-          required
-        />
-      </label>
-
-      <label className="form-label">
-        Details
-        <textarea
-          className="portal-textarea"
-          rows="6"
-          maxLength={4000}
-          value={supportTicketForm.description}
-          onChange={(event) =>
-            setSupportTicketForm((current) => ({
-              ...current,
-              description: event.target.value,
-            }))
-          }
-          placeholder="Tell customer support what happened and what help you need."
-          required
-        />
-      </label>
-
-      {supportTicketStatus && (
-        <div
-          className={`request-notice ${
-            supportTicketStatus.toLowerCase().includes("successfully")
-              ? "success-notice"
-              : "error-notice"
-          }`}
-        >
-          <p>{supportTicketStatus}</p>
-        </div>
-      )}
-
-      <div className="support-ticket-actions">
-        <button
-          type="button"
-          className="secondary-action"
-          onClick={() => !supportTicketLoading && setSupportTicketOpen(false)}
-          disabled={supportTicketLoading}
-        >
-          Cancel
-        </button>
-        <button
-          className="portal-button"
-          type="submit"
-          disabled={supportTicketLoading}
-        >
-          {supportTicketLoading ? "Submitting..." : "Submit Ticket"}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-)}
-
 {passwordModalOpen && (
 <div
 role="presentation"
@@ -3859,215 +3406,6 @@ text-align: center;
 .transfer-form-grid { grid-template-columns:1fr; }
 .live-chat-button { right:14px !important; bottom:14px !important; min-height:48px !important; padding:0 15px !important; }
 }
-.notification-page-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border: 1px solid #e5ebf2;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-.notification-page-toolbar strong {
-  color: #172b4d;
-  font-size: 13px;
-}
-.notification-page-toolbar p {
-  margin: 4px 0 0;
-  color: #718096;
-  font-size: 12px;
-}
-.notifications-list {
-  display: grid;
-  gap: 10px;
-}
-.notification-item-button {
-  width: 100%;
-  border: 1px solid #e3e9f0;
-  text-align: left;
-  cursor: pointer;
-  transition: .18s ease;
-}
-.notification-item-button:hover {
-  border-color: #bfd0e3;
-  transform: translateY(-1px);
-}
-.notification-unread {
-  background: #f7fbff;
-  border-left: 4px solid #18558e;
-}
-.notification-read {
-  background: #fff;
-  opacity: .82;
-}
-.notification-content {
-  min-width: 0;
-  flex: 1;
-}
-.notification-content p {
-  margin: 5px 0;
-  color: #59697e;
-  line-height: 1.55;
-}
-.notification-content small {
-  color: #8a96a7;
-  font-size: 11px;
-}
-.notification-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.notification-new {
-  display: inline-flex;
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: #e8f2ff;
-  color: #18558e;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .08em;
-}
-.notification-summary-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.compact-empty-state {
-  padding: 18px;
-}
-.menu-notification-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.menu-notification-badge {
-  min-width: 20px;
-  height: 20px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: #b42318;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 900;
-}
-.support-faq-panel {
-  margin-top: 18px;
-  padding: 22px;
-  border: 1px solid #e1e8f1;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 12px 36px rgba(30, 52, 80, .05);
-}
-.faq-item {
-  border-top: 1px solid #edf1f5;
-}
-.faq-item:first-of-type {
-  border-top: 0;
-}
-.faq-question {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 16px 0;
-  border: 0;
-  background: transparent;
-  color: #172b4d;
-  text-align: left;
-  font-weight: 800;
-  cursor: pointer;
-}
-.faq-question strong {
-  color: #18558e;
-  font-size: 18px;
-}
-.faq-answer {
-  padding: 0 0 16px;
-}
-.faq-answer p {
-  margin: 0;
-  color: #667085;
-  line-height: 1.65;
-  font-size: 13px;
-}
-.support-security-note {
-  margin-top: 18px;
-  padding: 16px 18px;
-  border: 1px solid #e5eaf0;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-.support-security-note strong {
-  color: #172b4d;
-  font-size: 13px;
-}
-.support-security-note p {
-  margin: 5px 0 0;
-  color: #667085;
-  font-size: 12px;
-  line-height: 1.55;
-}
-.support-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(8, 22, 40, .52);
-}
-.support-ticket-modal {
-  width: min(100%, 620px);
-  max-height: min(90vh, 760px);
-  overflow: auto;
-  padding: 24px;
-  border: 1px solid #dce4ed;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 30px 90px rgba(17, 39, 66, .25);
-}
-.support-ticket-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 20px;
-}
-.support-ticket-header h2 {
-  margin: 5px 0 0;
-  color: #172b4d;
-}
-.support-ticket-header p {
-  margin: 6px 0 0;
-  color: #667085;
-  font-size: 12px;
-}
-.support-ticket-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-@media (max-width: 700px) {
-  .notification-page-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .support-ticket-modal {
-    padding: 18px;
-  }
-  .support-ticket-actions {
-    flex-direction: column-reverse;
-  }
-  .support-ticket-actions button {
-    width: 100%;
-  }
-}
 @media (max-width: 700px) { .transfer-form-grid { grid-template-columns: 1fr; } }
 `}
 </style>
@@ -4178,7 +3516,6 @@ setMenuOpen,
 logout,
 openPage,
 showMenu = true,
-unreadNotificationCount = 0,
 }) {
 return (
 <header className="portal-header">
@@ -4370,11 +3707,8 @@ openPage("notifications")
 <span className="menu-icon">
 ○
 </span>
-<span className="menu-notification-label">
+<span>
 Notifications
-{unreadNotificationCount > 0 && (
-  <span className="menu-notification-badge">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>
-)}
 </span>
 </button>
 </div>
