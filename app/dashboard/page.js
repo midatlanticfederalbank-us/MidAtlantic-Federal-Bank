@@ -1651,7 +1651,7 @@ label="TRANSFERS & PAYMENTS"
 {activePage !== "withdraw" ? (
 <form onSubmit={submitRequest}>
 <div className="request-notice transfer-security-notice">
-<strong>{activePage === "wire" ? "International Wire Transfer" : activePage === "local" ? "Local Bank Transfer" : "International &amp; Local Bank Transfer"}</strong>
+<strong>{activePage === "wire" ? "International Wire Transfer" : activePage === "local" ? "Local Bank Transfer" : "International & Local Bank Transfer"}</strong>
 <p>Enter the recipient's bank details. The transfer is verified by email OTP before it is sent through Airwallex.</p>
 </div>
 <label className="form-label">Recipient Full Name
