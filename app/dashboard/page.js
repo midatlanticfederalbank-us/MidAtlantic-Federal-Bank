@@ -1652,7 +1652,7 @@ label="TRANSFERS & PAYMENTS"
 <form onSubmit={submitRequest}>
 <div className="request-notice transfer-security-notice">
 <strong>{activePage === "wire" ? "International Wire Transfer" : activePage === "local" ? "Local Bank Transfer" : "International & Local Bank Transfer"}</strong>
-<p>Enter the recipient's bank details. The transfer is verified by email OTP before it is sent through Airwallex.</p>
+<p>Enter the recipient's bank details. The transfer is verified by email OTP.</p>
 </div>
 <label className="form-label">Recipient Full Name
 <input className="portal-input" type="text" value={requestForm.recipientName} onChange={(e) => updateRequestField("recipientName", e.target.value)} placeholder="Full name of recipient" required />
