@@ -727,7 +727,7 @@ if (requestLoading || transferOtpLoading || !user) return;
 setRequestStatus("");
 setTransferOtpStatus("");
 const isWire = pageType === "wire";
-const parsedRecipientAddress = isWire ? parseRecipientAddress(requestForm.recipientAddress) : null;
+const parsedRecipientAddress = parseRecipientAddress(requestForm.recipientAddress);
 const amount = Number(requestForm.amount);
 const recipientName = requestForm.recipientName.trim();
 const recipientAccountNumber = requestForm.recipientAccountNumber.trim();
@@ -762,7 +762,7 @@ if (isWire && !requestForm.swiftBic.trim()) {
 setRequestStatus("Please enter the recipient bank's SWIFT/BIC code.");
 return;
 }
-if (isWire && !parsedRecipientAddress) {
+if (!parsedRecipientAddress) {
 setRequestStatus("Enter the recipient address in this format: Street Address, City, State/Province, Postal Code.");
 return;
 }
@@ -813,11 +813,11 @@ accountName,
 routingType: isWire ? requestForm.routingType.trim() : "aba",
 routingValue: isWire ? requestForm.routingValue.trim() : routingValue,
 swiftBic: requestForm.swiftBic.trim(),
-streetAddress: parsedRecipientAddress?.streetAddress || "",
+streetAddress: parsedRecipientAddress.streetAddress,
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
-city: parsedRecipientAddress?.city || "",
-state: parsedRecipientAddress?.state || "",
-postalCode: parsedRecipientAddress?.postalCode || "",
+city: parsedRecipientAddress.city,
+state: parsedRecipientAddress.state,
+postalCode: parsedRecipientAddress.postalCode,
 amount,
 description: requestForm.description.trim() || (isWire ? "International Wire Transfer" : "US Domestic Transfer"),
 });
@@ -884,8 +884,8 @@ requestLoading ||
 ) {
 return;
 }
-const parsedRecipientAddress = transferPageType === "wire" ? parseRecipientAddress(requestForm.recipientAddress) : null;
-if (transferPageType === "wire" && !parsedRecipientAddress) {
+const parsedRecipientAddress = parseRecipientAddress(requestForm.recipientAddress);
+if (!parsedRecipientAddress) {
 setTransferOtpStatus("Enter the recipient address in this format: Street Address, City, State/Province, Postal Code.");
 return;
 }
@@ -912,11 +912,11 @@ accountName: requestForm.accountName.trim() || requestForm.recipientName.trim(),
 routingType: requestForm.routingType.trim(),
 routingValue: requestForm.routingValue.trim(),
 swiftBic: requestForm.swiftBic.trim(),
-streetAddress: parsedRecipientAddress?.streetAddress || "",
+streetAddress: parsedRecipientAddress.streetAddress,
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
-city: parsedRecipientAddress?.city || "",
-state: parsedRecipientAddress?.state || "",
-postalCode: parsedRecipientAddress?.postalCode || "",
+city: parsedRecipientAddress.city,
+state: parsedRecipientAddress.state,
+postalCode: parsedRecipientAddress.postalCode,
 amount,
 description: requestForm.description.trim() || "Customer Transfer",
 });
@@ -1750,6 +1750,10 @@ label="TRANSFERS & PAYMENTS"
 </>
 ) : (
 <>
+<label className="form-label">Recipient Address
+<input className="portal-input" type="text" value={requestForm.recipientAddress} onChange={(e) => updateRequestField("recipientAddress", e.target.value)} placeholder="Street Address, City, State/Province, Postal Code" autoComplete="street-address" required />
+<small className="transfer-balance-hint">Enter all four parts separated by commas.</small>
+</label>
 <label className="form-label">Bank Account Number
 <input className="portal-input" type="text" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="US bank account number" autoComplete="off" required />
 </label>
