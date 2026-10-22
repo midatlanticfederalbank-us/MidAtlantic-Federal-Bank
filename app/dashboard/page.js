@@ -692,8 +692,9 @@ try {
 const response = error.context;
 if (response && typeof response.json === "function") {
 const payload = await response.json();
-if (payload?.message) {
-message = payload.message;
+if (payload?.error || payload?.message) {
+message = payload.error || payload.message;
+if (payload?.stage) message += ` (stage: ${payload.stage})`;
 }
 }
 } catch (_) {
@@ -756,8 +757,8 @@ if (isWire && !requestForm.bankStreetAddress.trim()) {
 setRequestStatus("Please enter the recipient bank's address.");
 return;
 }
-if (!isWire) {
-setRequestStatus("US routing-number lookup is not configured yet. To protect your transfer, no transfer has been submitted. We need a verified routing number before enabling US domestic transfers.");
+if (!isWire && !/^\d{9}$/.test(requestForm.routingValue.trim())) {
+setRequestStatus("Enter the recipient bank's 9-digit US ABA routing number.");
 return;
 }
 if (!Number.isFinite(amount) || amount <= 0) {
@@ -785,8 +786,8 @@ transferCurrency,
 transferMethod: isWire ? "SWIFT" : "LOCAL",
 beneficiaryType: requestForm.beneficiaryType,
 accountName,
-routingType: isWire ? requestForm.routingType.trim() : "",
-routingValue: isWire ? requestForm.routingValue.trim() : "",
+routingType: isWire ? requestForm.routingType.trim() : "aba",
+routingValue: requestForm.routingValue.trim(),
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
@@ -879,7 +880,7 @@ transferPageType === "wire"
 : requestForm.transferMethod,
 beneficiaryType: requestForm.beneficiaryType,
 accountName: requestForm.accountName.trim() || requestForm.recipientName.trim(),
-routingType: requestForm.routingType.trim(),
+routingType: transferPageType === "wire" ? requestForm.routingType.trim() : "aba",
 routingValue: requestForm.routingValue.trim(),
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
@@ -1732,7 +1733,11 @@ label="TRANSFERS & PAYMENTS"
 ) : (
 <>
 <label className="form-label">Bank Account Number
-<input className="portal-input" type="text" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="US bank account number" autoComplete="off" required />
+<input className="portal-input" type="text" inputMode="numeric" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="US bank account number" autoComplete="off" required />
+</label>
+<label className="form-label">US ABA Routing Number
+<input className="portal-input" type="text" inputMode="numeric" value={requestForm.routingValue} onChange={(e) => updateRequestField("routingValue", e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="9-digit routing number" autoComplete="off" minLength={9} maxLength={9} pattern="[0-9]{9}" required />
+<small className="transfer-balance-hint">Enter the recipient bank’s 9-digit ABA routing number. Check it with the recipient or their bank.</small>
 </label>
 <label className="form-label">Bank Name
 <input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's US bank" required />
@@ -1748,7 +1753,7 @@ label="TRANSFERS & PAYMENTS"
 </label>
 {requestStatus && <div className="request-notice error-notice" role="alert"><p>{requestStatus}</p></div>}
 <button className="portal-button transfer-submit-button" type="submit" disabled={requestLoading}>
-{requestLoading ? "Processing..." : activePage === "wire" ? "Continue to Email Verification" : "Transfer"}
+{requestLoading ? "Processing..." : "Continue to Email Verification"}
 </button>
 </form>
 ) : (
