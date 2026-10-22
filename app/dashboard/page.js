@@ -756,8 +756,8 @@ if (isWire && !requestForm.bankStreetAddress.trim()) {
 setRequestStatus("Please enter the recipient bank's address.");
 return;
 }
-if (!isWire) {
-setRequestStatus("US routing-number lookup is not configured yet. To protect your transfer, no transfer has been submitted. We need a verified routing number before enabling US domestic transfers.");
+if (!isWire && !/^[0-9]{9}$/.test(requestForm.routingValue.trim())) {
+setRequestStatus("Please enter the recipient bank's 9-digit US routing number.");
 return;
 }
 if (!Number.isFinite(amount) || amount <= 0) {
@@ -785,8 +785,8 @@ transferCurrency,
 transferMethod: isWire ? "SWIFT" : "LOCAL",
 beneficiaryType: requestForm.beneficiaryType,
 accountName,
-routingType: isWire ? requestForm.routingType.trim() : "",
-routingValue: isWire ? requestForm.routingValue.trim() : "",
+routingType: isWire ? requestForm.routingType.trim() : "aba",
+routingValue: requestForm.routingValue.trim(),
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
@@ -1740,6 +1740,10 @@ label="TRANSFERS & PAYMENTS"
 </label>
 <label className="form-label">Bank Name
 <input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's US bank" required />
+</label>
+<label className="form-label">US Bank Routing Number
+<input className="portal-input" type="text" inputMode="numeric" autoComplete="off" maxLength={9} pattern="[0-9]{9}" value={requestForm.routingValue} onChange={(e) => updateRequestField("routingValue", e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="Enter 9-digit routing number" aria-describedby="routing-number-help" required />
+<small id="routing-number-help" className="transfer-balance-hint">Enter the recipient bank's 9-digit ABA routing number. Check it with the recipient or their bank before submitting.</small>
 </label>
 </>
 )}
