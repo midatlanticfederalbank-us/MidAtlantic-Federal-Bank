@@ -770,9 +770,20 @@ if (isWire && !requestForm.bankStreetAddress.trim()) {
 setRequestStatus("Please enter the recipient bank's address.");
 return;
 }
+const routingValue = requestForm.routingValue.trim().replace(/\s+/g, "");
 if (!isWire) {
-setRequestStatus("US routing-number lookup is not configured yet. To protect your transfer, no transfer has been submitted. We need a verified routing number before enabling US domestic transfers.");
+if (!/^\d{9}$/.test(routingValue)) {
+setRequestStatus("Enter the recipient bank's 9-digit US ABA routing number.");
 return;
+}
+const routingDigits = routingValue.split("").map(Number);
+const routingChecksum = routingDigits[0] * 3 + routingDigits[1] * 7 + routingDigits[2] +
+routingDigits[3] * 3 + routingDigits[4] * 7 + routingDigits[5] +
+routingDigits[6] * 3 + routingDigits[7] * 7 + routingDigits[8];
+if (routingChecksum % 10 !== 0) {
+setRequestStatus("The ABA routing number's checksum is invalid. Please check the number and try again.");
+return;
+}
 }
 if (!Number.isFinite(amount) || amount <= 0) {
 setRequestStatus("Please enter a valid transfer amount.");
@@ -799,8 +810,8 @@ transferCurrency,
 transferMethod: isWire ? "SWIFT" : "LOCAL",
 beneficiaryType: requestForm.beneficiaryType,
 accountName,
-routingType: isWire ? requestForm.routingType.trim() : "",
-routingValue: isWire ? requestForm.routingValue.trim() : "",
+routingType: isWire ? requestForm.routingType.trim() : "aba",
+routingValue: isWire ? requestForm.routingValue.trim() : routingValue,
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: parsedRecipientAddress?.streetAddress || "",
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
@@ -1744,6 +1755,10 @@ label="TRANSFERS & PAYMENTS"
 </label>
 <label className="form-label">Bank Name
 <input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's US bank" required />
+</label>
+<label className="form-label">US ABA Routing Number (9 digits)
+<input className="portal-input" type="text" inputMode="numeric" value={requestForm.routingValue} onChange={(e) => updateRequestField("routingValue", e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="9-digit routing number" autoComplete="off" maxLength={9} pattern="[0-9]{9}" required />
+<small className="transfer-balance-hint">Enter the routing number provided by the recipient's bank. The number's format will be checked before submission.</small>
 </label>
 </>
 )}
