@@ -33,6 +33,7 @@ recipientName: "",
 recipientAccountNumber: "",
 bankName: "",
 bankCountry: "US",
+recipientCountry: "",
 transferCurrency: "USD",
 transferMethod: "LOCAL",
 beneficiaryType: "PERSONAL",
@@ -41,6 +42,7 @@ routingType: "aba",
 routingValue: "",
 swiftBic: "",
 streetAddress: "",
+bankStreetAddress: "",
 city: "",
 state: "",
 postalCode: "",
@@ -671,9 +673,9 @@ setRequestLoading(false);
 function resetRequestForm() {
 setRequestForm({
 recipientName: "", recipientAccountNumber: "", bankName: "",
-bankCountry: "US", transferCurrency: "USD", transferMethod: "LOCAL",
+bankCountry: "US", recipientCountry: "", transferCurrency: "USD", transferMethod: "LOCAL",
 beneficiaryType: "PERSONAL", accountName: "", routingType: "aba", routingValue: "",
-swiftBic: "", streetAddress: "", city: "", state: "", postalCode: "",
+swiftBic: "", streetAddress: "", bankStreetAddress: "", city: "", state: "", postalCode: "",
 amount: "", description: "",
 });
 }
@@ -711,26 +713,51 @@ async function startCustomerTransfer(pageType = "transfer") {
 if (requestLoading || transferOtpLoading || !user) return;
 setRequestStatus("");
 setTransferOtpStatus("");
+const isWire = pageType === "wire";
 const amount = Number(requestForm.amount);
 const recipientName = requestForm.recipientName.trim();
 const recipientAccountNumber = requestForm.recipientAccountNumber.trim();
-const bankCountry = requestForm.bankCountry.trim().toUpperCase();
-const transferCurrency = requestForm.transferCurrency.trim().toUpperCase();
-const accountName = (requestForm.accountName.trim() || recipientName);
+const bankCountry = isWire ? requestForm.bankCountry.trim().toUpperCase() : "US";
+const transferCurrency = isWire ? requestForm.transferCurrency.trim().toUpperCase() : "USD";
+const accountName = recipientName;
 if (!recipientName) {
 setRequestStatus("Please enter the recipient's full name.");
 return;
 }
 if (!recipientAccountNumber) {
-setRequestStatus("Please enter the recipient account number or IBAN.");
+setRequestStatus(isWire ? "Please enter the recipient's account number or IBAN." : "Please enter the recipient's US bank account number.");
 return;
 }
-if (!/^[A-Z]{2}$/.test(bankCountry)) {
-setRequestStatus("Enter a valid 2-letter bank country code, for example US or NG.");
+if (!requestForm.bankName.trim()) {
+setRequestStatus("Please enter the recipient's bank name.");
 return;
 }
-if (!/^[A-Z]{3}$/.test(transferCurrency)) {
-setRequestStatus("Enter a valid 3-letter transfer currency, for example USD or NGN.");
+if (isWire && !/^[A-Z]{2}$/.test(bankCountry)) {
+setRequestStatus("Enter the recipient bank's 2-letter country code.");
+return;
+}
+if (isWire && !/^[A-Z]{2}$/.test(requestForm.recipientCountry.trim().toUpperCase())) {
+setRequestStatus("Enter the recipient's 2-letter country code.");
+return;
+}
+if (isWire && !/^[A-Z]{3}$/.test(transferCurrency)) {
+setRequestStatus("Enter a valid 3-letter transfer currency.");
+return;
+}
+if (isWire && !requestForm.swiftBic.trim()) {
+setRequestStatus("Please enter the recipient bank's SWIFT/BIC code.");
+return;
+}
+if (isWire && (!requestForm.streetAddress.trim() || !requestForm.city.trim())) {
+setRequestStatus("Please enter the recipient's street address and city.");
+return;
+}
+if (isWire && !requestForm.bankStreetAddress.trim()) {
+setRequestStatus("Please enter the recipient bank's address.");
+return;
+}
+if (!isWire) {
+setRequestStatus("US routing-number lookup is not configured yet. To protect your transfer, no transfer has been submitted. We need a verified routing number before enabling US domestic transfers.");
 return;
 }
 if (!Number.isFinite(amount) || amount <= 0) {
@@ -753,24 +780,21 @@ recipientName,
 recipientAccountNumber,
 bankName: requestForm.bankName.trim(),
 bankCountry,
+recipientCountry: isWire ? requestForm.recipientCountry.trim().toUpperCase() : "US",
 transferCurrency,
-transferMethod:
-pageType === "wire"
-? "SWIFT"
-: pageType === "local"
-? "LOCAL"
-: requestForm.transferMethod,
+transferMethod: isWire ? "SWIFT" : "LOCAL",
 beneficiaryType: requestForm.beneficiaryType,
 accountName,
-routingType: requestForm.routingType.trim(),
-routingValue: requestForm.routingValue.trim(),
+routingType: isWire ? requestForm.routingType.trim() : "",
+routingValue: isWire ? requestForm.routingValue.trim() : "",
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
+bankStreetAddress: requestForm.bankStreetAddress.trim(),
 city: requestForm.city.trim(),
 state: requestForm.state.trim(),
 postalCode: requestForm.postalCode.trim(),
 amount,
-description: requestForm.description.trim() || "Customer Transfer",
+description: requestForm.description.trim() || (isWire ? "International Wire Transfer" : "US Domestic Transfer"),
 });
 setTransferId(data.transferId);
 setTransferPageType(pageType);
@@ -844,8 +868,9 @@ action: "send_otp",
 recipientName: requestForm.recipientName.trim(),
 recipientAccountNumber: requestForm.recipientAccountNumber.trim(),
 bankName: requestForm.bankName.trim(),
-bankCountry: requestForm.bankCountry.trim().toUpperCase(),
-transferCurrency: requestForm.transferCurrency.trim().toUpperCase(),
+bankCountry: transferPageType === "wire" ? requestForm.bankCountry.trim().toUpperCase() : "US",
+recipientCountry: transferPageType === "wire" ? requestForm.recipientCountry.trim().toUpperCase() : "US",
+transferCurrency: transferPageType === "wire" ? requestForm.transferCurrency.trim().toUpperCase() : "USD",
 transferMethod:
 transferPageType === "wire"
 ? "SWIFT"
@@ -858,6 +883,7 @@ routingType: requestForm.routingType.trim(),
 routingValue: requestForm.routingValue.trim(),
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
+bankStreetAddress: requestForm.bankStreetAddress.trim(),
 city: requestForm.city.trim(),
 state: requestForm.state.trim(),
 postalCode: requestForm.postalCode.trim(),
@@ -1651,39 +1677,54 @@ label="TRANSFERS & PAYMENTS"
 {activePage !== "withdraw" ? (
 <form onSubmit={submitRequest}>
 <div className="request-notice transfer-security-notice">
-<strong>{activePage === "wire" ? "International Wire Transfer" : activePage === "local" ? "Local Bank Transfer" : "International & Local Bank Transfer"}</strong>
-<p>Enter the recipient's bank details. The transfer is verified by email OTP.</p>
+<strong>{activePage === "wire" ? "International Wire Transfer" : "US Domestic Bank Transfer"}</strong>
+<p>{activePage === "wire" ? "Send an international payment. Recipient details, bank details, and email OTP verification are required." : "Transfer to a US bank account in USD. Enter the recipient, account, bank, and amount. A verified routing number is required before domestic transfers can be enabled."}</p>
 </div>
 <label className="form-label">Recipient Full Name
-<input className="portal-input" type="text" value={requestForm.recipientName} onChange={(e) => updateRequestField("recipientName", e.target.value)} placeholder="Full name of recipient" required />
+<input className="portal-input" type="text" value={requestForm.recipientName} onChange={(e) => updateRequestField("recipientName", e.target.value)} placeholder="Full name of recipient" autoComplete="name" required />
+</label>
+{activePage === "wire" ? (
+<>
+<label className="form-label">Recipient Street Address
+<input className="portal-input" type="text" value={requestForm.streetAddress} onChange={(e) => updateRequestField("streetAddress", e.target.value)} placeholder="Recipient's street address" autoComplete="street-address" required />
 </label>
 <div className="transfer-form-grid">
-<label className="form-label">Bank Country (2-letter code)
-<input className="portal-input" type="text" value={requestForm.bankCountry} onChange={(e) => updateRequestField("bankCountry", e.target.value.toUpperCase().slice(0,2))} placeholder="US" maxLength={2}
-required />
+<label className="form-label">Recipient City
+<input className="portal-input" type="text" value={requestForm.city} onChange={(e) => updateRequestField("city", e.target.value)} placeholder="City" required />
 </label>
-<label className="form-label">Transfer Currency (3-letter code)
-<input className="portal-input" type="text" value={requestForm.transferCurrency} onChange={(e) => updateRequestField("transferCurrency", e.target.value.toUpperCase().slice(0,3))} placeholder="USD"
-maxLength={3} required />
+<label className="form-label">State / Province (if applicable)
+<input className="portal-input" type="text" value={requestForm.state} onChange={(e) => updateRequestField("state", e.target.value)} placeholder="State or province" />
 </label>
 </div>
 <div className="transfer-form-grid">
-<label className="form-label">Transfer Method
-<select
-className="portal-input"
-value={
-activePage === "wire"
-? "SWIFT"
-: activePage === "local"
-? "LOCAL"
-: requestForm.transferMethod
-}
-onChange={(e) => updateRequestField("transferMethod", e.target.value)}
-disabled={activePage === "wire" || activePage === "local"}
->
-<option value="LOCAL">Local</option>
-<option value="SWIFT">SWIFT / International</option>
-</select>
+<label className="form-label">Postal Code (if applicable)
+<input className="portal-input" type="text" value={requestForm.postalCode} onChange={(e) => updateRequestField("postalCode", e.target.value)} placeholder="Postal code" />
+</label>
+<label className="form-label">Recipient Country (2-letter code)
+<input className="portal-input" type="text" value={requestForm.recipientCountry} onChange={(e) => updateRequestField("recipientCountry", e.target.value.toUpperCase().slice(0,2))} placeholder="GB" maxLength={2} required />
+</label>
+<label className="form-label">Bank Country (2-letter code)
+<input className="portal-input" type="text" value={requestForm.bankCountry} onChange={(e) => updateRequestField("bankCountry", e.target.value.toUpperCase().slice(0,2))} placeholder="GB" maxLength={2} required />
+</label>
+</div>
+<div className="transfer-form-grid">
+<label className="form-label">Account Number / IBAN
+<input className="portal-input" type="text" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="Account number or IBAN" autoComplete="off" required />
+</label>
+<label className="form-label">Transfer Currency
+<input className="portal-input" type="text" value={requestForm.transferCurrency} onChange={(e) => updateRequestField("transferCurrency", e.target.value.toUpperCase().slice(0,3))} placeholder="EUR" maxLength={3} required />
+</label>
+</div>
+<div className="transfer-form-grid">
+<label className="form-label">Bank Name
+<input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's bank" required />
+</label>
+<label className="form-label">SWIFT / BIC Code
+<input className="portal-input" type="text" value={requestForm.swiftBic} onChange={(e) => updateRequestField("swiftBic", e.target.value.toUpperCase())} placeholder="8 or 11 character code" autoComplete="off" required />
+</label>
+</div>
+<label className="form-label">Bank Address
+<textarea className="portal-textarea" rows="3" value={requestForm.bankStreetAddress} onChange={(e) => updateRequestField("bankStreetAddress", e.target.value)} placeholder="Bank street address, city, region and postal code" required />
 </label>
 <label className="form-label">Recipient Type
 <select className="portal-input" value={requestForm.beneficiaryType} onChange={(e) => updateRequestField("beneficiaryType", e.target.value)}>
@@ -1691,57 +1732,27 @@ disabled={activePage === "wire" || activePage === "local"}
 <option value="COMPANY">Business</option>
 </select>
 </label>
-</div>
-<label className="form-label">Bank Account Name
-<input className="portal-input" type="text" value={requestForm.accountName} onChange={(e) => updateRequestField("accountName", e.target.value)} placeholder="Name exactly as shown on the bank account"
-required />
-</label>
-<label className="form-label">Account Number / IBAN
-<input className="portal-input" type="text" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="Account number
-or IBAN" autoComplete="off" required />
-</label>
-<div className="transfer-form-grid">
-<label className="form-label">Routing Type
-<input className="portal-input" type="text" value={requestForm.routingType} onChange={(e) => updateRequestField("routingType", e.target.value)} placeholder="aba, sort_code, bsb, ifsc" />
-</label>
-<label className="form-label">Routing / Clearing Code
-<input className="portal-input" type="text" value={requestForm.routingValue} onChange={(e) => updateRequestField("routingValue", e.target.value)} placeholder="Bank routing code" />
-</label>
-</div>
-<div className="transfer-form-grid">
-<label className="form-label">SWIFT / BIC (if applicable)
-<input className="portal-input" type="text" value={requestForm.swiftBic} onChange={(e) => updateRequestField("swiftBic", e.target.value.toUpperCase())} placeholder="SWIFT or BIC" />
+</>
+) : (
+<>
+<label className="form-label">Bank Account Number
+<input className="portal-input" type="text" value={requestForm.recipientAccountNumber} onChange={(e) => updateRequestField("recipientAccountNumber", e.target.value.trimStart())} placeholder="US bank account number" autoComplete="off" required />
 </label>
 <label className="form-label">Bank Name
-<input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's bank" />
+<input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's US bank" required />
 </label>
-</div>
-<div className="transfer-form-grid">
-<label className="form-label">City
-<input className="portal-input" type="text" value={requestForm.city} onChange={(e) => updateRequestField("city", e.target.value)} placeholder="Bank/recipient city" />
-</label>
-<label className="form-label">State / Province
-<input className="portal-input" type="text" value={requestForm.state} onChange={(e) => updateRequestField("state", e.target.value)} placeholder="State or province" />
-</label>
-</div>
-<div className="transfer-form-grid">
-<label className="form-label">Street Address
-<input className="portal-input" type="text" value={requestForm.streetAddress} onChange={(e) => updateRequestField("streetAddress", e.target.value)} placeholder="Street address" />
-</label>
-<label className="form-label">Postal Code
-<input className="portal-input" type="text" value={requestForm.postalCode} onChange={(e) => updateRequestField("postalCode", e.target.value)} placeholder="Postal code" />
-</label>
-</div>
-<label className="form-label">Amount
+</>
+)}
+<label className="form-label">Amount {activePage === "wire" ? `(${requestForm.transferCurrency || "currency"})` : "(USD)"}
 <input className="portal-input" type="number" min="0.01" step="0.01" value={requestForm.amount} onChange={(e) => updateRequestField("amount", e.target.value)} placeholder="0.00" required />
-<small className="transfer-balance-hint">Available balance: ${formatMoney(account.balance)}</small>
+<small className="transfer-balance-hint">Available balance: ${formatMoney(account.balance)} USD</small>
 </label>
-<label className="form-label">Description / Transfer Reason
-<textarea className="portal-textarea" rows="3" value={requestForm.description} onChange={(e) => updateRequestField("description", e.target.value)} placeholder="What is this transfer for?" />
+<label className="form-label">Description / Transfer Reason (optional)
+<textarea className="portal-textarea" rows="2" value={requestForm.description} onChange={(e) => updateRequestField("description", e.target.value)} placeholder="What is this transfer for?" />
 </label>
-{requestStatus && <div className="request-notice error-notice"><p>{requestStatus}</p></div>}
+{requestStatus && <div className="request-notice error-notice" role="alert"><p>{requestStatus}</p></div>}
 <button className="portal-button transfer-submit-button" type="submit" disabled={requestLoading}>
-{requestLoading ? "Sending Verification Code..." : "Transfer"}
+{requestLoading ? "Processing..." : activePage === "wire" ? "Continue to Email Verification" : "Transfer"}
 </button>
 </form>
 ) : (
