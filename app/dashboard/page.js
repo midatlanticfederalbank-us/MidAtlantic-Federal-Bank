@@ -692,8 +692,8 @@ try {
 const response = error.context;
 if (response && typeof response.json === "function") {
 const payload = await response.json();
-if (payload?.error || payload?.message) {
-message = payload.error || payload.message;
+if (payload?.message) {
+message = payload.message;
 }
 }
 } catch (_) {
@@ -752,21 +752,12 @@ if (isWire && (!requestForm.streetAddress.trim() || !requestForm.city.trim())) {
 setRequestStatus("Please enter the recipient's street address and city.");
 return;
 }
-if (!isWire && (
-!requestForm.streetAddress.trim() ||
-!requestForm.city.trim() ||
-!requestForm.state.trim() ||
-!requestForm.postalCode.trim()
-)) {
-setRequestStatus("For a US domestic transfer, enter the recipient's street address, city, state, and ZIP code exactly as provided by the recipient.");
-return;
-}
 if (isWire && !requestForm.bankStreetAddress.trim()) {
 setRequestStatus("Please enter the recipient bank's address.");
 return;
 }
-if (!isWire && !/^[0-9]{9}$/.test(requestForm.routingValue.trim())) {
-setRequestStatus("Please enter the recipient bank's 9-digit US routing number.");
+if (!isWire) {
+setRequestStatus("US routing-number lookup is not configured yet. To protect your transfer, no transfer has been submitted. We need a verified routing number before enabling US domestic transfers.");
 return;
 }
 if (!Number.isFinite(amount) || amount <= 0) {
@@ -794,8 +785,8 @@ transferCurrency,
 transferMethod: isWire ? "SWIFT" : "LOCAL",
 beneficiaryType: requestForm.beneficiaryType,
 accountName,
-routingType: isWire ? requestForm.routingType.trim() : "aba",
-routingValue: requestForm.routingValue.trim(),
+routingType: isWire ? requestForm.routingType.trim() : "",
+routingValue: isWire ? requestForm.routingValue.trim() : "",
 swiftBic: requestForm.swiftBic.trim(),
 streetAddress: requestForm.streetAddress.trim(),
 bankStreetAddress: requestForm.bankStreetAddress.trim(),
@@ -1685,10 +1676,6 @@ label="TRANSFERS & PAYMENTS"
 >
 {activePage !== "withdraw" ? (
 <form onSubmit={submitRequest}>
-<div className="request-notice transfer-security-notice">
-<strong>{activePage === "wire" ? "International Wire Transfer" : "US Domestic Bank Transfer"}</strong>
-<p>{activePage === "wire" ? "Send an international payment. Recipient details, bank details, and email OTP verification are required." : "Transfer to a US bank account in USD. Enter the recipient's account, bank, verified routing number, and actual street address. Email verification is required before submission."}</p>
-</div>
 <label className="form-label">Recipient Full Name
 <input className="portal-input" type="text" value={requestForm.recipientName} onChange={(e) => updateRequestField("recipientName", e.target.value)} placeholder="Full name of recipient" autoComplete="name" required />
 </label>
@@ -1749,28 +1736,6 @@ label="TRANSFERS & PAYMENTS"
 </label>
 <label className="form-label">Bank Name
 <input className="portal-input" type="text" value={requestForm.bankName} onChange={(e) => updateRequestField("bankName", e.target.value)} placeholder="Recipient's US bank" required />
-</label>
-<label className="form-label">US Bank Routing Number
-<input className="portal-input" type="text" inputMode="numeric" autoComplete="off" maxLength={9} pattern="[0-9]{9}" value={requestForm.routingValue} onChange={(e) => updateRequestField("routingValue", e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="Enter 9-digit routing number" aria-describedby="routing-number-help" required />
-<small id="routing-number-help" className="transfer-balance-hint">Enter the recipient bank's 9-digit ABA routing number. Check it with the recipient or their bank before submitting.</small>
-</label>
-<div className="request-notice transfer-security-notice">
-<strong>Recipient Address</strong>
-<p>Enter the recipient's actual residential or business address. Airwallex requires these address details to validate the beneficiary. Do not enter the bank's address here.</p>
-</div>
-<label className="form-label">Recipient Street Address
-<input className="portal-input" type="text" value={requestForm.streetAddress} onChange={(e) => updateRequestField("streetAddress", e.target.value)} placeholder="Recipient's street address" autoComplete="street-address" required />
-</label>
-<div className="transfer-form-grid">
-<label className="form-label">Recipient City
-<input className="portal-input" type="text" value={requestForm.city} onChange={(e) => updateRequestField("city", e.target.value)} placeholder="City" autoComplete="address-level2" required />
-</label>
-<label className="form-label">State
-<input className="portal-input" type="text" value={requestForm.state} onChange={(e) => updateRequestField("state", e.target.value)} placeholder="State" autoComplete="address-level1" required />
-</label>
-</div>
-<label className="form-label">ZIP / Postal Code
-<input className="portal-input" type="text" value={requestForm.postalCode} onChange={(e) => updateRequestField("postalCode", e.target.value)} placeholder="ZIP code" autoComplete="postal-code" required />
 </label>
 </>
 )}
